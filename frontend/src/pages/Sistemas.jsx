@@ -9,7 +9,7 @@ const Sistemas = () => {
   const [filters, setFilters] = useState({ search: '' });
 
   const fetchSistemas = () => {
-    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000') + '/sistemas/')
+    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/sistemas/')
       .then(res => res.json())
       .then(data => setSistemas(data));
   };
@@ -21,7 +21,7 @@ const Sistemas = () => {
   const handleAddSistema = (e) => {
     e.preventDefault();
     const isEditing = newSistema.id !== null;
-    const url = isEditing ? `http://localhost:8000/sistemas/${newSistema.id}` : (import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000') + '/sistemas/';
+    const url = isEditing ? `${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/sistemas/${newSistema.id}` : (import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/sistemas/';
     const method = isEditing ? 'PUT' : 'POST';
 
     fetch(url, {
@@ -36,7 +36,7 @@ const Sistemas = () => {
 
   const handleDeleteSistema = (id) => {
     if (window.confirm('¿Eliminar sistema y sus clasificaciones?')) {
-      fetch(`http://localhost:8000/sistemas/${id}`, { method: 'DELETE' })
+      fetch(`${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/sistemas/${id}`, { method: 'DELETE' })
         .then(() => fetchSistemas());
     }
   };
@@ -44,7 +44,7 @@ const Sistemas = () => {
   const handleAddClasificacion = (e) => {
     e.preventDefault();
     const isEditing = newClasificacion.id !== null;
-    const url = isEditing ? `http://localhost:8000/clasificaciones/${newClasificacion.id}` : (import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000') + '/clasificaciones/';
+    const url = isEditing ? `${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/clasificaciones/${newClasificacion.id}` : (import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/clasificaciones/';
     const method = isEditing ? 'PUT' : 'POST';
 
     const dataToSend = { ...newClasificacion };
@@ -62,7 +62,7 @@ const Sistemas = () => {
 
   const handleDeleteClasificacion = (id) => {
     if (window.confirm('¿Eliminar esta clasificación?')) {
-      fetch(`http://localhost:8000/clasificaciones/${id}`, { method: 'DELETE' })
+      fetch(`${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/clasificaciones/${id}`, { method: 'DELETE' })
         .then(() => fetchSistemas());
     }
   };
