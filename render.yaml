@@ -10,8 +10,9 @@ services:
           name: medglobal-db
           property: connectionString
 
-  - type: static
+  - type: web
     name: medglobal-frontend
+    env: static
     buildCommand: "cd frontend && npm install && npm run build"
     staticPublishPath: "./frontend/dist"
     envVars:
