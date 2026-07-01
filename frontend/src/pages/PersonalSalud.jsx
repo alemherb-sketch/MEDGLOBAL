@@ -10,7 +10,7 @@ const PersonalSalud = () => {
   const [filters, setFilters] = useState({ search: '' });
 
   const fetchPersonal = () => {
-    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`/personal_salud/')
+    fetch(`${import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000'}`/personal_salud/')
       .then(res => res.json())
       .then(data => setPersonal(data));
   };
@@ -22,7 +22,7 @@ const PersonalSalud = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     const isEditing = formData.id !== null;
-    const url = isEditing ? `http://localhost:8000/personal_salud/${formData.id}` : `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}`/personal_salud/';
+    const url = isEditing ? `http://localhost:8000/personal_salud/${formData.id}` : `${import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000'}`/personal_salud/';
     const method = isEditing ? 'PUT' : 'POST';
 
     const dataToSend = { ...formData };
