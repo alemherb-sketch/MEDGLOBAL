@@ -14,7 +14,7 @@ const Planilla = () => {
   const [filters, setFilters] = useState({ search: '' });
 
   const fetchTrabajadores = () => {
-    fetch(`${import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000'}`/trabajadores/')
+    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000') + '/trabajadores/')
       .then(res => res.json())
       .then(data => setTrabajadores(data));
   };
@@ -26,7 +26,7 @@ const Planilla = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     const isEditing = formData.id !== null;
-    const url = isEditing ? `http://localhost:8000/trabajadores/${formData.id}` : `${import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000'}`/trabajadores/';
+    const url = isEditing ? `http://localhost:8000/trabajadores/${formData.id}` : (import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000') + '/trabajadores/';
     const method = isEditing ? 'PUT' : 'POST';
 
     const dataToSend = { ...formData };

@@ -26,9 +26,9 @@ const Citas = () => {
   });
 
   const fetchData = () => {
-    fetch(`${import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000'}`/citas/').then(res => res.json()).then(setCitas);
-    fetch(`${import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000'}`/trabajadores/').then(res => res.json()).then(setPacientes);
-    fetch(`${import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000'}`/personal_salud/').then(res => res.json()).then(setPersonalSalud);
+    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000') + '/citas/').then(res => res.json()).then(setCitas);
+    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000') + '/trabajadores/').then(res => res.json()).then(setPacientes);
+    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000') + '/personal_salud/').then(res => res.json()).then(setPersonalSalud);
   };
 
   useEffect(() => {
@@ -90,7 +90,7 @@ const Citas = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     const isEditing = formData.id !== null;
-    const url = isEditing ? `http://localhost:8000/citas/${formData.id}` : `${import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000'}`/citas/';
+    const url = isEditing ? `http://localhost:8000/citas/${formData.id}` : (import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000') + '/citas/';
     const method = isEditing ? 'PUT' : 'POST';
 
     // Combine date and time
