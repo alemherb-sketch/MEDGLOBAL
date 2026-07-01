@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_URL } from '../config';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import 'moment/locale/es';
@@ -26,9 +27,9 @@ const Citas = () => {
   });
 
   const fetchData = () => {
-    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/citas/').then(res => res.json()).then(setCitas);
-    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/trabajadores/').then(res => res.json()).then(setPacientes);
-    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/personal_salud/').then(res => res.json()).then(setPersonalSalud);
+    fetch(API_URL + '/citas/').then(res => res.json()).then(setCitas);
+    fetch(API_URL + '/trabajadores/').then(res => res.json()).then(setPacientes);
+    fetch(API_URL + '/personal_salud/').then(res => res.json()).then(setPersonalSalud);
   };
 
   useEffect(() => {
@@ -90,7 +91,7 @@ const Citas = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     const isEditing = formData.id !== null;
-    const url = isEditing ? `${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/citas/${formData.id}` : (import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/citas/';
+    const url = isEditing ? `${API_URL}/citas/${formData.id}` : API_URL + '/citas/';
     const method = isEditing ? 'PUT' : 'POST';
 
     // Combine date and time
@@ -117,7 +118,7 @@ const Citas = () => {
 
   const handleDelete = () => {
     if (window.confirm('¿Eliminar esta cita médica?')) {
-      fetch(`${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/citas/${formData.id}`, { method: 'DELETE' })
+      fetch(`${API_URL}/citas/${formData.id}`, { method: 'DELETE' })
         .then(() => {
           fetchData();
           setIsModalOpen(false);

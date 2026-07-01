@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_URL } from '../config';
 import { Search, Plus, Trash2, Edit2, X, ClipboardList, TrendingUp, TrendingDown } from 'lucide-react';
 
 const Medicamentos = () => {
@@ -11,7 +12,7 @@ const Medicamentos = () => {
   const [kardexData, setKardexData] = useState([]);
 
   const fetchMedicamentos = () => {
-    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/medicamentos/')
+    fetch(API_URL + '/medicamentos/')
       .then(res => res.json())
       .then(data => setMedicamentos(data));
   };
@@ -23,7 +24,7 @@ const Medicamentos = () => {
   const handleAddMed = (e) => {
     e.preventDefault();
     const isEditing = newMed.id !== null;
-    const url = isEditing ? `${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/medicamentos/${newMed.id}` : (import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/medicamentos/';
+    const url = isEditing ? `${API_URL}/medicamentos/${newMed.id}` : API_URL + '/medicamentos/';
     const method = isEditing ? 'PUT' : 'POST';
 
     const dataToSend = { ...newMed };
@@ -48,7 +49,7 @@ const Medicamentos = () => {
 
   const handleDeleteMed = (id) => {
     if (window.confirm('¿Eliminar medicamento del catálogo?')) {
-      fetch(`${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/medicamentos/${id}`, { method: 'DELETE' })
+      fetch(`${API_URL}/medicamentos/${id}`, { method: 'DELETE' })
         .then(() => fetchMedicamentos());
     }
   };
@@ -61,7 +62,7 @@ const Medicamentos = () => {
       setNewMed(data);
     } else if (type === 'kardex') {
       setSelectedKardexMed(data);
-      fetch(`${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/kardex/${data.id}`)
+      fetch(`${API_URL}/kardex/${data.id}`)
         .then(res => res.json())
         .then(kData => setKardexData(kData));
     }

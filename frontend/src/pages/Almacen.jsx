@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_URL } from '../config';
 import { Search, RefreshCw, X, ClipboardList, TrendingUp, TrendingDown } from 'lucide-react';
 
 const Almacen = () => {
@@ -12,7 +13,7 @@ const Almacen = () => {
   const [kardexData, setKardexData] = useState([]);
 
   const fetchMedicamentos = () => {
-    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/medicamentos/')
+    fetch(API_URL + '/medicamentos/')
       .then(res => res.json())
       .then(data => setMedicamentos(data));
   };
@@ -23,7 +24,7 @@ const Almacen = () => {
 
   const handleKardex = (e) => {
     e.preventDefault();
-    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/kardex/', {
+    fetch(API_URL + '/kardex/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...kardexForm, cantidad: parseInt(kardexForm.cantidad) })
@@ -48,7 +49,7 @@ const Almacen = () => {
 
   const openKardexView = (m) => {
     setViewKardexMed(m);
-    fetch(`${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/kardex/${m.id}`)
+    fetch(`${API_URL}/kardex/${m.id}`)
       .then(res => res.json())
       .then(data => setKardexData(data));
   };

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_URL } from '../config';
 import { Search, Plus, Edit2, Trash2, X } from 'lucide-react';
 
 const Planilla = () => {
@@ -14,7 +15,7 @@ const Planilla = () => {
   const [filters, setFilters] = useState({ search: '' });
 
   const fetchTrabajadores = () => {
-    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/trabajadores/')
+    fetch(API_URL + '/trabajadores/')
       .then(res => res.json())
       .then(data => setTrabajadores(data));
   };
@@ -26,7 +27,7 @@ const Planilla = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     const isEditing = formData.id !== null;
-    const url = isEditing ? `${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/trabajadores/${formData.id}` : (import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/trabajadores/';
+    const url = isEditing ? `${API_URL}/trabajadores/${formData.id}` : API_URL + '/trabajadores/';
     const method = isEditing ? 'PUT' : 'POST';
 
     const dataToSend = { ...formData };
@@ -50,7 +51,7 @@ const Planilla = () => {
 
   const handleDelete = (id) => {
     if (window.confirm('¿Está seguro de eliminar este trabajador?')) {
-      fetch(`${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/trabajadores/${id}`, { method: 'DELETE' })
+      fetch(`${API_URL}/trabajadores/${id}`, { method: 'DELETE' })
         .then(() => fetchTrabajadores());
     }
   };

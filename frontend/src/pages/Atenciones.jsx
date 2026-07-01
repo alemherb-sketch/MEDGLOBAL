@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_URL } from '../config';
 import { Search, Plus, Trash2, Edit2, X, Link, Clock, Eye } from 'lucide-react';
 
 const Atenciones = () => {
@@ -34,12 +35,12 @@ const Atenciones = () => {
   });
 
   const fetchData = () => {
-    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/atenciones/').then(res => res.json()).then(setAtenciones);
-    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/trabajadores/').then(res => res.json()).then(setTrabajadores);
-    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/sistemas/').then(res => res.json()).then(setSistemas);
-    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/citas/').then(res => res.json()).then(setCitas);
-    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/personal_salud/').then(res => res.json()).then(setPersonalSalud);
-    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/medicamentos/').then(res => res.json()).then(setMedicamentos);
+    fetch(API_URL + '/atenciones/').then(res => res.json()).then(setAtenciones);
+    fetch(API_URL + '/trabajadores/').then(res => res.json()).then(setTrabajadores);
+    fetch(API_URL + '/sistemas/').then(res => res.json()).then(setSistemas);
+    fetch(API_URL + '/citas/').then(res => res.json()).then(setCitas);
+    fetch(API_URL + '/personal_salud/').then(res => res.json()).then(setPersonalSalud);
+    fetch(API_URL + '/medicamentos/').then(res => res.json()).then(setMedicamentos);
   };
 
   useEffect(() => {
@@ -49,7 +50,7 @@ const Atenciones = () => {
   const handleAddAtencion = (e) => {
     e.preventDefault();
     const isEditing = newAtencion.id !== null;
-    const url = isEditing ? `${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/atenciones/${newAtencion.id}` : (import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/atenciones/';
+    const url = isEditing ? `${API_URL}/atenciones/${newAtencion.id}` : API_URL + '/atenciones/';
     const method = isEditing ? 'PUT' : 'POST';
 
     const dataToSend = { ...newAtencion };
@@ -83,7 +84,7 @@ const Atenciones = () => {
 
   const handleDelete = (id) => {
     if (window.confirm('¿Está seguro de eliminar este registro de atención?')) {
-      fetch(`${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/atenciones/${id}`, { method: 'DELETE' })
+      fetch(`${API_URL}/atenciones/${id}`, { method: 'DELETE' })
         .then(() => fetchData());
     }
   };

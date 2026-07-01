@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_URL } from '../config';
 import { Search, Plus, Trash2, Edit2, X } from 'lucide-react';
 
 const Sistemas = () => {
@@ -9,7 +10,7 @@ const Sistemas = () => {
   const [filters, setFilters] = useState({ search: '' });
 
   const fetchSistemas = () => {
-    fetch((import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/sistemas/')
+    fetch(API_URL + '/sistemas/')
       .then(res => res.json())
       .then(data => setSistemas(data));
   };
@@ -21,7 +22,7 @@ const Sistemas = () => {
   const handleAddSistema = (e) => {
     e.preventDefault();
     const isEditing = newSistema.id !== null;
-    const url = isEditing ? `${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/sistemas/${newSistema.id}` : (import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/sistemas/';
+    const url = isEditing ? `${API_URL}/sistemas/${newSistema.id}` : API_URL + '/sistemas/';
     const method = isEditing ? 'PUT' : 'POST';
 
     fetch(url, {
@@ -36,7 +37,7 @@ const Sistemas = () => {
 
   const handleDeleteSistema = (id) => {
     if (window.confirm('¿Eliminar sistema y sus clasificaciones?')) {
-      fetch(`${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/sistemas/${id}`, { method: 'DELETE' })
+      fetch(`${API_URL}/sistemas/${id}`, { method: 'DELETE' })
         .then(() => fetchSistemas());
     }
   };
@@ -44,7 +45,7 @@ const Sistemas = () => {
   const handleAddClasificacion = (e) => {
     e.preventDefault();
     const isEditing = newClasificacion.id !== null;
-    const url = isEditing ? `${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/clasificaciones/${newClasificacion.id}` : (import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : '${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}') + '/clasificaciones/';
+    const url = isEditing ? `${API_URL}/clasificaciones/${newClasificacion.id}` : API_URL + '/clasificaciones/';
     const method = isEditing ? 'PUT' : 'POST';
 
     const dataToSend = { ...newClasificacion };
@@ -62,7 +63,7 @@ const Sistemas = () => {
 
   const handleDeleteClasificacion = (id) => {
     if (window.confirm('¿Eliminar esta clasificación?')) {
-      fetch(`${(import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : 'https://' + import.meta.env.VITE_API_URL) : 'http://localhost:8000')}/clasificaciones/${id}`, { method: 'DELETE' })
+      fetch(`${API_URL}/clasificaciones/${id}`, { method: 'DELETE' })
         .then(() => fetchSistemas());
     }
   };
