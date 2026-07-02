@@ -607,7 +607,10 @@ const Atenciones = () => {
             <div className="modal-body print-area" style={{padding: '30px', background: 'white', color: 'black'}}>
               <div style={{textAlign: 'center', marginBottom: '30px', borderBottom: '2px solid #333', paddingBottom: '15px'}}>
                 <h1 style={{fontSize: '24px', margin: '0 0 5px 0', color: 'black'}}>MEDGLOBAL</h1>
-                <h2 style={{fontSize: '18px', margin: 0, fontWeight: 'normal', color: '#555'}}>FICHA DE ATENCIÓN / T�              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '25px', fontSize: '14px'}}>
+                <h2 style={{fontSize: '18px', margin: 0, fontWeight: 'normal', color: '#555'}}>FICHA DE ATENCIÓN / TÓPICO OCUPACIONAL</h2>
+              </div>
+
+              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '25px', fontSize: '14px'}}>
                 <div><strong>N° de Ficha:</strong> #{viewAtencion.id.toString().padStart(4, '0')}</div>
                 <div><strong>Fecha:</strong> {new Date(viewAtencion.fecha).toLocaleDateString()}</div>
                 <div><strong>Hora de Ingreso:</strong> {viewAtencion.hora_ingreso || '--'}</div>
@@ -681,8 +684,7 @@ const Atenciones = () => {
                 </div>
               </div>
 
-              <h4 style={{borderBottom: '1px solid #ccc', paddingBottom: '5px', marginTop: '25px', color: '#333'}}>III. DIAGNÓSTICO</h4>viewAtencion.descripcion}</p>
-              </div>
+              <h4 style={{borderBottom: '1px solid #ccc', paddingBottom: '5px', marginTop: '25px', color: '#333'}}>III. DIAGNÓSTICO</h4>
               
               <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px'}}>
                 <div><strong>Sistema:</strong> {viewAtencion.sistema?.nombre || '--'}</div>
