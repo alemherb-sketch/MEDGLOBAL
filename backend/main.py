@@ -9,10 +9,10 @@ from database import engine, get_db
 # Create DB tables
 models.Base.metadata.create_all(bind=engine)
 
-# Aplicar migraciones automáticas para SQLite si las columnas no existen
+# Aplicar migraciones automáticas para SQLite/PostgreSQL si las columnas no existen
 from sqlalchemy import text
-from sqlalchemy.exc import OperationalError
-with engine.begin() as conn:
+from sqlalchemy.exc import OperationalError, ProgrammingError
+with engine.connect() as conn:
     columnas_trabajador = [
         "codigo_trabajador VARCHAR(50)", "cargo VARCHAR(100)", "fecha_ingreso VARCHAR(20)", "fecha_cese VARCHAR(20)",
         "estado_trabajador VARCHAR(50)", "subdivision_sede VARCHAR(100)", "centro_costo VARCHAR(100)",
@@ -23,8 +23,9 @@ with engine.begin() as conn:
     ]
     for col in columnas_trabajador:
         try:
-            conn.execute(text(f"ALTER TABLE trabajadores ADD COLUMN {col}"))
-        except OperationalError:
+            with conn.begin():
+                conn.execute(text(f"ALTER TABLE trabajadores ADD COLUMN {col}"))
+        except Exception:
             pass
             
     columnas_atencion = [
@@ -33,8 +34,9 @@ with engine.begin() as conn:
     ]
     for col in columnas_atencion:
         try:
-            conn.execute(text(f"ALTER TABLE atenciones ADD COLUMN {col}"))
-        except OperationalError:
+            with conn.begin():
+                conn.execute(text(f"ALTER TABLE atenciones ADD COLUMN {col}"))
+        except Exception:
             pass
 
 app = FastAPI(title="MEDGLOBAL API")
