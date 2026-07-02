@@ -9,6 +9,34 @@ from database import engine, get_db
 # Create DB tables
 models.Base.metadata.create_all(bind=engine)
 
+# Aplicar migraciones automáticas para SQLite si las columnas no existen
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
+with engine.begin() as conn:
+    columnas_trabajador = [
+        "codigo_trabajador VARCHAR(50)", "cargo VARCHAR(100)", "fecha_ingreso VARCHAR(20)", "fecha_cese VARCHAR(20)",
+        "estado_trabajador VARCHAR(50)", "subdivision_sede VARCHAR(100)", "centro_costo VARCHAR(100)",
+        "tipo_calculo_nomina VARCHAR(100)", "area VARCHAR(150)", "area_personal VARCHAR(100)", "grupo_personal VARCHAR(100)",
+        "nivel_org_1 VARCHAR(100)", "nivel_org_2 VARCHAR(100)", "nivel_org_3 VARCHAR(100)", "nivel_org_4 VARCHAR(100)",
+        "nivel_org_5 VARCHAR(100)", "fecha_nacimiento VARCHAR(20)", "genero VARCHAR(20)", "jefe_inmediato VARCHAR(150)",
+        "telefono VARCHAR(50)", "correo_electronico VARCHAR(150)", "empresa_id INTEGER"
+    ]
+    for col in columnas_trabajador:
+        try:
+            conn.execute(text(f"ALTER TABLE trabajadores ADD COLUMN {col}"))
+        except OperationalError:
+            pass
+            
+    columnas_atencion = [
+        "edad VARCHAR(10)", "residencia VARCHAR(200)", "empresa_id INTEGER", "cargo VARCHAR(100)",
+        "funciones_biologicas TEXT", "signos_vitales TEXT", "examen_fisico TEXT", "examenes_auxiliares TEXT"
+    ]
+    for col in columnas_atencion:
+        try:
+            conn.execute(text(f"ALTER TABLE atenciones ADD COLUMN {col}"))
+        except OperationalError:
+            pass
+
 app = FastAPI(title="MEDGLOBAL API")
 
 # Configure CORS
