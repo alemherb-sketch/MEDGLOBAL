@@ -20,6 +20,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- Empresas ---
+@app.get("/empresas/", response_model=List[schemas.Empresa])
+def read_empresas(db: Session = Depends(get_db)):
+    return db.query(models.Empresa).all()
+
+@app.post("/empresas/", response_model=schemas.Empresa)
+def create_empresa(empresa: schemas.EmpresaCreate, db: Session = Depends(get_db)):
+    db_emp = models.Empresa(**empresa.dict())
+    db.add(db_emp)
+    db.commit()
+    db.refresh(db_emp)
+    return db_emp
+
+@app.put("/empresas/{id}", response_model=schemas.Empresa)
+def update_empresa(id: int, empresa: schemas.EmpresaCreate, db: Session = Depends(get_db)):
+    db_emp = db.query(models.Empresa).filter(models.Empresa.id == id).first()
+    if not db_emp:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
+    for key, value in empresa.dict().items():
+        setattr(db_emp, key, value)
+    db.commit()
+    db.refresh(db_emp)
+    return db_emp
+
+@app.delete("/empresas/{id}")
+def delete_empresa(id: int, db: Session = Depends(get_db)):
+    db_emp = db.query(models.Empresa).filter(models.Empresa.id == id).first()
+    if not db_emp:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
+    db.delete(db_emp)
+    db.commit()
+    return {"detail": "Eliminada"}
+
 # --- Trabajadores ---
 @app.get("/trabajadores/", response_model=List[schemas.Trabajador])
 def read_trabajadores(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):

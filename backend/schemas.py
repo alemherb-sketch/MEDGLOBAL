@@ -1,7 +1,24 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import datetime
 
+# --- Empresa ---
+class EmpresaBase(BaseModel):
+    nombre: str
+    ruc: str
+    direccion: Optional[str] = None
+    telefono: Optional[str] = None
+    correo_electronico: Optional[str] = None
+    estado: Optional[str] = "ACTIVO"
+
+class EmpresaCreate(EmpresaBase):
+    pass
+
+class Empresa(EmpresaBase):
+    id: int
+    class Config:
+        from_attributes = True
+        orm_mode = True
 # --- Trabajador ---
 class TrabajadorBase(BaseModel):
     nombre: str
@@ -19,6 +36,8 @@ class TrabajadorBase(BaseModel):
     subdivision_sede: Optional[str] = None
     centro_costo: Optional[str] = None
     tipo_calculo_nomina: Optional[str] = None
+    area: Optional[str] = None
+    empresa_id: Optional[int] = None
     area_personal: Optional[str] = None
     grupo_personal: Optional[str] = None
     nivel_org_1: Optional[str] = None
@@ -37,6 +56,7 @@ class TrabajadorCreate(TrabajadorBase):
 
 class Trabajador(TrabajadorBase):
     id: int
+    empresa: Optional[Empresa] = None
 
     class Config:
         orm_mode = True
@@ -147,7 +167,17 @@ class AtencionBase(BaseModel):
     hora_salida: Optional[str] = None
     tiempo_topico: Optional[str] = None
     
+    edad: Optional[str] = None
+    residencia: Optional[str] = None
+    empresa_id: Optional[int] = None
+    cargo: Optional[str] = None
+
     descripcion: str
+    funciones_biologicas: Optional[str] = None
+    signos_vitales: Optional[str] = None
+    examen_fisico: Optional[str] = None
+    examenes_auxiliares: Optional[str] = None
+
     diagnostico: Optional[str] = None
     tratamiento: Optional[str] = None
     destino: Optional[str] = None
@@ -168,6 +198,7 @@ class Atencion(AtencionBase):
     id: int
     fecha: datetime
     trabajador: Trabajador
+    empresa: Optional[Empresa] = None
     sistema: Sistema
     clasificacion: Clasificacion
     personal_salud: Optional[PersonalSalud] = None

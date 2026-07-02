@@ -9,6 +9,7 @@ const Atenciones = () => {
   const [citas, setCitas] = useState([]);
   const [personalSalud, setPersonalSalud] = useState([]);
   const [medicamentos, setMedicamentos] = useState([]);
+  const [empresas, setEmpresas] = useState([]);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewAtencion, setViewAtencion] = useState(null);
@@ -24,7 +25,15 @@ const Atenciones = () => {
     hora_ingreso: '',
     hora_salida: '',
     tiempo_topico: '',
+    edad: '',
+    residencia: '',
+    empresa_id: '',
+    cargo: '',
     descripcion: '',
+    funciones_biologicas: { apetito: '', sed: '', sueno: '', estado_animo: '', orina: '', deposiciones: '' },
+    signos_vitales: { presion_arterial: '', frec_cardiaca: '', frec_respiratoria: '', temperatura: '', spo2: '', peso: '', talla: '' },
+    examen_fisico: '',
+    examenes_auxiliares: '',
     diagnostico: '',
     tratamiento: '',
     destino: '',
@@ -41,6 +50,7 @@ const Atenciones = () => {
     fetch(API_URL + '/citas/').then(res => res.json()).then(setCitas);
     fetch(API_URL + '/personal_salud/').then(res => res.json()).then(setPersonalSalud);
     fetch(API_URL + '/medicamentos/').then(res => res.json()).then(setMedicamentos);
+    fetch(API_URL + '/empresas/').then(res => res.json()).then(setEmpresas);
   };
 
   useEffect(() => {
@@ -62,6 +72,10 @@ const Atenciones = () => {
     dataToSend.clasificacion_id = parseInt(dataToSend.clasificacion_id);
     if (dataToSend.cita_id) dataToSend.cita_id = parseInt(dataToSend.cita_id); else delete dataToSend.cita_id;
     if (dataToSend.personal_salud_id) dataToSend.personal_salud_id = parseInt(dataToSend.personal_salud_id); else delete dataToSend.personal_salud_id;
+    if (dataToSend.empresa_id) dataToSend.empresa_id = parseInt(dataToSend.empresa_id); else delete dataToSend.empresa_id;
+
+    dataToSend.funciones_biologicas = JSON.stringify(dataToSend.funciones_biologicas);
+    dataToSend.signos_vitales = JSON.stringify(dataToSend.signos_vitales);
 
     // Convert string array to proper integer array
     dataToSend.medicamentos = dataToSend.medicamentos.map(m => ({
@@ -101,7 +115,15 @@ const Atenciones = () => {
         hora_ingreso: atencion.hora_ingreso || '',
         hora_salida: atencion.hora_salida || '',
         tiempo_topico: atencion.tiempo_topico || '',
+        edad: atencion.edad || '',
+        residencia: atencion.residencia || '',
+        empresa_id: atencion.empresa_id || '',
+        cargo: atencion.cargo || '',
         descripcion: atencion.descripcion || '',
+        funciones_biologicas: atencion.funciones_biologicas ? JSON.parse(atencion.funciones_biologicas) : { apetito: '', sed: '', sueno: '', estado_animo: '', orina: '', deposiciones: '' },
+        signos_vitales: atencion.signos_vitales ? JSON.parse(atencion.signos_vitales) : { presion_arterial: '', frec_cardiaca: '', frec_respiratoria: '', temperatura: '', spo2: '', peso: '', talla: '' },
+        examen_fisico: atencion.examen_fisico || '',
+        examenes_auxiliares: atencion.examenes_auxiliares || '',
         diagnostico: atencion.diagnostico || '',
         tratamiento: atencion.tratamiento || '',
         destino: atencion.destino || '',
@@ -113,7 +135,10 @@ const Atenciones = () => {
     } else {
       setNewAtencion({
         id: null, trabajador_id: '', sistema_id: '', clasificacion_id: '', cita_id: '', personal_salud_id: '',
-        hora_ingreso: '', hora_salida: '', tiempo_topico: '', descripcion: '', diagnostico: '',
+        hora_ingreso: '', hora_salida: '', tiempo_topico: '', edad: '', residencia: '', empresa_id: '', cargo: '',
+        descripcion: '', funciones_biologicas: { apetito: '', sed: '', sueno: '', estado_animo: '', orina: '', deposiciones: '' },
+        signos_vitales: { presion_arterial: '', frec_cardiaca: '', frec_respiratoria: '', temperatura: '', spo2: '', peso: '', talla: '' },
+        examen_fisico: '', examenes_auxiliares: '', diagnostico: '',
         tratamiento: '', destino: '', sede_atencion: '', jefe_inmediato: '', observaciones: '', medicamentos: []
       });
     }
@@ -146,10 +171,23 @@ const Atenciones = () => {
   const handleTrabajadorChange = (e) => {
     const t_id = e.target.value;
     const trabajador = trabajadores.find(t => t.id === parseInt(t_id));
+    
+    // Auto-calculate age if fecha_nacimiento exists, else leave empty for manual
+    let ageCalc = '';
+    if (trabajador && trabajador.fecha_nacimiento) {
+      const birth = new Date(trabajador.fecha_nacimiento);
+      const diff_ms = Date.now() - birth.getTime();
+      const age_dt = new Date(diff_ms); 
+      ageCalc = Math.abs(age_dt.getUTCFullYear() - 1970).toString();
+    }
+
     setNewAtencion({
       ...newAtencion,
       trabajador_id: t_id,
-      jefe_inmediato: trabajador ? (trabajador.jefe_inmediato || '') : ''
+      jefe_inmediato: trabajador ? (trabajador.jefe_inmediato || '') : '',
+      cargo: trabajador ? (trabajador.cargo || '') : '',
+      empresa_id: trabajador ? (trabajador.empresa_id || '') : '',
+      edad: ageCalc || newAtencion.edad
     });
   };
 
@@ -352,6 +390,30 @@ const Atenciones = () => {
                   </div>
                   
                   <div className="form-group">
+                    <label className="form-label">DNI</label>
+                    <input className="form-control" value={trabajadores.find(t => t.id === parseInt(newAtencion.trabajador_id))?.dni || ''} disabled />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Edad</label>
+                    <input className="form-control" value={newAtencion.edad} onChange={e => setNewAtencion({...newAtencion, edad: e.target.value})} placeholder="Ej. 30" />
+                  </div>
+                  <div className="form-group" style={{gridColumn: 'span 2'}}>
+                    <label className="form-label">Residencia</label>
+                    <input className="form-control" value={newAtencion.residencia} onChange={e => setNewAtencion({...newAtencion, residencia: e.target.value})} placeholder="Ej. Lima, Miraflores..." />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label className="form-label">Empresa</label>
+                    <select className="form-control" value={newAtencion.empresa_id} onChange={e => setNewAtencion({...newAtencion, empresa_id: e.target.value})}>
+                      <option value="">Seleccione empresa...</option>
+                      {empresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Cargo</label>
+                    <input className="form-control" value={newAtencion.cargo} onChange={e => setNewAtencion({...newAtencion, cargo: e.target.value})} />
+                  </div>
+                  <div className="form-group">
                     <label className="form-label">Sede de Atención</label>
                     <select required className="form-control" value={newAtencion.sede_atencion} onChange={e => setNewAtencion({...newAtencion, sede_atencion: e.target.value})}>
                       <option value="">Seleccione sede...</option>
@@ -369,6 +431,10 @@ const Atenciones = () => {
                   </div>
 
                   <div className="form-group">
+                    <label className="form-label">Fecha</label>
+                    <input type="date" className="form-control" value={newAtencion.fecha ? newAtencion.fecha.substring(0,10) : new Date().toISOString().substring(0,10)} onChange={e => setNewAtencion({...newAtencion, fecha: new Date(e.target.value).toISOString()})} />
+                  </div>
+                  <div className="form-group">
                     <label className="form-label">Hora de Ingreso</label>
                     <input type="time" className="form-control" value={newAtencion.hora_ingreso} onChange={handleHoraIngresoChange} />
                   </div>
@@ -383,11 +449,69 @@ const Atenciones = () => {
                 </div>
 
                 <h4 style={{borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', margin: '24px 0 16px 0'}}>2. Evaluación Médica</h4>
-                <div className="grid grid-cols-2">
-                  <div className="form-group" style={{gridColumn: 'span 2'}}>
-                    <label className="form-label">Descripción del Malestar / Anamnesis</label>
-                    <textarea required className="form-control" rows="3" value={newAtencion.descripcion} onChange={e => setNewAtencion({...newAtencion, descripcion: e.target.value})}></textarea>
+                
+                <div className="form-group mb-4">
+                  <label className="form-label">Descripción del Malestar / Anamnesis</label>
+                  <textarea required className="form-control" rows="3" value={newAtencion.descripcion} onChange={e => setNewAtencion({...newAtencion, descripcion: e.target.value})}></textarea>
+                </div>
+
+                <h5 style={{color: 'var(--primary-color)', marginBottom: '12px'}}>A. Funciones Biológicas</h5>
+                <div className="grid grid-cols-3 mb-4 gap-2" style={{background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)'}}>
+                  {['Apetito', 'Sed', 'Sueño', 'Estado de Ánimo', 'Orina', 'Deposiciones'].map((item, i) => {
+                    const keys = ['apetito', 'sed', 'sueno', 'estado_animo', 'orina', 'deposiciones'];
+                    return (
+                      <div className="form-group mb-0" key={i}>
+                        <label className="form-label" style={{fontSize: '0.8rem'}}>{item}</label>
+                        <select className="form-control" style={{fontSize: '0.85rem', padding: '6px'}} value={newAtencion.funciones_biologicas[keys[i]]} onChange={e => setNewAtencion({...newAtencion, funciones_biologicas: {...newAtencion.funciones_biologicas, [keys[i]]: e.target.value}})}>
+                          <option value="">Seleccione...</option>
+                          <option value="Normal">Normal</option>
+                          <option value="Aumentado">Aumentado</option>
+                          <option value="Disminuido">Disminuido</option>
+                        </select>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <h5 style={{color: 'var(--primary-color)', marginBottom: '12px'}}>B. Signos Vitales</h5>
+                <div className="grid grid-cols-4 mb-4 gap-2" style={{background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)'}}>
+                  {['Presión Arterial', 'Frec. Cardiaca', 'Frec. Respiratoria', 'Temperatura', 'SPO2'].map((item, i) => {
+                    const keys = ['presion_arterial', 'frec_cardiaca', 'frec_respiratoria', 'temperatura', 'spo2'];
+                    return (
+                      <div className="form-group mb-0" key={i}>
+                        <label className="form-label" style={{fontSize: '0.8rem'}}>{item}</label>
+                        <select className="form-control" style={{fontSize: '0.85rem', padding: '6px'}} value={newAtencion.signos_vitales[keys[i]]} onChange={e => setNewAtencion({...newAtencion, signos_vitales: {...newAtencion.signos_vitales, [keys[i]]: e.target.value}})}>
+                          <option value="">Seleccione...</option>
+                          <option value="Normal">Normal</option>
+                          <option value="Aumentado">Aumentado</option>
+                          <option value="Disminuido">Disminuido</option>
+                        </select>
+                      </div>
+                    )
+                  })}
+                  <div className="form-group mb-0">
+                    <label className="form-label" style={{fontSize: '0.8rem'}}>Peso</label>
+                    <input className="form-control" style={{fontSize: '0.85rem', padding: '6px'}} placeholder="Ej. 70 kg" value={newAtencion.signos_vitales.peso} onChange={e => setNewAtencion({...newAtencion, signos_vitales: {...newAtencion.signos_vitales, peso: e.target.value}})} />
                   </div>
+                  <div className="form-group mb-0">
+                    <label className="form-label" style={{fontSize: '0.8rem'}}>Talla</label>
+                    <input className="form-control" style={{fontSize: '0.85rem', padding: '6px'}} placeholder="Ej. 1.70 m" value={newAtencion.signos_vitales.talla} onChange={e => setNewAtencion({...newAtencion, signos_vitales: {...newAtencion.signos_vitales, talla: e.target.value}})} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 mb-4">
+                  <div className="form-group">
+                    <label className="form-label">Examen Físico</label>
+                    <textarea className="form-control" rows="3" value={newAtencion.examen_fisico} onChange={e => setNewAtencion({...newAtencion, examen_fisico: e.target.value})}></textarea>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Exámenes Auxiliares</label>
+                    <textarea className="form-control" rows="3" value={newAtencion.examenes_auxiliares} onChange={e => setNewAtencion({...newAtencion, examenes_auxiliares: e.target.value})}></textarea>
+                  </div>
+                </div>
+
+                <h4 style={{borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', margin: '24px 0 16px 0'}}>3. Diagnóstico</h4>
+                <div className="grid grid-cols-2">
 
                   <div className="form-group">
                     <label className="form-label">Sistema Clínico</label>
@@ -397,20 +521,20 @@ const Atenciones = () => {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Clasificación</label>
+                    <label className="form-label">Contingencias (Clasificación)</label>
                     <select required className="form-control" value={newAtencion.clasificacion_id} onChange={e => setNewAtencion({...newAtencion, clasificacion_id: e.target.value})}>
-                      <option value="">Seleccione una clasificación...</option>
+                      <option value="">Seleccione una contingencia...</option>
                       {clasificacionesDisponibles.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                     </select>
                   </div>
 
                   <div className="form-group" style={{gridColumn: 'span 2'}}>
-                    <label className="form-label">Diagnóstico</label>
+                    <label className="form-label">Detalle Diagnóstico</label>
                     <input className="form-control" value={newAtencion.diagnostico} onChange={e => setNewAtencion({...newAtencion, diagnostico: e.target.value})} />
                   </div>
                 </div>
 
-                <h4 style={{borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', margin: '24px 0 16px 0'}}>3. Tratamiento y Destino</h4>
+                <h4 style={{borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', margin: '24px 0 16px 0'}}>4. Tratamiento y Destino</h4>
                 <div className="form-group">
                   <label className="form-label">Tratamiento en Tópico</label>
                   <textarea className="form-control" rows="2" value={newAtencion.tratamiento} onChange={e => setNewAtencion({...newAtencion, tratamiento: e.target.value})}></textarea>
@@ -483,10 +607,7 @@ const Atenciones = () => {
             <div className="modal-body print-area" style={{padding: '30px', background: 'white', color: 'black'}}>
               <div style={{textAlign: 'center', marginBottom: '30px', borderBottom: '2px solid #333', paddingBottom: '15px'}}>
                 <h1 style={{fontSize: '24px', margin: '0 0 5px 0', color: 'black'}}>MEDGLOBAL</h1>
-                <h2 style={{fontSize: '18px', margin: 0, fontWeight: 'normal', color: '#555'}}>FICHA DE ATENCIÓN / TÓPICO OCUPACIONAL</h2>
-              </div>
-
-              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '25px', fontSize: '14px'}}>
+                <h2 style={{fontSize: '18px', margin: 0, fontWeight: 'normal', color: '#555'}}>FICHA DE ATENCIÓN / T�              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '25px', fontSize: '14px'}}>
                 <div><strong>N° de Ficha:</strong> #{viewAtencion.id.toString().padStart(4, '0')}</div>
                 <div><strong>Fecha:</strong> {new Date(viewAtencion.fecha).toLocaleDateString()}</div>
                 <div><strong>Hora de Ingreso:</strong> {viewAtencion.hora_ingreso || '--'}</div>
@@ -499,7 +620,10 @@ const Atenciones = () => {
               <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px'}}>
                 <div><strong>Paciente:</strong> {viewAtencion.trabajador ? `${viewAtencion.trabajador.nombre} ${viewAtencion.trabajador.apellidos}` : '--'}</div>
                 <div><strong>DNI:</strong> {viewAtencion.trabajador?.dni || '--'}</div>
-                <div><strong>Área / Cargo:</strong> {viewAtencion.trabajador?.cargo || '--'}</div>
+                <div><strong>Edad:</strong> {viewAtencion.edad || '--'}</div>
+                <div><strong>Residencia:</strong> {viewAtencion.residencia || '--'}</div>
+                <div><strong>Empresa:</strong> {viewAtencion.empresa ? viewAtencion.empresa.nombre : '--'}</div>
+                <div><strong>Área / Cargo:</strong> {viewAtencion.cargo || '--'}</div>
                 <div><strong>Jefe Inmediato:</strong> {viewAtencion.jefe_inmediato || '--'}</div>
               </div>
 
@@ -508,14 +632,65 @@ const Atenciones = () => {
                 <strong>Anamnesis / Motivo de Consulta:</strong>
                 <p style={{marginTop: '5px', whiteSpace: 'pre-wrap', background: '#f9f9f9', padding: '10px', borderRadius: '4px', border: '1px solid #eee'}}>{viewAtencion.descripcion}</p>
               </div>
+
+              <div style={{fontSize: '14px', marginBottom: '10px'}}>
+                <strong>Funciones Biológicas:</strong>
+                {(() => {
+                  let f = {};
+                  try { f = JSON.parse(viewAtencion.funciones_biologicas || '{}'); } catch(e){}
+                  return (
+                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '5px', marginTop: '5px', padding: '10px', background: '#f9f9f9', border: '1px solid #eee'}}>
+                      <div>Apetito: {f.apetito || '--'}</div>
+                      <div>Sed: {f.sed || '--'}</div>
+                      <div>Sueño: {f.sueno || '--'}</div>
+                      <div>E. Ánimo: {f.estado_animo || '--'}</div>
+                      <div>Orina: {f.orina || '--'}</div>
+                      <div>Deposiciones: {f.deposiciones || '--'}</div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div style={{fontSize: '14px', marginBottom: '10px'}}>
+                <strong>Signos Vitales:</strong>
+                {(() => {
+                  let s = {};
+                  try { s = JSON.parse(viewAtencion.signos_vitales || '{}'); } catch(e){}
+                  return (
+                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '5px', marginTop: '5px', padding: '10px', background: '#f9f9f9', border: '1px solid #eee'}}>
+                      <div>P. Arterial: {s.presion_arterial || '--'}</div>
+                      <div>F. Cardiaca: {s.frec_cardiaca || '--'}</div>
+                      <div>F. Respiratoria: {s.frec_respiratoria || '--'}</div>
+                      <div>Temperatura: {s.temperatura || '--'}</div>
+                      <div>SPO2: {s.spo2 || '--'}</div>
+                      <div>Peso: {s.peso || '--'}</div>
+                      <div>Talla: {s.talla || '--'}</div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', fontSize: '14px', marginBottom: '10px'}}>
+                <div>
+                  <strong>Examen Físico:</strong>
+                  <p style={{marginTop: '5px', whiteSpace: 'pre-wrap', minHeight: '40px', background: '#f9f9f9', padding: '10px', border: '1px solid #eee'}}>{viewAtencion.examen_fisico || '--'}</p>
+                </div>
+                <div>
+                  <strong>Exámenes Auxiliares:</strong>
+                  <p style={{marginTop: '5px', whiteSpace: 'pre-wrap', minHeight: '40px', background: '#f9f9f9', padding: '10px', border: '1px solid #eee'}}>{viewAtencion.examenes_auxiliares || '--'}</p>
+                </div>
+              </div>
+
+              <h4 style={{borderBottom: '1px solid #ccc', paddingBottom: '5px', marginTop: '25px', color: '#333'}}>III. DIAGNÓSTICO</h4>viewAtencion.descripcion}</p>
+              </div>
               
               <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px'}}>
                 <div><strong>Sistema:</strong> {viewAtencion.sistema?.nombre || '--'}</div>
-                <div><strong>Clasificación:</strong> {viewAtencion.clasificacion?.nombre || '--'}</div>
+                <div><strong>Contingencia:</strong> {viewAtencion.clasificacion?.nombre || '--'}</div>
                 <div style={{gridColumn: 'span 2'}}><strong>Diagnóstico:</strong> {viewAtencion.diagnostico || '--'}</div>
               </div>
 
-              <h4 style={{borderBottom: '1px solid #ccc', paddingBottom: '5px', marginTop: '25px', color: '#333'}}>III. TRATAMIENTO Y DESTINO</h4>
+              <h4 style={{borderBottom: '1px solid #ccc', paddingBottom: '5px', marginTop: '25px', color: '#333'}}>IV. TRATAMIENTO Y DESTINO</h4>
               <div style={{fontSize: '14px', marginBottom: '10px'}}>
                 <strong>Tratamiento en Tópico:</strong>
                 <p style={{marginTop: '5px', whiteSpace: 'pre-wrap'}}>{viewAtencion.tratamiento || 'Ninguno'}</p>

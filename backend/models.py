@@ -3,6 +3,18 @@ from sqlalchemy.orm import relationship
 import datetime
 from database import Base
 
+class Empresa(Base):
+    __tablename__ = "empresas"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(150), index=True)
+    ruc = Column(String(20), unique=True, index=True)
+    direccion = Column(String(250), nullable=True)
+    telefono = Column(String(50), nullable=True)
+    correo_electronico = Column(Text, nullable=True) # Puede contener multiples separados por coma
+    estado = Column(String(50), default="ACTIVO")
+    
+    trabajadores = relationship("Trabajador", back_populates="empresa")
+
 class Trabajador(Base):
     __tablename__ = "trabajadores"
     id = Column(Integer, primary_key=True, index=True)
@@ -22,6 +34,7 @@ class Trabajador(Base):
     subdivision_sede = Column(String(100), nullable=True)
     centro_costo = Column(String(100), nullable=True)
     tipo_calculo_nomina = Column(String(100), nullable=True)
+    area = Column(String(150), nullable=True) # Added Area
     area_personal = Column(String(100), nullable=True)
     grupo_personal = Column(String(100), nullable=True)
     nivel_org_1 = Column(String(100), nullable=True)
@@ -34,6 +47,9 @@ class Trabajador(Base):
     jefe_inmediato = Column(String(150), nullable=True)
     telefono = Column(String(50), nullable=True)
     correo_electronico = Column(String(150), nullable=True)
+
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=True)
+    empresa = relationship("Empresa", back_populates="trabajadores")
 
     atenciones = relationship("Atencion", back_populates="trabajador")
 
@@ -68,7 +84,20 @@ class Atencion(Base):
     hora_salida = Column(String(10), nullable=True)
     tiempo_topico = Column(String(50), nullable=True)
     
-    descripcion = Column(Text) # Malestar
+    # Nuevos datos derivados
+    edad = Column(String(10), nullable=True)
+    residencia = Column(String(200), nullable=True)
+    empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=True)
+    cargo = Column(String(100), nullable=True)
+
+    descripcion = Column(Text) # Malestar/Anamnesis
+    
+    # Nuevos campos Evaluacion Medica
+    funciones_biologicas = Column(Text, nullable=True) # JSON
+    signos_vitales = Column(Text, nullable=True) # JSON
+    examen_fisico = Column(Text, nullable=True)
+    examenes_auxiliares = Column(Text, nullable=True)
+
     diagnostico = Column(Text, nullable=True)
     tratamiento = Column(Text, nullable=True)
     destino = Column(String(100), nullable=True)
@@ -83,6 +112,7 @@ class Atencion(Base):
     personal_salud_id = Column(Integer, ForeignKey("personal_salud.id"), nullable=True)
     
     trabajador = relationship("Trabajador")
+    empresa = relationship("Empresa")
     sistema = relationship("SistemaAtencion")
     clasificacion = relationship("ClasificacionAtencion")
     cita = relationship("Cita")

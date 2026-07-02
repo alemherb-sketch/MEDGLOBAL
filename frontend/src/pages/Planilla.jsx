@@ -4,13 +4,15 @@ import { Search, Plus, Edit2, Trash2, X } from 'lucide-react';
 
 const Planilla = () => {
   const [trabajadores, setTrabajadores] = useState([]);
+  const [empresas, setEmpresas] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
-    id: null, nombre: '', apellidos: '', dni: '', tipo_contrato: '', afp_onp: '', rol: '',
+    id: null, nombre: '', apellidos: '', dni: '', tipo_contrato: '', afp_onp: '', rol: 'Médico',
     codigo_trabajador: '', cargo: '', fecha_ingreso: '', fecha_cese: '', estado_trabajador: 'ACTIVO',
-    subdivision_sede: '', centro_costo: '', tipo_calculo_nomina: '', area_personal: '',
+    subdivision_sede: '', centro_costo: '', tipo_calculo_nomina: '', area: '', area_personal: '',
     grupo_personal: '', nivel_org_1: '', nivel_org_2: '', nivel_org_3: '', nivel_org_4: '',
-    nivel_org_5: '', fecha_nacimiento: '', genero: '', jefe_inmediato: '', telefono: '', correo_electronico: ''
+    nivel_org_5: '', fecha_nacimiento: '', genero: '', jefe_inmediato: '', telefono: '', correo_electronico: '',
+    empresa_id: ''
   });
   const [filters, setFilters] = useState({ search: '' });
 
@@ -19,9 +21,15 @@ const Planilla = () => {
       .then(res => res.json())
       .then(data => setTrabajadores(data));
   };
+  const fetchEmpresas = () => {
+    fetch(API_URL + '/empresas/')
+      .then(res => res.json())
+      .then(data => setEmpresas(data.filter(e => e.estado === 'ACTIVO')));
+  };
 
   useEffect(() => {
     fetchTrabajadores();
+    fetchEmpresas();
   }, []);
 
   const handleSubmit = (e) => {
@@ -32,6 +40,7 @@ const Planilla = () => {
 
     const dataToSend = { ...formData };
     delete dataToSend.id;
+    if (dataToSend.empresa_id) dataToSend.empresa_id = parseInt(dataToSend.empresa_id); else delete dataToSend.empresa_id;
 
     fetch(url, {
       method,
@@ -65,20 +74,22 @@ const Planilla = () => {
         codigo_trabajador: trabajador.codigo_trabajador || '', cargo: trabajador.cargo || '', fecha_ingreso: trabajador.fecha_ingreso || '',
         fecha_cese: trabajador.fecha_cese || '', estado_trabajador: trabajador.estado_trabajador || 'ACTIVO',
         subdivision_sede: trabajador.subdivision_sede || '', centro_costo: trabajador.centro_costo || '',
-        tipo_calculo_nomina: trabajador.tipo_calculo_nomina || '', area_personal: trabajador.area_personal || '',
+        tipo_calculo_nomina: trabajador.tipo_calculo_nomina || '', area: trabajador.area || '', area_personal: trabajador.area_personal || '',
         grupo_personal: trabajador.grupo_personal || '', nivel_org_1: trabajador.nivel_org_1 || '',
         nivel_org_2: trabajador.nivel_org_2 || '', nivel_org_3: trabajador.nivel_org_3 || '',
         nivel_org_4: trabajador.nivel_org_4 || '', nivel_org_5: trabajador.nivel_org_5 || '',
         fecha_nacimiento: trabajador.fecha_nacimiento || '', genero: trabajador.genero || '',
-        jefe_inmediato: trabajador.jefe_inmediato || '', telefono: trabajador.telefono || '', correo_electronico: trabajador.correo_electronico || ''
+        jefe_inmediato: trabajador.jefe_inmediato || '', telefono: trabajador.telefono || '', correo_electronico: trabajador.correo_electronico || '',
+        empresa_id: trabajador.empresa_id || ''
       });
     } else {
       setFormData({
-        id: null, nombre: '', apellidos: '', dni: '', tipo_contrato: '', afp_onp: '', rol: '',
+        id: null, nombre: '', apellidos: '', dni: '', tipo_contrato: '', afp_onp: '', rol: 'Médico',
         codigo_trabajador: '', cargo: '', fecha_ingreso: '', fecha_cese: '', estado_trabajador: 'ACTIVO',
-        subdivision_sede: '', centro_costo: '', tipo_calculo_nomina: '', area_personal: '',
+        subdivision_sede: '', centro_costo: '', tipo_calculo_nomina: '', area: '', area_personal: '',
         grupo_personal: '', nivel_org_1: '', nivel_org_2: '', nivel_org_3: '', nivel_org_4: '',
-        nivel_org_5: '', fecha_nacimiento: '', genero: '', jefe_inmediato: '', telefono: '', correo_electronico: ''
+        nivel_org_5: '', fecha_nacimiento: '', genero: '', jefe_inmediato: '', telefono: '', correo_electronico: '',
+        empresa_id: ''
       });
     }
     setIsModalOpen(true);
@@ -137,7 +148,7 @@ const Planilla = () => {
                   <td>{t.nombre} {t.apellidos}</td>
                   <td>
                     {t.cargo && <div>{t.cargo}</div>}
-                    <div style={{fontSize: '0.8rem', color: 'var(--primary-color)'}}>{t.rol}</div>
+                    <div style={{fontSize: '0.8rem', color: 'var(--primary-color)'}}>{t.empresa ? t.empresa.nombre : ''}</div>
                   </td>
                   <td>{t.subdivision_sede || '-'}</td>
                   <td>
@@ -214,8 +225,19 @@ const Planilla = () => {
                 <h4 style={{borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '16px', marginTop: '24px', color: 'var(--primary-color)'}}>Datos Corporativos</h4>
                 <div className="grid grid-cols-2">
                   <div className="form-group">
-                    <label className="form-label">Código de Trabajador</label>
-                    <input className="form-control" value={formData.codigo_trabajador} onChange={e => setFormData({...formData, codigo_trabajador: e.target.value})} />
+                    <label className="form-label">Empresa</label>
+                    <select required className="form-control" value={formData.empresa_id} onChange={e => setFormData({...formData, empresa_id: e.target.value})}>
+                      <option value="">Seleccione empresa...</option>
+                      {empresas.map(emp => <option key={emp.id} value={emp.id}>{emp.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Área</label>
+                    <input className="form-control" value={formData.area} onChange={e => setFormData({...formData, area: e.target.value})} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Puesto de Trabajo (Cargo)</label>
+                    <input className="form-control" value={formData.cargo} onChange={e => setFormData({...formData, cargo: e.target.value})} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Estado del trabajador</label>
@@ -225,88 +247,6 @@ const Planilla = () => {
                       <option value="VACACIONES">Vacaciones</option>
                       <option value="DESCANSO_MEDICO">Descanso Médico</option>
                     </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Rol en Sistema</label>
-                    <select required className="form-control" value={formData.rol} onChange={e => setFormData({...formData, rol: e.target.value})}>
-                      <option value="">Seleccione...</option>
-                      <option value="Médico">Médico</option>
-                      <option value="Enfermera">Enfermera</option>
-                      <option value="Farmacéutico">Farmacéutico</option>
-                      <option value="Administrativo">Administrativo</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Cargo</label>
-                    <input className="form-control" value={formData.cargo} onChange={e => setFormData({...formData, cargo: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Jefe inmediato</label>
-                    <input className="form-control" value={formData.jefe_inmediato} onChange={e => setFormData({...formData, jefe_inmediato: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Fecha de Ingreso</label>
-                    <input type="date" className="form-control" value={formData.fecha_ingreso} onChange={e => setFormData({...formData, fecha_ingreso: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Fecha de Cese</label>
-                    <input type="date" className="form-control" value={formData.fecha_cese} onChange={e => setFormData({...formData, fecha_cese: e.target.value})} />
-                  </div>
-                </div>
-
-                <h4 style={{borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '16px', marginTop: '24px', color: 'var(--primary-color)'}}>Estructura Organizativa</h4>
-                <div className="grid grid-cols-2">
-                  <div className="form-group">
-                    <label className="form-label">Subdivisión - Sede</label>
-                    <input className="form-control" value={formData.subdivision_sede} onChange={e => setFormData({...formData, subdivision_sede: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Centro de Costo (Código)</label>
-                    <input className="form-control" value={formData.centro_costo} onChange={e => setFormData({...formData, centro_costo: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Área de Personal</label>
-                    <input className="form-control" value={formData.area_personal} onChange={e => setFormData({...formData, area_personal: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Grupo de personal</label>
-                    <input className="form-control" value={formData.grupo_personal} onChange={e => setFormData({...formData, grupo_personal: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Nivel organizativo 1</label>
-                    <input className="form-control" value={formData.nivel_org_1} onChange={e => setFormData({...formData, nivel_org_1: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Nivel organizativo 2</label>
-                    <input className="form-control" value={formData.nivel_org_2} onChange={e => setFormData({...formData, nivel_org_2: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Nivel organizativo 3</label>
-                    <input className="form-control" value={formData.nivel_org_3} onChange={e => setFormData({...formData, nivel_org_3: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Nivel organizativo 4</label>
-                    <input className="form-control" value={formData.nivel_org_4} onChange={e => setFormData({...formData, nivel_org_4: e.target.value})} />
-                  </div>
-                  <div className="form-group" style={{gridColumn: 'span 2'}}>
-                    <label className="form-label">Nivel organizativo 5</label>
-                    <input className="form-control" value={formData.nivel_org_5} onChange={e => setFormData({...formData, nivel_org_5: e.target.value})} />
-                  </div>
-                </div>
-
-                <h4 style={{borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '16px', marginTop: '24px', color: 'var(--primary-color)'}}>Nómina</h4>
-                <div className="grid grid-cols-2">
-                  <div className="form-group">
-                    <label className="form-label">Tipo de cálculo de nómina (Label)</label>
-                    <input className="form-control" value={formData.tipo_calculo_nomina} onChange={e => setFormData({...formData, tipo_calculo_nomina: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Sistema Pensiones (AFP/ONP)</label>
-                    <input className="form-control" value={formData.afp_onp} onChange={e => setFormData({...formData, afp_onp: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Tipo Contrato</label>
-                    <input className="form-control" value={formData.tipo_contrato} onChange={e => setFormData({...formData, tipo_contrato: e.target.value})} />
                   </div>
                 </div>
 
