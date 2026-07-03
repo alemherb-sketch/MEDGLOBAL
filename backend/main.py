@@ -90,6 +90,11 @@ def read_trabajadores(skip: int = 0, limit: int = 100, db: Session = Depends(get
 
 @app.post("/trabajadores/", response_model=schemas.Trabajador)
 def create_trabajador(trabajador: schemas.TrabajadorCreate, db: Session = Depends(get_db)):
+    if not trabajador.codigo_trabajador:
+        last_t = db.query(models.Trabajador).order_by(models.Trabajador.id.desc()).first()
+        next_id = (last_t.id + 1) if last_t else 1
+        trabajador.codigo_trabajador = f"TRB-{next_id:04d}"
+        
     db_trabajador = models.Trabajador(**trabajador.dict())
     db.add(db_trabajador)
     db.commit()

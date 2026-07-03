@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { API_URL } from '../config';
-import { Search, Plus, Edit2, Trash2, X } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, X, Eye } from 'lucide-react';
 
 const Planilla = () => {
   const [trabajadores, setTrabajadores] = useState([]);
@@ -14,6 +14,7 @@ const Planilla = () => {
     nivel_org_5: '', fecha_nacimiento: '', genero: '', jefe_inmediato: '', telefono: '', correo_electronico: '',
     empresa_id: ''
   });
+  const [viewTrabajador, setViewTrabajador] = useState(null);
   const [filters, setFilters] = useState({ search: '' });
 
   const fetchTrabajadores = () => {
@@ -160,7 +161,8 @@ const Planilla = () => {
                       {t.estado_trabajador || 'ACTIVO'}
                     </span>
                   </td>
-                  <td style={{textAlign: 'right'}}>
+                  <td style={{textAlign: 'right', whiteSpace: 'nowrap'}}>
+                    <button className="action-btn view" style={{color: '#4caf50', marginRight: '5px'}} onClick={() => setViewTrabajador(t)} title="Ver Detalles"><Eye size={18} /></button>
                     <button className="action-btn edit" onClick={() => openModal(t)}><Edit2 size={18} /></button>
                     <button className="action-btn delete" onClick={() => handleDelete(t.id)}><Trash2 size={18} /></button>
                   </td>
@@ -187,6 +189,10 @@ const Planilla = () => {
               <form onSubmit={handleSubmit}>
                 <h4 style={{borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '16px', color: 'var(--primary-color)'}}>Datos Personales</h4>
                 <div className="grid grid-cols-2">
+                  <div className="form-group" style={{gridColumn: 'span 2'}}>
+                    <label className="form-label">Código del Trabajador</label>
+                    <input className="form-control" value={formData.codigo_trabajador || (formData.id ? '' : '(Autogenerado)')} disabled style={{background: 'rgba(0,0,0,0.05)', fontWeight: 'bold', width: '50%'}} />
+                  </div>
                   <div className="form-group">
                     <label className="form-label">Nombre</label>
                     <input required className="form-control" value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} />
@@ -259,6 +265,54 @@ const Planilla = () => {
           </div>
         </div>
       )}
+
+      {viewTrabajador && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{maxWidth: '600px'}}>
+            <div className="modal-header hide-on-print" style={{borderBottom: '1px solid var(--border-color)'}}>
+              <h3>Ficha del Trabajador</h3>
+              <button className="close-btn" onClick={() => setViewTrabajador(null)}><X size={24} /></button>
+            </div>
+            
+            <div className="modal-body print-area" style={{padding: '20px', background: 'white', color: 'black'}}>
+              <div style={{textAlign: 'center', marginBottom: '20px', borderBottom: '2px solid #333', paddingBottom: '10px'}}>
+                <h2 style={{margin: 0, color: 'black'}}>DATOS DEL TRABAJADOR</h2>
+              </div>
+              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', fontSize: '14px'}}>
+                <div><strong>Código:</strong> {viewTrabajador.codigo_trabajador || '--'}</div>
+                <div><strong>Estado:</strong> {viewTrabajador.estado_trabajador || 'ACTIVO'}</div>
+                <div><strong>Nombres:</strong> {viewTrabajador.nombre}</div>
+                <div><strong>Apellidos:</strong> {viewTrabajador.apellidos}</div>
+                <div><strong>DNI:</strong> {viewTrabajador.dni || '--'}</div>
+                <div><strong>F. Nacimiento:</strong> {viewTrabajador.fecha_nacimiento || '--'}</div>
+                <div><strong>Género:</strong> {viewTrabajador.genero || '--'}</div>
+                <div><strong>Teléfono:</strong> {viewTrabajador.telefono || '--'}</div>
+                <div style={{gridColumn: 'span 2'}}><strong>Correo:</strong> {viewTrabajador.correo_electronico || '--'}</div>
+                
+                <h4 style={{gridColumn: 'span 2', borderBottom: '1px solid #ccc', marginTop: '10px', paddingTop: '10px'}}>Datos Corporativos</h4>
+                <div style={{gridColumn: 'span 2'}}><strong>Empresa:</strong> {viewTrabajador.empresa?.nombre || '--'}</div>
+                <div><strong>Área:</strong> {viewTrabajador.area || '--'}</div>
+                <div><strong>Puesto / Cargo:</strong> {viewTrabajador.cargo || '--'}</div>
+                <div><strong>Sede:</strong> {viewTrabajador.subdivision_sede || '--'}</div>
+              </div>
+            </div>
+            
+            <div className="modal-footer hide-on-print" style={{textAlign: 'right', padding: '10px 20px', borderTop: '1px solid var(--border-color)'}}>
+               <button className="btn btn-primary" onClick={() => window.print()}>🖨️ Imprimir</button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          .print-area, .print-area * { visibility: visible; }
+          .print-area { position: absolute; left: 0; top: 0; width: 100%; }
+          .hide-on-print { display: none !important; }
+          .modal-content { box-shadow: none !important; border: none !important; }
+        }
+      `}</style>
     </div>
   );
 };
