@@ -479,8 +479,11 @@ const Atenciones = () => {
                     <select required className="form-control" value={newAtencion.destino} onChange={e => setNewAtencion({...newAtencion, destino: e.target.value})}>
                       <option value="">Seleccione...</option>
                       <option value="Alta a su puesto">Alta a su puesto</option>
+                      <option value="Retorno al trabajo">Retorno al trabajo</option>
                       <option value="Observación en Tópico">Observación en Tópico</option>
+                      <option value="Descanso en habitación">Descanso en habitación</option>
                       <option value="Descanso Médico">Descanso Médico</option>
+                      <option value="Evacuación médica">Evacuación médica</option>
                       <option value="Referencia a Centro de Salud">Referencia a Centro de Salud</option>
                     </select>
                   </div>
