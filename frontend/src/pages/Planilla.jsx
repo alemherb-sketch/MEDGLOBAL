@@ -134,7 +134,7 @@ const Planilla = () => {
                 <th>Código</th>
                 <th>DNI</th>
                 <th>Nombre Completo</th>
-                <th>Cargo / Rol</th>
+                <th>Empresa</th>
                 <th>Sede</th>
                 <th>Estado</th>
                 <th style={{textAlign: 'right'}}>Acciones</th>
