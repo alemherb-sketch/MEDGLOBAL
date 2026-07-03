@@ -20,11 +20,8 @@ const Atenciones = () => {
     trabajador_id: '',
     sistema_id: '',
     clasificacion_id: '',
-    cita_id: '',
     personal_salud_id: '',
     hora_ingreso: '',
-    hora_salida: '',
-    tiempo_topico: '',
     edad: '',
     residencia: '',
     empresa_id: '',
@@ -35,10 +32,7 @@ const Atenciones = () => {
     examen_fisico: '',
     examenes_auxiliares: '',
     diagnostico: '',
-    tratamiento: '',
     destino: '',
-    sede_atencion: '',
-    jefe_inmediato: '',
     observaciones: '',
     medicamentos: [] // Array of {medicamento_id, cantidad}
   });
@@ -110,11 +104,8 @@ const Atenciones = () => {
         trabajador_id: atencion.trabajador?.id || '',
         sistema_id: atencion.sistema?.id || '',
         clasificacion_id: atencion.clasificacion?.id || '',
-        cita_id: atencion.cita_id || '',
         personal_salud_id: atencion.personal_salud_id || '',
         hora_ingreso: atencion.hora_ingreso || '',
-        hora_salida: atencion.hora_salida || '',
-        tiempo_topico: atencion.tiempo_topico || '',
         edad: atencion.edad || '',
         residencia: atencion.residencia || '',
         empresa_id: atencion.empresa_id || '',
@@ -125,21 +116,18 @@ const Atenciones = () => {
         examen_fisico: atencion.examen_fisico || '',
         examenes_auxiliares: atencion.examenes_auxiliares || '',
         diagnostico: atencion.diagnostico || '',
-        tratamiento: atencion.tratamiento || '',
         destino: atencion.destino || '',
-        sede_atencion: atencion.sede_atencion || '',
-        jefe_inmediato: atencion.jefe_inmediato || '',
         observaciones: atencion.observaciones || '',
         medicamentos: atencion.medicamentos ? atencion.medicamentos.map(m => ({medicamento_id: m.medicamento_id, cantidad: m.cantidad})) : []
       });
     } else {
       setNewAtencion({
-        id: null, trabajador_id: '', sistema_id: '', clasificacion_id: '', cita_id: '', personal_salud_id: '',
-        hora_ingreso: '', hora_salida: '', tiempo_topico: '', edad: '', residencia: '', empresa_id: '', cargo: '',
+        id: null, trabajador_id: '', sistema_id: '', clasificacion_id: '', personal_salud_id: '',
+        hora_ingreso: new Date().toTimeString().substring(0,5), edad: '', residencia: '', empresa_id: '', cargo: '',
         descripcion: '', funciones_biologicas: { apetito: '', sed: '', sueno: '', estado_animo: '', orina: '', deposiciones: '' },
         signos_vitales: { presion_arterial: '', frec_cardiaca: '', frec_respiratoria: '', temperatura: '', spo2: '', peso: '', talla: '' },
         examen_fisico: '', examenes_auxiliares: '', diagnostico: '',
-        tratamiento: '', destino: '', sede_atencion: '', jefe_inmediato: '', observaciones: '', medicamentos: []
+        destino: '', observaciones: '', medicamentos: []
       });
     }
     setIsModalOpen(true);
@@ -147,27 +135,7 @@ const Atenciones = () => {
 
   const closeModal = () => setIsModalOpen(false);
 
-  // Auto-fill patient when a cita is selected
-  const handleCitaSelect = (e) => {
-    const selectedCitaId = e.target.value;
-    const cita = citas.find(c => c.id === parseInt(selectedCitaId));
-    
-    if (cita) {
-      const trabajador = trabajadores.find(t => t.id === cita.paciente_id);
-      setNewAtencion({
-        ...newAtencion,
-        cita_id: selectedCitaId,
-        trabajador_id: cita.paciente_id,
-        personal_salud_id: cita.personal_salud_id || '',
-        jefe_inmediato: trabajador ? trabajador.jefe_inmediato : '',
-        descripcion: cita.motivo ? `Motivo de cita: ${cita.motivo}\n\nEvolución: ` : ''
-      });
-    } else {
-      setNewAtencion({ ...newAtencion, cita_id: '' });
-    }
-  };
-
-  // Auto-fill Jefe Inmediato when worker changes
+  // Auto-fill worker details when worker changes
   const handleTrabajadorChange = (e) => {
     const t_id = e.target.value;
     const trabajador = trabajadores.find(t => t.id === parseInt(t_id));
@@ -184,41 +152,10 @@ const Atenciones = () => {
     setNewAtencion({
       ...newAtencion,
       trabajador_id: t_id,
-      jefe_inmediato: trabajador ? (trabajador.jefe_inmediato || '') : '',
       cargo: trabajador ? (trabajador.cargo || '') : '',
       empresa_id: trabajador ? (trabajador.empresa_id || '') : '',
       edad: ageCalc || newAtencion.edad
     });
-  };
-
-  // Calculate time automatically
-  const calculateTime = (ingreso, salida) => {
-    if (!ingreso || !salida) return '';
-    const [h1, m1] = ingreso.split(':').map(Number);
-    const [h2, m2] = salida.split(':').map(Number);
-    const date1 = new Date(2000, 0, 1, h1, m1);
-    let date2 = new Date(2000, 0, 1, h2, m2);
-    if (date2 < date1) date2.setDate(date2.getDate() + 1); // Crosses midnight
-    
-    const diffMs = date2 - date1;
-    const diffMins = Math.round(diffMs / 60000);
-    
-    if (diffMins < 60) return `${diffMins} min`;
-    const h = Math.floor(diffMins / 60);
-    const m = diffMins % 60;
-    return `${h}h ${m}m`;
-  };
-
-  const handleHoraIngresoChange = (e) => {
-    const v = e.target.value;
-    const t = calculateTime(v, newAtencion.hora_salida);
-    setNewAtencion({...newAtencion, hora_ingreso: v, tiempo_topico: t || newAtencion.tiempo_topico});
-  };
-
-  const handleHoraSalidaChange = (e) => {
-    const v = e.target.value;
-    const t = calculateTime(newAtencion.hora_ingreso, v);
-    setNewAtencion({...newAtencion, hora_salida: v, tiempo_topico: t || newAtencion.tiempo_topico});
   };
 
   // Medicamentos handlers
@@ -241,8 +178,6 @@ const Atenciones = () => {
   const selectedSistema = sistemas.find(s => s.id === parseInt(newAtencion.sistema_id));
   const clasificacionesDisponibles = selectedSistema ? selectedSistema.clasificaciones : [];
   
-  const citasPendientes = citas.filter(c => c.estado === 'PENDIENTE' || c.estado === 'CONFIRMADA' || c.id === newAtencion.cita_id);
-
   const filteredAtenciones = atenciones.filter(a => {
     const searchStr = (
       (a.trabajador ? `${a.trabajador.nombre} ${a.trabajador.apellidos}` : '') + 
@@ -312,12 +247,11 @@ const Atenciones = () => {
                   <td>
                     <div style={{fontWeight: '500'}}>{new Date(a.fecha).toLocaleDateString()}</div>
                     <div className="text-muted" style={{fontSize: '0.8rem'}}>
-                      {a.hora_ingreso || new Date(a.fecha).toLocaleTimeString().substring(0,5)} {a.hora_salida ? `- ${a.hora_salida}` : ''}
+                      {a.hora_ingreso || new Date(a.fecha).toLocaleTimeString().substring(0,5)}
                     </div>
                   </td>
                   <td>
                     <div style={{fontWeight: '500'}}>{a.trabajador ? `${a.trabajador.nombre} ${a.trabajador.apellidos}` : 'N/A'}</div>
-                    {a.cita_id && <span style={{fontSize: '0.75rem', color: 'var(--primary-color)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px'}}><Link size={12}/> Cita Vinculada</span>}
                   </td>
                   <td>
                     <div style={{fontWeight: '500'}}>{a.diagnostico || 'No registrado'}</div>
@@ -354,29 +288,20 @@ const Atenciones = () => {
             <div className="modal-body">
               <form onSubmit={handleAddAtencion}>
                 
-                {/* Opcional: Cita */}
-                {!newAtencion.id && (
-                  <div className="form-group p-3 mb-4" style={{background: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px', border: '1px dashed rgba(59, 130, 246, 0.5)'}}>
-                    <label className="form-label" style={{color: 'var(--primary-color)'}}>
-                      <Link size={16} style={{display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom'}}/>
-                      Vincular a Cita Programada (Opcional)
-                    </label>
-                    <select className="form-control" value={newAtencion.cita_id || ''} onChange={handleCitaSelect}>
-                      <option value="">Seleccione una cita programada...</option>
-                      {citasPendientes.map(c => {
-                        const citaDate = new Date(c.fecha_hora);
-                        return (
-                          <option key={c.id} value={c.id}>
-                            {citaDate.toLocaleDateString()} {citaDate.toLocaleTimeString().substring(0,5)} - Paciente: {c.paciente?.nombre} {c.paciente?.apellidos}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-                )}
-
                 <h4 style={{borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', marginBottom: '16px'}}>1. Datos del Paciente e Ingreso</h4>
                 <div className="grid grid-cols-2">
+                  <div className="form-group">
+                    <label className="form-label">Código de Atención</label>
+                    <input className="form-control" value={newAtencion.id ? `#${newAtencion.id.toString().padStart(4, '0')}` : '(Autogenerado)'} disabled style={{background: 'rgba(0,0,0,0.05)', fontWeight: 'bold'}} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Fecha y Hora</label>
+                    <div style={{display: 'flex', gap: '10px'}}>
+                      <input type="date" className="form-control mb-0" value={newAtencion.fecha ? newAtencion.fecha.substring(0,10) : new Date().toISOString().substring(0,10)} onChange={e => setNewAtencion({...newAtencion, fecha: new Date(e.target.value).toISOString()})} />
+                      <input type="time" className="form-control mb-0" value={newAtencion.hora_ingreso} onChange={e => setNewAtencion({...newAtencion, hora_ingreso: e.target.value})} />
+                    </div>
+                  </div>
+
                   <div className="form-group">
                     <label className="form-label">Paciente (Trabajador)</label>
                     <select required className="form-control" value={newAtencion.trabajador_id} onChange={handleTrabajadorChange}>
@@ -385,18 +310,22 @@ const Atenciones = () => {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Jefe Inmediato</label>
-                    <input className="form-control" value={newAtencion.jefe_inmediato} onChange={e => setNewAtencion({...newAtencion, jefe_inmediato: e.target.value})} placeholder="Se autocompleta..." />
-                  </div>
-                  
-                  <div className="form-group">
                     <label className="form-label">DNI</label>
                     <input className="form-control" value={trabajadores.find(t => t.id === parseInt(newAtencion.trabajador_id))?.dni || ''} disabled />
                   </div>
+
                   <div className="form-group">
                     <label className="form-label">Edad</label>
                     <input className="form-control" value={newAtencion.edad} onChange={e => setNewAtencion({...newAtencion, edad: e.target.value})} placeholder="Ej. 30" />
                   </div>
+                  <div className="form-group">
+                    <label className="form-label">Personal de Salud</label>
+                    <select required className="form-control" value={newAtencion.personal_salud_id} onChange={e => setNewAtencion({...newAtencion, personal_salud_id: e.target.value})}>
+                      <option value="">Seleccione...</option>
+                      {personalSalud.map(p => <option key={p.id} value={p.id}>{p.especialidad}: {p.nombre} {p.apellidos}</option>)}
+                    </select>
+                  </div>
+
                   <div className="form-group" style={{gridColumn: 'span 2'}}>
                     <label className="form-label">Residencia</label>
                     <input className="form-control" value={newAtencion.residencia} onChange={e => setNewAtencion({...newAtencion, residencia: e.target.value})} placeholder="Ej. Lima, Miraflores..." />
@@ -412,39 +341,6 @@ const Atenciones = () => {
                   <div className="form-group">
                     <label className="form-label">Cargo</label>
                     <input className="form-control" value={newAtencion.cargo} onChange={e => setNewAtencion({...newAtencion, cargo: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Sede de Atención</label>
-                    <select required className="form-control" value={newAtencion.sede_atencion} onChange={e => setNewAtencion({...newAtencion, sede_atencion: e.target.value})}>
-                      <option value="">Seleccione sede...</option>
-                      <option value="Sede Principal">Sede Principal</option>
-                      <option value="Sede Norte">Sede Norte</option>
-                      <option value="Sede Sur">Sede Sur</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Personal de Salud</label>
-                    <select required className="form-control" value={newAtencion.personal_salud_id} onChange={e => setNewAtencion({...newAtencion, personal_salud_id: e.target.value})}>
-                      <option value="">Seleccione...</option>
-                      {personalSalud.map(p => <option key={p.id} value={p.id}>{p.especialidad}: {p.nombre} {p.apellidos}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Fecha</label>
-                    <input type="date" className="form-control" value={newAtencion.fecha ? newAtencion.fecha.substring(0,10) : new Date().toISOString().substring(0,10)} onChange={e => setNewAtencion({...newAtencion, fecha: new Date(e.target.value).toISOString()})} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Hora de Ingreso</label>
-                    <input type="time" className="form-control" value={newAtencion.hora_ingreso} onChange={handleHoraIngresoChange} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Hora de Salida</label>
-                    <input type="time" className="form-control" value={newAtencion.hora_salida} onChange={handleHoraSalidaChange} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label"><Clock size={14} style={{display:'inline', marginRight:4}}/> Tiempo en Tópico</label>
-                    <input className="form-control" value={newAtencion.tiempo_topico} onChange={e => setNewAtencion({...newAtencion, tiempo_topico: e.target.value})} placeholder="Ej: 30 min" />
                   </div>
                 </div>
 
@@ -534,34 +430,46 @@ const Atenciones = () => {
                   </div>
                 </div>
 
-                <h4 style={{borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', margin: '24px 0 16px 0'}}>4. Tratamiento y Destino</h4>
-                <div className="form-group">
-                  <label className="form-label">Tratamiento en Tópico</label>
-                  <textarea className="form-control" rows="2" value={newAtencion.tratamiento} onChange={e => setNewAtencion({...newAtencion, tratamiento: e.target.value})}></textarea>
-                </div>
+                <h4 style={{borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', margin: '24px 0 16px 0'}}>4. Receta y Destino</h4>
 
                 {/* Receta Médica */}
-                <div className="form-group p-3 mb-4" style={{background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', border: '1px solid var(--border-color)'}}>
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="form-label mb-0" style={{color: 'var(--primary-color)'}}>Medicamentos (Receta / Entrega)</label>
-                    <button type="button" className="btn btn-secondary" style={{padding: '4px 8px', fontSize: '0.8rem'}} onClick={addMedicamento}>+ Añadir Medicamento</button>
+                <div className="form-group p-4 mb-4" style={{background: 'var(--surface-color)', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)'}}>
+                  <div className="flex justify-between items-center mb-4 pb-3" style={{borderBottom: '1px solid var(--border-color)'}}>
+                    <h5 className="mb-0" style={{color: 'var(--primary-color)', margin: 0}}>💊 Receta Médica / Medicamentos</h5>
+                    <button type="button" className="btn btn-primary" style={{padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px'}} onClick={addMedicamento}>
+                      <Plus size={16}/> Añadir
+                    </button>
                   </div>
-                  {newAtencion.medicamentos.length === 0 && <div className="text-muted" style={{fontSize: '0.85rem'}}>No se han recetado medicamentos.</div>}
                   
-                  {newAtencion.medicamentos.map((med, index) => (
-                    <div key={index} className="flex gap-2 mb-2 items-center">
-                      <select required className="form-control" value={med.medicamento_id} onChange={(e) => updateMedicamento(index, 'medicamento_id', e.target.value)} style={{flex: 2}}>
-                        <option value="">Seleccione medicamento...</option>
-                        {medicamentos.map(m => <option key={m.id} value={m.id}>{m.nombre} - {m.presentacion} (Stock: {m.stock_actual})</option>)}
-                      </select>
-                      <input type="number" required min="1" className="form-control" value={med.cantidad} onChange={(e) => updateMedicamento(index, 'cantidad', e.target.value)} style={{width: '100px'}} placeholder="Cant." title="Cantidad" />
-                      {!newAtencion.id && (
-                        <button type="button" className="action-btn delete" onClick={() => removeMedicamento(index)}><Trash2 size={18}/></button>
-                      )}
+                  {newAtencion.medicamentos.length === 0 ? (
+                    <div className="text-center text-muted p-4" style={{background: 'rgba(0,0,0,0.02)', borderRadius: '8px'}}>No se han recetado medicamentos.</div>
+                  ) : (
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+                      {newAtencion.medicamentos.map((med, index) => (
+                        <div key={index} className="flex gap-3 items-center" style={{background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)'}}>
+                          <div style={{flex: 1}}>
+                            <select required className="form-control mb-0" value={med.medicamento_id} onChange={(e) => updateMedicamento(index, 'medicamento_id', e.target.value)}>
+                              <option value="">Seleccione medicamento...</option>
+                              {medicamentos.map(m => <option key={m.id} value={m.id}>{m.nombre} - {m.presentacion} (Stock: {m.stock_actual})</option>)}
+                            </select>
+                          </div>
+                          <div style={{width: '130px'}}>
+                            <div className="flex items-center">
+                              <span style={{padding: '0 10px', background: 'rgba(0,0,0,0.05)', height: '38px', display: 'flex', alignItems: 'center', borderTopLeftRadius: '6px', borderBottomLeftRadius: '6px', border: '1px solid var(--border-color)', borderRight: 'none', fontSize: '0.85rem'}}>Cant.</span>
+                              <input type="number" required min="1" className="form-control mb-0" style={{borderTopLeftRadius: 0, borderBottomLeftRadius: 0}} value={med.cantidad} onChange={(e) => updateMedicamento(index, 'cantidad', e.target.value)} />
+                            </div>
+                          </div>
+                          {!newAtencion.id && (
+                            <button type="button" className="action-btn delete" style={{background: 'rgba(239, 68, 68, 0.1)', padding: '8px', borderRadius: '6px'}} onClick={() => removeMedicamento(index)}>
+                              <Trash2 size={18} color="var(--danger-color)"/>
+                            </button>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                   {!newAtencion.id && newAtencion.medicamentos.length > 0 && (
-                    <div className="text-muted mt-2" style={{fontSize: '0.8rem'}}>* Guardar esta atención descontará estos medicamentos del inventario automáticamente.</div>
+                    <div className="text-muted mt-3" style={{fontSize: '0.8rem', textAlign: 'right'}}>* El stock se descontará automáticamente al guardar.</div>
                   )}
                 </div>
 
@@ -613,10 +521,7 @@ const Atenciones = () => {
               <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '25px', fontSize: '14px'}}>
                 <div><strong>N° de Ficha:</strong> #{viewAtencion.id.toString().padStart(4, '0')}</div>
                 <div><strong>Fecha:</strong> {new Date(viewAtencion.fecha).toLocaleDateString()}</div>
-                <div><strong>Hora de Ingreso:</strong> {viewAtencion.hora_ingreso || '--'}</div>
-                <div><strong>Hora de Salida:</strong> {viewAtencion.hora_salida || '--'}</div>
-                <div><strong>Sede:</strong> {viewAtencion.sede_atencion || '--'}</div>
-                <div><strong>Tiempo en Tópico:</strong> {viewAtencion.tiempo_topico || '--'}</div>
+                <div><strong>Hora de Atención:</strong> {viewAtencion.hora_ingreso || '--'}</div>
               </div>
 
               <h4 style={{borderBottom: '1px solid #ccc', paddingBottom: '5px', marginTop: '20px', color: '#333'}}>I. DATOS DEL PACIENTE</h4>
@@ -627,7 +532,6 @@ const Atenciones = () => {
                 <div><strong>Residencia:</strong> {viewAtencion.residencia || '--'}</div>
                 <div><strong>Empresa:</strong> {viewAtencion.empresa ? viewAtencion.empresa.nombre : '--'}</div>
                 <div><strong>Área / Cargo:</strong> {viewAtencion.cargo || '--'}</div>
-                <div><strong>Jefe Inmediato:</strong> {viewAtencion.jefe_inmediato || '--'}</div>
               </div>
 
               <h4 style={{borderBottom: '1px solid #ccc', paddingBottom: '5px', marginTop: '25px', color: '#333'}}>II. EVALUACIÓN MÉDICA</h4>
@@ -692,11 +596,7 @@ const Atenciones = () => {
                 <div style={{gridColumn: 'span 2'}}><strong>Diagnóstico:</strong> {viewAtencion.diagnostico || '--'}</div>
               </div>
 
-              <h4 style={{borderBottom: '1px solid #ccc', paddingBottom: '5px', marginTop: '25px', color: '#333'}}>IV. TRATAMIENTO Y DESTINO</h4>
-              <div style={{fontSize: '14px', marginBottom: '10px'}}>
-                <strong>Tratamiento en Tópico:</strong>
-                <p style={{marginTop: '5px', whiteSpace: 'pre-wrap'}}>{viewAtencion.tratamiento || 'Ninguno'}</p>
-              </div>
+              <h4 style={{borderBottom: '1px solid #ccc', paddingBottom: '5px', marginTop: '25px', color: '#333'}}>IV. RECETA Y DESTINO</h4>
               
               <div style={{fontSize: '14px', marginBottom: '15px'}}>
                 <strong>Medicamentos Recetados / Entregados:</strong>
