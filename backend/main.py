@@ -30,7 +30,8 @@ with engine.connect() as conn:
             
     columnas_atencion = [
         "edad VARCHAR(10)", "residencia VARCHAR(200)", "empresa_id INTEGER", "cargo VARCHAR(100)",
-        "funciones_biologicas TEXT", "signos_vitales TEXT", "examen_fisico TEXT", "examenes_auxiliares TEXT"
+        "funciones_biologicas TEXT", "signos_vitales TEXT", "examen_fisico TEXT", "examenes_auxiliares TEXT",
+        "codigo_diagnostico VARCHAR(100)"
     ]
     for col in columnas_atencion:
         try:

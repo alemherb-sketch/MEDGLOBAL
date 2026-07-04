@@ -178,6 +178,7 @@ class AtencionBase(BaseModel):
     examen_fisico: Optional[str] = None
     examenes_auxiliares: Optional[str] = None
 
+    codigo_diagnostico: Optional[str] = None
     diagnostico: Optional[str] = None
     tratamiento: Optional[str] = None
     destino: Optional[str] = None

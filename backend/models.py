@@ -98,6 +98,7 @@ class Atencion(Base):
     examen_fisico = Column(Text, nullable=True)
     examenes_auxiliares = Column(Text, nullable=True)
 
+    codigo_diagnostico = Column(String(100), nullable=True)
     diagnostico = Column(Text, nullable=True)
     tratamiento = Column(Text, nullable=True)
     destino = Column(String(100), nullable=True)

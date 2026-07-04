@@ -31,6 +31,7 @@ const Atenciones = () => {
     signos_vitales: { presion_arterial: '', frec_cardiaca: '', frec_respiratoria: '', temperatura: '', spo2: '', peso: '', talla: '' },
     examen_fisico: '',
     examenes_auxiliares: '',
+    codigo_diagnostico: '',
     diagnostico: '',
     destino: '',
     observaciones: '',
@@ -115,6 +116,7 @@ const Atenciones = () => {
         signos_vitales: atencion.signos_vitales ? JSON.parse(atencion.signos_vitales) : { presion_arterial: '', frec_cardiaca: '', frec_respiratoria: '', temperatura: '', spo2: '', peso: '', talla: '' },
         examen_fisico: atencion.examen_fisico || '',
         examenes_auxiliares: atencion.examenes_auxiliares || '',
+        codigo_diagnostico: atencion.codigo_diagnostico || '',
         diagnostico: atencion.diagnostico || '',
         destino: atencion.destino || '',
         observaciones: atencion.observaciones || '',
@@ -126,7 +128,7 @@ const Atenciones = () => {
         hora_ingreso: new Date().toTimeString().substring(0,5), edad: '', residencia: '', empresa_id: '', cargo: '',
         descripcion: '', funciones_biologicas: { apetito: '', sed: '', sueno: '', estado_animo: '', orina: '', deposiciones: '' },
         signos_vitales: { presion_arterial: '', frec_cardiaca: '', frec_respiratoria: '', temperatura: '', spo2: '', peso: '', talla: '' },
-        examen_fisico: '', examenes_auxiliares: '', diagnostico: '',
+        examen_fisico: '', examenes_auxiliares: '', codigo_diagnostico: '', diagnostico: '',
         destino: '', observaciones: '', medicamentos: []
       });
     }
@@ -419,8 +421,12 @@ const Atenciones = () => {
                     </select>
                   </div>
 
-                  <div className="form-group" style={{gridColumn: 'span 2'}}>
-                    <label className="form-label">Detalle Diagnóstico</label>
+                  <div className="form-group">
+                    <label className="form-label">CÓDIGO</label>
+                    <input className="form-control" value={newAtencion.codigo_diagnostico} onChange={e => setNewAtencion({...newAtencion, codigo_diagnostico: e.target.value})} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">NOMBRE ENFERMEDAD</label>
                     <input className="form-control" value={newAtencion.diagnostico} onChange={e => setNewAtencion({...newAtencion, diagnostico: e.target.value})} />
                   </div>
                 </div>
@@ -591,7 +597,8 @@ const Atenciones = () => {
               <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px'}}>
                 <div><strong>Sistema:</strong> {viewAtencion.sistema?.nombre || '--'}</div>
                 <div><strong>Contingencia:</strong> {viewAtencion.clasificacion?.nombre || '--'}</div>
-                <div style={{gridColumn: 'span 2'}}><strong>Diagnóstico:</strong> {viewAtencion.diagnostico || '--'}</div>
+                <div><strong>Código:</strong> {viewAtencion.codigo_diagnostico || '--'}</div>
+                <div><strong>Enfermedad:</strong> {viewAtencion.diagnostico || '--'}</div>
               </div>
 
               <h4 style={{borderBottom: '1px solid #ccc', paddingBottom: '5px', marginTop: '25px', color: '#333'}}>IV. RECETA Y DESTINO</h4>
