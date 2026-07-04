@@ -36,7 +36,7 @@ const Sistemas = () => {
   };
 
   const handleDeleteSistema = (id) => {
-    if (window.confirm('¿Eliminar sistema y sus clasificaciones?')) {
+    if (window.confirm('¿Eliminar sistema y sus contingencias?')) {
       fetch(`${API_URL}/sistemas/${id}`, { method: 'DELETE' })
         .then(() => fetchSistemas());
     }
@@ -62,7 +62,7 @@ const Sistemas = () => {
   };
 
   const handleDeleteClasificacion = (id) => {
-    if (window.confirm('¿Eliminar esta clasificación?')) {
+    if (window.confirm('¿Eliminar esta contingencia?')) {
       fetch(`${API_URL}/clasificaciones/${id}`, { method: 'DELETE' })
         .then(() => fetchSistemas());
     }
@@ -92,13 +92,13 @@ const Sistemas = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h1>Sistemas Clínicos y Clasificaciones</h1>
+        <h1>Sistemas Clínicos y Contingencias</h1>
         <div className="flex gap-2">
           <button className="btn btn-secondary" onClick={() => openModal('sistema')}>
             <Plus size={18} style={{marginRight: '8px'}} /> Nuevo Sistema
           </button>
           <button className="btn btn-primary" onClick={() => openModal('clasificacion')}>
-            <Plus size={18} style={{marginRight: '8px'}} /> Nueva Clasificación
+            <Plus size={18} style={{marginRight: '8px'}} /> Nueva Contingencia
           </button>
         </div>
       </div>
@@ -141,7 +141,7 @@ const Sistemas = () => {
                     </li>
                   ))
                 ) : (
-                  <li className="text-muted p-2">Sin clasificaciones</li>
+                  <li className="text-muted p-2">Sin contingencias</li>
                 )}
               </ul>
             </div>
@@ -179,7 +179,7 @@ const Sistemas = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h3>{newClasificacion.id ? 'Editar Clasificación' : 'Nueva Clasificación'}</h3>
+              <h3>{newClasificacion.id ? 'Editar Contingencia' : 'Nueva Contingencia'}</h3>
               <button className="close-btn" onClick={closeModal}><X size={24} /></button>
             </div>
             <div className="modal-body">
@@ -192,7 +192,7 @@ const Sistemas = () => {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Nombre de Clasificación</label>
+                  <label className="form-label">Nombre de Contingencia</label>
                   <input required className="form-control" placeholder="Ej. Neumonía leve" value={newClasificacion.nombre} onChange={e => setNewClasificacion({...newClasificacion, nombre: e.target.value})} />
                 </div>
                 <div style={{display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px'}}>

@@ -420,7 +420,7 @@ const Atenciones = () => {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Contingencias (Clasificación)</label>
+                    <label className="form-label">Contingencia</label>
                     <select required className="form-control" value={newAtencion.clasificacion_id} onChange={e => setNewAtencion({...newAtencion, clasificacion_id: e.target.value})}>
                       <option value="">Seleccione una contingencia...</option>
                       {clasificacionesDisponibles.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
