@@ -7,7 +7,6 @@ import Almacen from './pages/Almacen';
 import Planilla from './pages/Planilla';
 import Sistemas from './pages/Sistemas';
 import PersonalSalud from './pages/PersonalSalud';
-import Citas from './pages/Citas';
 import Empresas from './pages/Empresas';
 
 function App() {
@@ -17,7 +16,6 @@ function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="atenciones" element={<Atenciones />} />
-          <Route path="citas" element={<Citas />} />
           <Route path="medicamentos" element={<Medicamentos />} />
           <Route path="almacen" element={<Almacen />} />
           <Route path="planilla" element={<Planilla />} />

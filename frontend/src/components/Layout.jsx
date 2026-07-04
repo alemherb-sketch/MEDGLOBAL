@@ -6,7 +6,6 @@ const Layout = () => {
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: <Home size={20} /> },
-    { path: '/citas', label: 'Programación Citas', icon: <CalendarDays size={20} /> },
     { path: '/atenciones', label: 'Atenciones', icon: <Stethoscope size={20} /> },
     { path: '/medicamentos', label: 'Catálogo Medicamentos', icon: <Pill size={20} /> },
     { path: '/almacen', label: 'Almacén / Kardex', icon: <Package size={20} /> },
