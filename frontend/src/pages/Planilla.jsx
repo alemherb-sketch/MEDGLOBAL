@@ -276,6 +276,7 @@ const Planilla = () => {
             
             <div className="modal-body print-area" style={{padding: '20px', background: 'white', color: 'black'}}>
               <div style={{textAlign: 'center', marginBottom: '20px', borderBottom: '2px solid #333', paddingBottom: '10px'}}>
+                <img src="/logo.png" alt="MEDGLOBAL" style={{maxHeight: '50px', marginBottom: '10px'}} />
                 <h2 style={{margin: 0, color: 'black'}}>DATOS DEL TRABAJADOR</h2>
               </div>
               <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', fontSize: '14px'}}>

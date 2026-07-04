@@ -527,7 +527,7 @@ const Atenciones = () => {
               {/* Contenedor FICHA */}
               <div className="print-area ficha-content" style={{padding: '30px', background: 'white', color: 'black'}}>
               <div style={{textAlign: 'center', marginBottom: '30px', borderBottom: '2px solid #333', paddingBottom: '15px'}}>
-                <h1 style={{fontSize: '24px', margin: '0 0 5px 0', color: 'black'}}>MEDGLOBAL</h1>
+                <img src="/logo.png" alt="MEDGLOBAL" style={{maxHeight: '60px', marginBottom: '10px'}} />
                 <h2 style={{fontSize: '18px', margin: 0, fontWeight: 'normal', color: '#555'}}>FICHA DE ATENCIÓN / TÓPICO OCUPACIONAL</h2>
               </div>
 
@@ -649,7 +649,7 @@ const Atenciones = () => {
               {/* Contenedor RECETA */}
               <div className="print-area receta-content print-only" style={{padding: '30px', background: 'white', color: 'black'}}>
                 <div style={{textAlign: 'center', marginBottom: '30px', borderBottom: '2px solid #333', paddingBottom: '15px'}}>
-                  <h1 style={{fontSize: '24px', margin: '0 0 5px 0', color: 'black'}}>MEDGLOBAL</h1>
+                  <img src="/logo.png" alt="MEDGLOBAL" style={{maxHeight: '60px', marginBottom: '10px'}} />
                   <h2 style={{fontSize: '18px', margin: 0, fontWeight: 'normal', color: '#555'}}>RECETA MÉDICA OCUPACIONAL</h2>
                 </div>
 

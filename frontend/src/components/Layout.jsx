@@ -18,8 +18,9 @@ const Layout = () => {
 
   return (
     <div className="app-layout">
-      <aside className="sidebar">
-        <div className="brand">MEDGLOBAL</div>
+        <div className="brand" style={{display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 0'}}>
+          <img src="/logo.png" alt="MEDGLOBAL" style={{maxHeight: '40px', objectFit: 'contain'}} />
+        </div>
         <nav>
           {navItems.map((item) => (
             <Link

@@ -19,8 +19,10 @@ const Dashboard = () => {
 
   return (
     <div>
-      <h1 className="mb-4">Dashboard</h1>
-      
+      <div className="flex items-center mb-4">
+        <img src="/logo.png" alt="MEDGLOBAL Logo" style={{maxHeight: '40px', marginRight: '15px'}} />
+        <h1 style={{margin: 0}}>Dashboard</h1>
+      </div>
       <div className="grid grid-cols-4 mb-4">
         <div className="glass-panel">
           <div className="flex items-center justify-between">
