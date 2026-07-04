@@ -376,12 +376,7 @@ const Atenciones = () => {
                     return (
                       <div className="form-group mb-0" key={i}>
                         <label className="form-label" style={{fontSize: '0.8rem'}}>{item}</label>
-                        <select className="form-control" style={{fontSize: '0.85rem', padding: '6px'}} value={newAtencion.signos_vitales[keys[i]]} onChange={e => setNewAtencion({...newAtencion, signos_vitales: {...newAtencion.signos_vitales, [keys[i]]: e.target.value}})}>
-                          <option value="">Seleccione...</option>
-                          <option value="Normal">Normal</option>
-                          <option value="Aumentado">Aumentado</option>
-                          <option value="Disminuido">Disminuido</option>
-                        </select>
+                        <input className="form-control" style={{fontSize: '0.85rem', padding: '6px'}} value={newAtencion.signos_vitales[keys[i]]} onChange={e => setNewAtencion({...newAtencion, signos_vitales: {...newAtencion.signos_vitales, [keys[i]]: e.target.value}})} />
                       </div>
                     )
                   })}
