@@ -13,6 +13,7 @@ const Atenciones = () => {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewAtencion, setViewAtencion] = useState(null);
+  const [printMode, setPrintMode] = useState('ficha');
   const [filters, setFilters] = useState({ search: '', date: '' });
   
   const [newAtencion, setNewAtencion] = useState({
@@ -198,6 +199,11 @@ const Atenciones = () => {
 
     return matchesSearch && matchesDate;
   });
+
+  const handlePrint = (mode) => {
+    setPrintMode(mode);
+    setTimeout(() => window.print(), 100);
+  };
 
   return (
     <div>
@@ -511,12 +517,15 @@ const Atenciones = () => {
             <div className="modal-header hide-on-print" style={{position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-color)', borderBottom: '1px solid var(--border-color)'}}>
               <h3>Ficha de Atención #{viewAtencion.id.toString().padStart(4, '0')}</h3>
               <div style={{display: 'flex', gap: '10px'}}>
-                <button className="btn btn-primary" onClick={() => window.print()}>🖨️ Imprimir Ficha</button>
+                <button className="btn btn-secondary" style={{background: 'rgba(255,255,255,0.1)'}} onClick={() => handlePrint('receta')}>🖨️ Imprimir Receta</button>
+                <button className="btn btn-primary" onClick={() => handlePrint('ficha')}>🖨️ Imprimir Ficha</button>
                 <button className="close-btn" onClick={() => setViewAtencion(null)}><X size={24} /></button>
               </div>
             </div>
             
-            <div className="modal-body print-area" style={{padding: '30px', background: 'white', color: 'black'}}>
+            <div className={`modal-body ${printMode === 'ficha' ? 'ficha-print-mode' : 'receta-print-mode'}`} style={{padding: 0}}>
+              {/* Contenedor FICHA */}
+              <div className="print-area ficha-content" style={{padding: '30px', background: 'white', color: 'black'}}>
               <div style={{textAlign: 'center', marginBottom: '30px', borderBottom: '2px solid #333', paddingBottom: '15px'}}>
                 <h1 style={{fontSize: '24px', margin: '0 0 5px 0', color: 'black'}}>MEDGLOBAL</h1>
                 <h2 style={{fontSize: '18px', margin: 0, fontWeight: 'normal', color: '#555'}}>FICHA DE ATENCIÓN / TÓPICO OCUPACIONAL</h2>
@@ -636,11 +645,65 @@ const Atenciones = () => {
               </div>
 
             </div>
+              
+              {/* Contenedor RECETA */}
+              <div className="print-area receta-content print-only" style={{padding: '30px', background: 'white', color: 'black'}}>
+                <div style={{textAlign: 'center', marginBottom: '30px', borderBottom: '2px solid #333', paddingBottom: '15px'}}>
+                  <h1 style={{fontSize: '24px', margin: '0 0 5px 0', color: 'black'}}>MEDGLOBAL</h1>
+                  <h2 style={{fontSize: '18px', margin: 0, fontWeight: 'normal', color: '#555'}}>RECETA MÉDICA OCUPACIONAL</h2>
+                </div>
+
+                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '25px', fontSize: '14px'}}>
+                  <div><strong>N° de Atención:</strong> #{viewAtencion.id.toString().padStart(4, '0')}</div>
+                  <div><strong>Fecha y Hora:</strong> {new Date(viewAtencion.fecha).toLocaleDateString()} {viewAtencion.hora_ingreso || ''}</div>
+                </div>
+
+                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px', marginBottom: '30px'}}>
+                  <div style={{gridColumn: 'span 2'}}><strong>Apellidos y Nombres:</strong> {viewAtencion.trabajador ? `${viewAtencion.trabajador.nombre} ${viewAtencion.trabajador.apellidos}` : '--'}</div>
+                  <div><strong>Empresa:</strong> {viewAtencion.empresa ? viewAtencion.empresa.nombre : '--'}</div>
+                  <div><strong>Cargo:</strong> {viewAtencion.cargo || '--'}</div>
+                </div>
+
+                <h4 style={{borderBottom: '1px solid #ccc', paddingBottom: '5px', color: '#333'}}>MEDICAMENTOS INDICADOS</h4>
+                <div style={{fontSize: '14px', marginBottom: '40px', minHeight: '200px'}}>
+                  {viewAtencion.medicamentos && viewAtencion.medicamentos.length > 0 ? (
+                    <ul style={{marginTop: '15px', paddingLeft: '20px', lineHeight: '2'}}>
+                      {viewAtencion.medicamentos.map((m, i) => (
+                        <li key={i}>
+                          <strong>{m.medicamento?.nombre} {m.medicamento?.presentacion}</strong> 
+                          <span style={{marginLeft: '20px'}}>Cantidad: {m.cantidad} unid.</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p style={{marginTop: '15px'}}>No se recetaron medicamentos.</p>
+                  )}
+                </div>
+
+                <div style={{marginTop: '80px', display: 'flex', justifyContent: 'space-around', textAlign: 'center'}}>
+                  <div>
+                    <div style={{borderBottom: '1px solid black', width: '200px', marginBottom: '5px'}}></div>
+                    <div style={{fontSize: '12px'}}>Firma del Usuario</div>
+                  </div>
+                  <div>
+                    <div style={{borderBottom: '1px solid black', width: '200px', marginBottom: '5px'}}></div>
+                    <div style={{fontSize: '12px'}}>
+                      {viewAtencion.personal_salud ? `Dr(a). ${viewAtencion.personal_salud.apellidos}` : 'Médico Responsable'}<br/>
+                      {viewAtencion.personal_salud?.cmp ? `CMP: ${viewAtencion.personal_salud.cmp}` : ''}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
         </div>
       )}
       
       <style>{`
+        @media screen {
+          .print-only { display: none !important; }
+        }
         @media print {
           body * {
             visibility: hidden;
@@ -661,6 +724,9 @@ const Atenciones = () => {
             box-shadow: none !important;
             border: none !important;
           }
+          .ficha-print-mode .receta-content { display: none !important; }
+          .receta-print-mode .ficha-content { display: none !important; }
+          .receta-print-mode .receta-content { display: block !important; }
         }
       `}</style>
     </div>
