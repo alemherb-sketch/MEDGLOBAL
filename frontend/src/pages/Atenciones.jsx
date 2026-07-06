@@ -36,6 +36,7 @@ const Atenciones = () => {
     diagnostico: '',
     destino: '',
     observaciones: '',
+    tratamiento: '',
     medicamentos: [] // Array of {medicamento_id, cantidad}
   });
 
@@ -121,6 +122,7 @@ const Atenciones = () => {
         diagnostico: atencion.diagnostico || '',
         destino: atencion.destino || '',
         observaciones: atencion.observaciones || '',
+        tratamiento: atencion.tratamiento || '',
         medicamentos: atencion.medicamentos ? atencion.medicamentos.map(m => ({medicamento_id: m.medicamento_id, cantidad: m.cantidad})) : []
       });
     } else {
@@ -130,7 +132,7 @@ const Atenciones = () => {
         descripcion: '', funciones_biologicas: { apetito: '', sed: '', sueno: '', estado_animo: '', orina: '', deposiciones: '' },
         signos_vitales: { presion_arterial: '', frec_cardiaca: '', frec_respiratoria: '', temperatura: '', spo2: '', peso: '', talla: '' },
         examen_fisico: '', examenes_auxiliares: '', codigo_diagnostico: '', diagnostico: '',
-        destino: '', observaciones: '', medicamentos: []
+        destino: '', observaciones: '', tratamiento: '', medicamentos: []
       });
     }
     setIsModalOpen(true);
@@ -178,8 +180,7 @@ const Atenciones = () => {
     setNewAtencion({...newAtencion, medicamentos: newMeds});
   };
 
-  const selectedSistema = sistemas.find(s => s.id === parseInt(newAtencion.sistema_id));
-  const clasificacionesDisponibles = selectedSistema ? selectedSistema.clasificaciones : [];
+  const clasificacionesDisponibles = sistemas.flatMap(s => s.clasificaciones || []);
   
   const filteredAtenciones = atenciones.filter(a => {
     const searchStr = (
@@ -414,7 +415,7 @@ const Atenciones = () => {
 
                   <div className="form-group">
                     <label className="form-label">Sistema Clínico</label>
-                    <select required className="form-control" value={newAtencion.sistema_id} onChange={e => setNewAtencion({...newAtencion, sistema_id: e.target.value, clasificacion_id: ''})}>
+                    <select required className="form-control" value={newAtencion.sistema_id} onChange={e => setNewAtencion({...newAtencion, sistema_id: e.target.value})}>
                       <option value="">Seleccione un sistema...</option>
                       {sistemas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                     </select>
@@ -434,6 +435,11 @@ const Atenciones = () => {
                   <div className="form-group">
                     <label className="form-label">NOMBRE ENFERMEDAD</label>
                     <input className="form-control" value={newAtencion.diagnostico} onChange={e => setNewAtencion({...newAtencion, diagnostico: e.target.value})} />
+                  </div>
+
+                  <div className="form-group" style={{gridColumn: 'span 2'}}>
+                    <label className="form-label">Diagnóstico</label>
+                    <textarea className="form-control" rows="3" value={newAtencion.tratamiento} onChange={e => setNewAtencion({...newAtencion, tratamiento: e.target.value})}></textarea>
                   </div>
                 </div>
 
@@ -608,6 +614,10 @@ const Atenciones = () => {
                 <div><strong>Contingencia:</strong> {viewAtencion.clasificacion?.nombre || '--'}</div>
                 <div><strong>Código:</strong> {viewAtencion.codigo_diagnostico || '--'}</div>
                 <div><strong>Enfermedad:</strong> {viewAtencion.diagnostico || '--'}</div>
+                <div style={{gridColumn: 'span 2'}}>
+                  <strong>Diagnóstico:</strong>
+                  <p style={{marginTop: '5px', whiteSpace: 'pre-wrap', background: '#f9f9f9', padding: '10px', border: '1px solid #eee'}}>{viewAtencion.tratamiento || '--'}</p>
+                </div>
               </div>
 
               <h4 style={{borderBottom: '1px solid #ccc', paddingBottom: '5px', marginTop: '25px', color: '#333'}}>IV. RECETA Y DESTINO</h4>
