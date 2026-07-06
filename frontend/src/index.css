@@ -378,3 +378,71 @@ h3 { font-size: 1.5rem; }
   flex: 1;
   min-width: 200px;
 }
+
+/* Print Styles for Dashboard */
+@media print {
+  @page {
+    size: landscape;
+    margin: 10mm;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  .sidebar, .navbar, .no-print {
+    display: none !important;
+  }
+  
+  .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  .dashboard-container {
+    padding: 0 !important;
+  }
+
+  .print-header {
+    margin-bottom: 20px !important;
+  }
+
+  .print-header h1 {
+    color: black !important;
+    text-shadow: none !important;
+  }
+
+  .glass-panel {
+    background: white !important;
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    color: black !important;
+  }
+
+  .glass-panel h2, .glass-panel h3, .glass-panel p, .form-label {
+    color: black !important;
+  }
+
+  .kpi-card {
+    padding: 10px !important;
+    margin-bottom: 15px !important;
+  }
+  
+  .chart-container {
+    padding: 10px !important;
+    margin-bottom: 15px !important;
+    page-break-inside: avoid;
+  }
+
+  .recharts-text {
+    fill: black !important;
+  }
+
+  .recharts-cartesian-grid-horizontal line, 
+  .recharts-cartesian-grid-vertical line {
+    stroke: #eee !important;
+  }
+}

@@ -5,7 +5,7 @@ import { Search, Plus, Trash2, Edit2, X, ClipboardList, TrendingUp, TrendingDown
 const Medicamentos = () => {
   const [medicamentos, setMedicamentos] = useState([]);
   const [modalType, setModalType] = useState(null); // 'med', 'edit_med', 'kardex'
-  const [newMed, setNewMed] = useState({ id: null, codigo: '', nombre: '', presentacion: '', descripcion: '' });
+  const [newMed, setNewMed] = useState({ id: null, codigo: '', nombre: '', presentacion: '', descripcion: '', costo_unitario: 0.0 });
   const [filters, setFilters] = useState({ search: '' });
   
   const [selectedKardexMed, setSelectedKardexMed] = useState(null);
@@ -57,7 +57,7 @@ const Medicamentos = () => {
   const openModal = (type, data = null) => {
     setModalType(type);
     if (type === 'med') {
-      setNewMed({ id: null, codigo: '', nombre: '', presentacion: '', descripcion: '' });
+      setNewMed({ id: null, codigo: '', nombre: '', presentacion: '', descripcion: '', costo_unitario: 0.0 });
     } else if (type === 'edit_med') {
       setNewMed(data);
     } else if (type === 'kardex') {
@@ -110,6 +110,7 @@ const Medicamentos = () => {
                 <th>Código</th>
                 <th>Nombre</th>
                 <th>Presentación</th>
+                <th>Costo Unit.</th>
                 <th>Stock Actual</th>
                 <th style={{textAlign: 'right'}}>Acciones</th>
               </tr>
@@ -120,6 +121,7 @@ const Medicamentos = () => {
                   <td><span style={{fontWeight: 'bold', color: 'var(--primary-color)'}}>{m.codigo}</span></td>
                   <td>{m.nombre} <br/><span className="text-muted" style={{fontSize: '0.8rem'}}>{m.descripcion}</span></td>
                   <td>{m.presentacion}</td>
+                  <td>S/ {Number(m.costo_unitario || 0).toFixed(2)}</td>
                   <td>
                     <span style={{
                       padding: '4px 8px', 
@@ -142,7 +144,7 @@ const Medicamentos = () => {
               ))}
               {filteredMedicamentos.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="text-center text-muted py-4">No se encontraron medicamentos</td>
+                  <td colSpan="6" className="text-center text-muted py-4">No se encontraron medicamentos</td>
                 </tr>
               )}
             </tbody>
@@ -185,6 +187,10 @@ const Medicamentos = () => {
                     <option value="SOBRE">SOBRE</option>
                     <option value="CAJA">CAJA</option>
                   </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Costo Unitario (S/)</label>
+                  <input type="number" step="0.01" min="0" required className="form-control" value={newMed.costo_unitario || 0} onChange={e => setNewMed({...newMed, costo_unitario: parseFloat(e.target.value) || 0})} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Descripción</label>

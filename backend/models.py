@@ -129,6 +129,7 @@ class Medicamento(Base):
     presentacion = Column(String(100))
     descripcion = Column(Text)
     stock_actual = Column(Integer, default=0)
+    costo_unitario = Column(Float, default=0.0)
 
 class Kardex(Base):
     __tablename__ = "kardex"

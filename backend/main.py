@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List
 
 import models, schemas
@@ -39,6 +40,12 @@ with engine.connect() as conn:
                 conn.execute(text(f"ALTER TABLE atenciones ADD COLUMN {col}"))
         except Exception:
             pass
+            
+    try:
+        with conn.begin():
+            conn.execute(text("ALTER TABLE medicamentos ADD COLUMN costo_unitario FLOAT DEFAULT 0.0"))
+    except Exception:
+        pass
 
 app = FastAPI(title="MEDGLOBAL API")
 
@@ -399,4 +406,61 @@ def get_dashboard_kpis(db: Session = Depends(get_db)):
         "total_trabajadores": trabajadores_count,
         "total_medicamentos": medicamentos_count,
         "medicamentos_stock_bajo": stock_bajo
+    }
+
+@app.get("/dashboard/stats")
+def get_dashboard_stats(db: Session = Depends(get_db)):
+    # 1. Enfermedades más frecuentes
+    top_enfermedades = db.query(models.Atencion.diagnostico, func.count(models.Atencion.id).label('total')) \
+        .filter(models.Atencion.diagnostico != None, models.Atencion.diagnostico != '') \
+        .group_by(models.Atencion.diagnostico) \
+        .order_by(func.count(models.Atencion.id).desc()) \
+        .limit(5).all()
+        
+    enfermedades = [{"name": str(e.diagnostico), "value": int(e.total)} for e in top_enfermedades]
+
+    # 2. Pacientes más atendidos
+    top_pacientes = db.query(models.Trabajador.nombre, models.Trabajador.apellidos, func.count(models.Atencion.id).label('total')) \
+        .join(models.Atencion, models.Trabajador.id == models.Atencion.trabajador_id) \
+        .group_by(models.Trabajador.id) \
+        .order_by(func.count(models.Atencion.id).desc()) \
+        .limit(5).all()
+        
+    pacientes = [{"name": f"{p.nombre} {p.apellidos}", "value": int(p.total)} for p in top_pacientes]
+
+    # 3. Empresas más atendidas
+    top_empresas = db.query(models.Empresa.nombre, func.count(models.Atencion.id).label('total')) \
+        .join(models.Atencion, models.Empresa.id == models.Atencion.empresa_id) \
+        .group_by(models.Empresa.id) \
+        .order_by(func.count(models.Atencion.id).desc()) \
+        .limit(5).all()
+        
+    empresas = [{"name": str(e.nombre), "value": int(e.total)} for e in top_empresas]
+
+    # 4. Medicamentos más usados
+    top_medicamentos = db.query(models.Medicamento.nombre, func.sum(models.AtencionMedicamento.cantidad).label('total')) \
+        .join(models.AtencionMedicamento, models.Medicamento.id == models.AtencionMedicamento.medicamento_id) \
+        .group_by(models.Medicamento.id) \
+        .order_by(func.sum(models.AtencionMedicamento.cantidad).desc()) \
+        .limit(5).all()
+        
+    medicamentos = [{"name": str(m.nombre), "value": int(m.total or 0)} for m in top_medicamentos]
+
+    # 5. Costos por Empresa
+    costos_empresa_query = db.query(models.Empresa.nombre, func.sum(models.AtencionMedicamento.cantidad * models.Medicamento.costo_unitario).label('total_costo')) \
+        .join(models.Atencion, models.Empresa.id == models.Atencion.empresa_id) \
+        .join(models.AtencionMedicamento, models.Atencion.id == models.AtencionMedicamento.atencion_id) \
+        .join(models.Medicamento, models.AtencionMedicamento.medicamento_id == models.Medicamento.id) \
+        .group_by(models.Empresa.id) \
+        .order_by(func.sum(models.AtencionMedicamento.cantidad * models.Medicamento.costo_unitario).desc()) \
+        .limit(10).all()
+        
+    costos = [{"name": str(c.nombre), "value": float(c.total_costo or 0)} for c in costos_empresa_query]
+
+    return {
+        "enfermedades": enfermedades,
+        "pacientes": pacientes,
+        "empresas": empresas,
+        "medicamentos": medicamentos,
+        "costos": costos
     }
