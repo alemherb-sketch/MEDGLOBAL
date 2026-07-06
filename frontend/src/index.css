@@ -445,4 +445,21 @@ h3 { font-size: 1.5rem; }
   .recharts-cartesian-grid-vertical line {
     stroke: #eee !important;
   }
+  
+  body.print-single-chart .kpi-card,
+  body.print-single-chart .print-header {
+    display: none !important;
+  }
+  
+  body.print-single-chart .chart-container {
+    display: none !important;
+  }
+  
+  body.print-single-chart .chart-container.active-print-chart {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    page-break-inside: avoid !important;
+    border: none !important;
+  }
 }

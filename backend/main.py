@@ -409,49 +409,63 @@ def get_dashboard_kpis(db: Session = Depends(get_db)):
     }
 
 @app.get("/dashboard/stats")
-def get_dashboard_stats(db: Session = Depends(get_db)):
+def get_dashboard_stats(fecha_inicio: str = None, fecha_fin: str = None, db: Session = Depends(get_db)):
+    # Helper to apply date filters
+    def apply_date_filter(query):
+        if fecha_inicio:
+            query = query.filter(func.date(models.Atencion.fecha) >= fecha_inicio)
+        if fecha_fin:
+            query = query.filter(func.date(models.Atencion.fecha) <= fecha_fin)
+        return query
+
     # 1. Enfermedades más frecuentes
-    top_enfermedades = db.query(models.Atencion.diagnostico, func.count(models.Atencion.id).label('total')) \
-        .filter(models.Atencion.diagnostico != None, models.Atencion.diagnostico != '') \
-        .group_by(models.Atencion.diagnostico) \
+    q_enf = db.query(models.Atencion.diagnostico, func.count(models.Atencion.id).label('total')) \
+        .filter(models.Atencion.diagnostico != None, models.Atencion.diagnostico != '')
+    q_enf = apply_date_filter(q_enf)
+    top_enfermedades = q_enf.group_by(models.Atencion.diagnostico) \
         .order_by(func.count(models.Atencion.id).desc()) \
         .limit(5).all()
         
     enfermedades = [{"name": str(e.diagnostico), "value": int(e.total)} for e in top_enfermedades]
 
     # 2. Pacientes más atendidos
-    top_pacientes = db.query(models.Trabajador.nombre, models.Trabajador.apellidos, func.count(models.Atencion.id).label('total')) \
-        .join(models.Atencion, models.Trabajador.id == models.Atencion.trabajador_id) \
-        .group_by(models.Trabajador.id) \
+    q_pac = db.query(models.Trabajador.nombre, models.Trabajador.apellidos, func.count(models.Atencion.id).label('total')) \
+        .join(models.Atencion, models.Trabajador.id == models.Atencion.trabajador_id)
+    q_pac = apply_date_filter(q_pac)
+    top_pacientes = q_pac.group_by(models.Trabajador.id) \
         .order_by(func.count(models.Atencion.id).desc()) \
         .limit(5).all()
         
     pacientes = [{"name": f"{p.nombre} {p.apellidos}", "value": int(p.total)} for p in top_pacientes]
 
     # 3. Empresas más atendidas
-    top_empresas = db.query(models.Empresa.nombre, func.count(models.Atencion.id).label('total')) \
-        .join(models.Atencion, models.Empresa.id == models.Atencion.empresa_id) \
-        .group_by(models.Empresa.id) \
+    q_emp = db.query(models.Empresa.nombre, func.count(models.Atencion.id).label('total')) \
+        .join(models.Atencion, models.Empresa.id == models.Atencion.empresa_id)
+    q_emp = apply_date_filter(q_emp)
+    top_empresas = q_emp.group_by(models.Empresa.id) \
         .order_by(func.count(models.Atencion.id).desc()) \
         .limit(5).all()
         
     empresas = [{"name": str(e.nombre), "value": int(e.total)} for e in top_empresas]
 
     # 4. Medicamentos más usados
-    top_medicamentos = db.query(models.Medicamento.nombre, func.sum(models.AtencionMedicamento.cantidad).label('total')) \
+    q_med = db.query(models.Medicamento.nombre, func.sum(models.AtencionMedicamento.cantidad).label('total')) \
         .join(models.AtencionMedicamento, models.Medicamento.id == models.AtencionMedicamento.medicamento_id) \
-        .group_by(models.Medicamento.id) \
+        .join(models.Atencion, models.Atencion.id == models.AtencionMedicamento.atencion_id)
+    q_med = apply_date_filter(q_med)
+    top_medicamentos = q_med.group_by(models.Medicamento.id) \
         .order_by(func.sum(models.AtencionMedicamento.cantidad).desc()) \
         .limit(5).all()
         
     medicamentos = [{"name": str(m.nombre), "value": int(m.total or 0)} for m in top_medicamentos]
 
     # 5. Costos por Empresa
-    costos_empresa_query = db.query(models.Empresa.nombre, func.sum(models.AtencionMedicamento.cantidad * models.Medicamento.costo_unitario).label('total_costo')) \
+    q_costos = db.query(models.Empresa.nombre, func.sum(models.AtencionMedicamento.cantidad * models.Medicamento.costo_unitario).label('total_costo')) \
         .join(models.Atencion, models.Empresa.id == models.Atencion.empresa_id) \
         .join(models.AtencionMedicamento, models.Atencion.id == models.AtencionMedicamento.atencion_id) \
-        .join(models.Medicamento, models.AtencionMedicamento.medicamento_id == models.Medicamento.id) \
-        .group_by(models.Empresa.id) \
+        .join(models.Medicamento, models.AtencionMedicamento.medicamento_id == models.Medicamento.id)
+    q_costos = apply_date_filter(q_costos)
+    costos_empresa_query = q_costos.group_by(models.Empresa.id) \
         .order_by(func.sum(models.AtencionMedicamento.cantidad * models.Medicamento.costo_unitario).desc()) \
         .limit(10).all()
         

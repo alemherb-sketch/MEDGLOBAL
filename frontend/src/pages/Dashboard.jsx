@@ -21,20 +21,38 @@ const Dashboard = () => {
     costos: []
   });
 
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
   useEffect(() => {
     fetch(API_URL + '/dashboard/kpis')
       .then(res => res.json())
       .then(data => setKpis(data))
       .catch(err => console.error(err));
+  }, []);
+
+  useEffect(() => {
+    let url = API_URL + '/dashboard/stats?';
+    if (startDate) url += `fecha_inicio=${startDate}&`;
+    if (endDate) url += `fecha_fin=${endDate}`;
       
-    fetch(API_URL + '/dashboard/stats')
+    fetch(url)
       .then(res => res.json())
       .then(data => setStats(data))
       .catch(err => console.error(err));
-  }, []);
+  }, [startDate, endDate]);
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handlePrintChart = (chartId) => {
+    document.body.classList.add('print-single-chart');
+    const chart = document.getElementById(chartId);
+    if (chart) chart.classList.add('active-print-chart');
+    window.print();
+    document.body.classList.remove('print-single-chart');
+    if (chart) chart.classList.remove('active-print-chart');
   };
 
   return (
@@ -49,9 +67,17 @@ const Dashboard = () => {
             <p className="text-muted" style={{margin: 0, fontSize: '1.1rem'}}>Visión general y Estadísticas</p>
           </div>
         </div>
-        <button className="btn btn-primary no-print" onClick={handlePrint} style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-          <Printer size={18} /> Exportar PDF
-        </button>
+        <div className="flex items-center gap-4 no-print">
+          <div style={{display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--panel-bg)', padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--border-color)'}}>
+            <span style={{fontSize: '0.9rem', color: 'var(--text-muted)'}}>Fechas:</span>
+            <input type="date" className="form-control" style={{padding: '4px 8px', minHeight: 'auto'}} value={startDate} onChange={e => setStartDate(e.target.value)} />
+            <span style={{color: 'var(--text-muted)'}}>-</span>
+            <input type="date" className="form-control" style={{padding: '4px 8px', minHeight: 'auto'}} value={endDate} onChange={e => setEndDate(e.target.value)} />
+          </div>
+          <button className="btn btn-primary" onClick={handlePrint} style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+            <Printer size={18} /> Todo a PDF
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 mb-6">
@@ -106,8 +132,13 @@ const Dashboard = () => {
       
       <div className="grid grid-cols-2 gap-6 print-grid">
         {/* Enfermedades más frecuentes */}
-        <div className="glass-panel chart-container">
-          <h3 className="mb-4" style={{fontSize: '1.2rem', color: 'var(--text-color)'}}>Top Enfermedades Más Atendidas</h3>
+        <div id="chart-enf" className="glass-panel chart-container">
+          <div className="flex items-center justify-between mb-4">
+            <h3 style={{fontSize: '1.2rem', margin: 0, color: 'var(--text-color)'}}>Top Enfermedades Más Atendidas</h3>
+            <button className="no-print action-btn view" onClick={() => handlePrintChart('chart-enf')} title="Imprimir este gráfico">
+              <Printer size={18} color="var(--primary-color)" />
+            </button>
+          </div>
           <div style={{width: '100%', height: 300}}>
             <ResponsiveContainer>
               <BarChart data={stats.enfermedades} layout="vertical" margin={{top: 5, right: 30, left: 20, bottom: 5}}>
@@ -122,8 +153,13 @@ const Dashboard = () => {
         </div>
 
         {/* Pacientes más atendidos */}
-        <div className="glass-panel chart-container">
-          <h3 className="mb-4" style={{fontSize: '1.2rem', color: 'var(--text-color)'}}>Pacientes Más Atendidos</h3>
+        <div id="chart-pac" className="glass-panel chart-container">
+          <div className="flex items-center justify-between mb-4">
+            <h3 style={{fontSize: '1.2rem', margin: 0, color: 'var(--text-color)'}}>Pacientes Más Atendidos</h3>
+            <button className="no-print action-btn view" onClick={() => handlePrintChart('chart-pac')} title="Imprimir este gráfico">
+              <Printer size={18} color="var(--secondary-color)" />
+            </button>
+          </div>
           <div style={{width: '100%', height: 300}}>
             <ResponsiveContainer>
               <BarChart data={stats.pacientes} margin={{top: 5, right: 30, left: 0, bottom: 5}}>
@@ -138,8 +174,13 @@ const Dashboard = () => {
         </div>
 
         {/* Empresas más atendidas */}
-        <div className="glass-panel chart-container">
-          <h3 className="mb-4" style={{fontSize: '1.2rem', color: 'var(--text-color)'}}>Atenciones por Empresa</h3>
+        <div id="chart-emp" className="glass-panel chart-container">
+          <div className="flex items-center justify-between mb-4">
+            <h3 style={{fontSize: '1.2rem', margin: 0, color: 'var(--text-color)'}}>Atenciones por Empresa</h3>
+            <button className="no-print action-btn view" onClick={() => handlePrintChart('chart-emp')} title="Imprimir este gráfico">
+              <Printer size={18} color="var(--primary-color)" />
+            </button>
+          </div>
           <div style={{width: '100%', height: 300}}>
             <ResponsiveContainer>
               <PieChart>
@@ -156,8 +197,13 @@ const Dashboard = () => {
         </div>
 
         {/* Medicamentos más usados */}
-        <div className="glass-panel chart-container">
-          <h3 className="mb-4" style={{fontSize: '1.2rem', color: 'var(--text-color)'}}>Medicamentos Más Usados</h3>
+        <div id="chart-med" className="glass-panel chart-container">
+          <div className="flex items-center justify-between mb-4">
+            <h3 style={{fontSize: '1.2rem', margin: 0, color: 'var(--text-color)'}}>Medicamentos Más Usados</h3>
+            <button className="no-print action-btn view" onClick={() => handlePrintChart('chart-med')} title="Imprimir este gráfico">
+              <Printer size={18} color="var(--success-color)" />
+            </button>
+          </div>
           <div style={{width: '100%', height: 300}}>
             <ResponsiveContainer>
               <BarChart data={stats.medicamentos} margin={{top: 5, right: 30, left: 0, bottom: 5}}>
@@ -172,8 +218,13 @@ const Dashboard = () => {
         </div>
 
         {/* Costos por Empresa */}
-        <div className="glass-panel chart-container" style={{gridColumn: 'span 2'}}>
-          <h3 className="mb-4" style={{fontSize: '1.2rem', color: 'var(--text-color)'}}>Costos Totales en Medicamentos por Empresa</h3>
+        <div id="chart-costos" className="glass-panel chart-container" style={{gridColumn: 'span 2'}}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 style={{fontSize: '1.2rem', margin: 0, color: 'var(--text-color)'}}>Costos Totales en Medicamentos por Empresa</h3>
+            <button className="no-print action-btn view" onClick={() => handlePrintChart('chart-costos')} title="Imprimir este gráfico">
+              <Printer size={18} color="#f43f5e" />
+            </button>
+          </div>
           <div style={{width: '100%', height: 350}}>
             <ResponsiveContainer>
               <BarChart data={stats.costos} margin={{top: 5, right: 30, left: 20, bottom: 5}}>
