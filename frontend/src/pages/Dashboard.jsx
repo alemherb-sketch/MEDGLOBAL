@@ -209,7 +209,7 @@ const generateReport = ({ title, subtitle, dateRange, columns, rows, chartSvgHtm
 
     <div class="report-header">
       <div class="report-brand">
-        <img src="/logo.png" alt="MEDGLOBAL" />
+        <img src="${window.location.origin}/logo.png" alt="MEDGLOBAL" />
         <div class="report-brand-text">
           <h2>MEDGLOBAL</h2>
           <p>Sistema de Gestión de Salud Ocupacional</p>
@@ -334,11 +334,35 @@ const Dashboard = () => {
   const captureChartSvg = (chartId) => {
     const card = document.getElementById(chartId);
     if (!card) return '';
-    const svg = card.querySelector('svg');
+    const svg = card.querySelector('.recharts-wrapper svg');
     if (!svg) return '';
+    
+    // Deep clone and inline all computed styles
     const clone = svg.cloneNode(true);
+    const origElements = svg.querySelectorAll('*');
+    const cloneElements = clone.querySelectorAll('*');
+    
+    origElements.forEach((orig, i) => {
+      const cs = window.getComputedStyle(orig);
+      const target = cloneElements[i];
+      if (!target) return;
+      // Inline key visual properties
+      ['fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'opacity',
+       'font-size', 'font-family', 'font-weight', 'text-anchor',
+       'dominant-baseline', 'color'].forEach(prop => {
+        const val = cs.getPropertyValue(prop);
+        if (val && val !== 'none' && val !== 'normal' && val !== '') {
+          target.style.setProperty(prop, val);
+        }
+      });
+    });
+    
+    clone.removeAttribute('class');
     clone.setAttribute('width', '700');
-    clone.setAttribute('height', '320');
+    clone.setAttribute('height', '300');
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.style.background = 'transparent';
+    
     return clone.outerHTML;
   };
 
