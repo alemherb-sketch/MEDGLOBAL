@@ -478,3 +478,182 @@ def get_dashboard_stats(fecha_inicio: str = None, fecha_fin: str = None, db: Ses
         "medicamentos": medicamentos,
         "costos": costos
     }
+
+# ── Detailed Report Data ──
+@app.get("/dashboard/report/{report_type}")
+def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str = None, db: Session = Depends(get_db)):
+    def apply_date_filter(query):
+        if fecha_inicio:
+            query = query.filter(func.date(models.Atencion.fecha) >= fecha_inicio)
+        if fecha_fin:
+            query = query.filter(func.date(models.Atencion.fecha) <= fecha_fin)
+        return query
+
+    if report_type == "enfermedades":
+        q = db.query(models.Atencion).filter(
+            models.Atencion.diagnostico != None, models.Atencion.diagnostico != ''
+        )
+        q = apply_date_filter(q)
+        atenciones = q.all()
+        
+        # Group by diagnostico
+        from collections import defaultdict
+        grouped = defaultdict(list)
+        for a in atenciones:
+            trab = a.trabajador
+            emp = a.empresa
+            grouped[a.diagnostico].append({
+                "fecha": a.fecha.strftime("%d/%m/%Y") if a.fecha else "",
+                "paciente": f"{trab.nombre} {trab.apellidos}" if trab else "—",
+                "dni": trab.dni if trab else "—",
+                "empresa": emp.nombre if emp else "—",
+                "area": trab.area or "—" if trab else "—",
+            })
+        
+        result = []
+        for diag, items in sorted(grouped.items(), key=lambda x: len(x[1]), reverse=True):
+            result.append({"name": diag, "total": len(items), "details": items})
+        return result[:10]
+
+    elif report_type == "pacientes":
+        q = db.query(models.Atencion)
+        q = apply_date_filter(q)
+        atenciones = q.all()
+
+        from collections import defaultdict
+        grouped = defaultdict(list)
+        for a in atenciones:
+            trab = a.trabajador
+            emp = a.empresa
+            if not trab:
+                continue
+            key = trab.id
+            grouped[key].append({
+                "fecha": a.fecha.strftime("%d/%m/%Y") if a.fecha else "",
+                "diagnostico": a.diagnostico or "—",
+                "empresa": emp.nombre if emp else "—",
+                "destino": a.destino or "—",
+                "_nombre": f"{trab.nombre} {trab.apellidos}",
+                "_dni": trab.dni,
+                "_cargo": trab.cargo or "—",
+                "_area": trab.area or "—",
+            })
+
+        result = []
+        for tid, items in sorted(grouped.items(), key=lambda x: len(x[1]), reverse=True):
+            first = items[0]
+            result.append({
+                "name": first["_nombre"],
+                "dni": first["_dni"],
+                "cargo": first["_cargo"],
+                "area": first["_area"],
+                "total": len(items),
+                "details": [{"fecha": i["fecha"], "diagnostico": i["diagnostico"], "empresa": i["empresa"], "destino": i["destino"]} for i in items]
+            })
+        return result[:10]
+
+    elif report_type == "empresas":
+        q = db.query(models.Atencion).filter(models.Atencion.empresa_id != None)
+        q = apply_date_filter(q)
+        atenciones = q.all()
+
+        from collections import defaultdict
+        grouped = defaultdict(list)
+        for a in atenciones:
+            emp = a.empresa
+            trab = a.trabajador
+            if not emp:
+                continue
+            grouped[emp.id].append({
+                "fecha": a.fecha.strftime("%d/%m/%Y") if a.fecha else "",
+                "paciente": f"{trab.nombre} {trab.apellidos}" if trab else "—",
+                "diagnostico": a.diagnostico or "—",
+                "destino": a.destino or "—",
+                "_empresa": emp.nombre,
+                "_ruc": emp.ruc,
+            })
+
+        result = []
+        for eid, items in sorted(grouped.items(), key=lambda x: len(x[1]), reverse=True):
+            first = items[0]
+            result.append({
+                "name": first["_empresa"],
+                "ruc": first["_ruc"],
+                "total": len(items),
+                "details": [{"fecha": i["fecha"], "paciente": i["paciente"], "diagnostico": i["diagnostico"], "destino": i["destino"]} for i in items]
+            })
+        return result[:10]
+
+    elif report_type == "medicamentos":
+        q = db.query(
+            models.Medicamento.nombre,
+            models.Medicamento.presentacion,
+            models.Medicamento.costo_unitario,
+            models.Medicamento.stock_actual,
+            func.sum(models.AtencionMedicamento.cantidad).label('total')
+        ).join(models.AtencionMedicamento, models.Medicamento.id == models.AtencionMedicamento.medicamento_id) \
+         .join(models.Atencion, models.Atencion.id == models.AtencionMedicamento.atencion_id)
+        q = apply_date_filter(q)
+        rows = q.group_by(models.Medicamento.id).order_by(func.sum(models.AtencionMedicamento.cantidad).desc()).limit(10).all()
+        
+        result = []
+        for r in rows:
+            result.append({
+                "name": str(r.nombre),
+                "presentacion": str(r.presentacion or "—"),
+                "costo_unitario": float(r.costo_unitario or 0),
+                "stock_actual": int(r.stock_actual or 0),
+                "total": int(r.total or 0),
+                "costo_total": round(float(r.costo_unitario or 0) * int(r.total or 0), 2)
+            })
+        return result
+
+    elif report_type == "costos":
+        q = db.query(models.Atencion).filter(models.Atencion.empresa_id != None)
+        q = apply_date_filter(q)
+        atenciones = q.all()
+
+        from collections import defaultdict
+        empresas_data = defaultdict(lambda: {"nombre": "", "ruc": "", "meds": defaultdict(lambda: {"nombre": "", "presentacion": "", "cantidad": 0, "costo_unitario": 0.0})})
+        
+        for a in atenciones:
+            emp = a.empresa
+            if not emp:
+                continue
+            ed = empresas_data[emp.id]
+            ed["nombre"] = emp.nombre
+            ed["ruc"] = emp.ruc or "—"
+            for am in a.medicamentos:
+                med = am.medicamento
+                if med:
+                    md = ed["meds"][med.id]
+                    md["nombre"] = med.nombre
+                    md["presentacion"] = med.presentacion or ""
+                    md["cantidad"] += am.cantidad
+                    md["costo_unitario"] = float(med.costo_unitario or 0)
+
+        result = []
+        for eid, ed in empresas_data.items():
+            details = []
+            total_cost = 0
+            for mid, md in ed["meds"].items():
+                subtotal = md["cantidad"] * md["costo_unitario"]
+                total_cost += subtotal
+                details.append({
+                    "medicamento": md["nombre"],
+                    "presentacion": md["presentacion"],
+                    "cantidad": md["cantidad"],
+                    "costo_unitario": md["costo_unitario"],
+                    "subtotal": round(subtotal, 2)
+                })
+            result.append({
+                "name": ed["nombre"],
+                "ruc": ed["ruc"],
+                "total": round(total_cost, 2),
+                "details": sorted(details, key=lambda x: x["subtotal"], reverse=True)
+            })
+        
+        result.sort(key=lambda x: x["total"], reverse=True)
+        return result[:10]
+
+    return []

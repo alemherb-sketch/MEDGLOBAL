@@ -13,18 +13,9 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
    REPORT GENERATOR — opens a new window with a
    professional formatted report ready for PDF print
    ══════════════════════════════════════════════════ */
-const generateReport = ({ title, subtitle, dateRange, columns, rows, chartSvgHtml, summaryNote }) => {
+const generateReport = ({ title, subtitle, dateRange, bodyHtml, summaryNote, chartSvgHtml }) => {
   const now = new Date();
   const dateStr = format(now, "dd 'de' MMMM 'de' yyyy, HH:mm", { locale: es });
-
-  const tableRows = rows.map((row, i) => `
-    <tr>
-      <td style="text-align:center; color:#64748b; font-weight:600;">${i + 1}</td>
-      ${row.map((cell, ci) => `<td style="${ci === row.length - 1 ? 'text-align:right; font-weight:700;' : ''}">${cell}</td>`).join('')}
-    </tr>
-  `).join('');
-
-  const totalValue = rows.reduce((acc, r) => acc + (parseFloat(r[r.length - 1].replace(/[^0-9.]/g, '')) || 0), 0);
 
   const html = `<!DOCTYPE html>
 <html lang="es">
@@ -38,166 +29,85 @@ const generateReport = ({ title, subtitle, dateRange, columns, rows, chartSvgHtm
       font-family: 'Inter', 'Segoe UI', sans-serif;
       color: #1e293b;
       background: #fff;
-      padding: 0;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
-    .page {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 40px;
-    }
-    /* Header */
+    .page { max-width: 850px; margin: 0 auto; padding: 40px; }
     .report-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      border-bottom: 3px solid #0ea5e9;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
+      display: flex; align-items: flex-start; justify-content: space-between;
+      border-bottom: 3px solid #0ea5e9; padding-bottom: 16px; margin-bottom: 24px;
     }
-    .report-brand {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-    .report-brand img {
-      height: 50px;
-    }
-    .report-brand-text h2 {
-      font-size: 1.4rem;
-      font-weight: 700;
-      color: #0f172a;
-      margin: 0;
-    }
-    .report-brand-text p {
-      font-size: 0.8rem;
-      color: #64748b;
-      margin: 2px 0 0;
-    }
-    .report-meta {
-      text-align: right;
-      font-size: 0.78rem;
-      color: #64748b;
-      line-height: 1.6;
-    }
-    .report-meta strong {
-      color: #334155;
-    }
-    /* Title bar */
+    .report-brand { display: flex; align-items: center; gap: 14px; }
+    .report-brand img { height: 50px; }
+    .report-brand-text h2 { font-size: 1.4rem; font-weight: 700; color: #0f172a; margin: 0; }
+    .report-brand-text p { font-size: 0.8rem; color: #64748b; margin: 2px 0 0; }
+    .report-meta { text-align: right; font-size: 0.78rem; color: #64748b; line-height: 1.6; }
+    .report-meta strong { color: #334155; }
     .report-title-bar {
       background: linear-gradient(135deg, #0f172a, #1e293b);
-      color: #fff;
-      padding: 14px 20px;
-      border-radius: 8px;
-      margin-bottom: 24px;
+      color: #fff; padding: 14px 20px; border-radius: 8px; margin-bottom: 24px;
     }
-    .report-title-bar h1 {
-      font-size: 1.15rem;
-      font-weight: 600;
-      margin: 0;
+    .report-title-bar h1 { font-size: 1.15rem; font-weight: 600; margin: 0; }
+    .report-title-bar p { font-size: 0.8rem; opacity: 0.7; margin: 4px 0 0; }
+    .report-chart { margin-bottom: 28px; text-align: center; }
+    .report-chart svg { max-width: 100%; height: auto; }
+    /* Main table */
+    .rtbl { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 0.85rem; }
+    .rtbl th {
+      background: #f1f5f9; color: #475569; font-weight: 600;
+      text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em;
+      padding: 8px 12px; text-align: left; border-bottom: 2px solid #e2e8f0;
     }
-    .report-title-bar p {
-      font-size: 0.8rem;
-      opacity: 0.7;
-      margin: 4px 0 0;
+    .rtbl td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+    .rtbl tr:nth-child(even) > td { background: #f8fafc; }
+    .rtbl .num { text-align: center; color: #64748b; font-weight: 600; width: 35px; }
+    .rtbl .val { text-align: right; font-weight: 700; }
+    .rtbl tfoot td { font-weight: 700; border-top: 2px solid #e2e8f0; background: #f1f5f9; color: #0f172a; }
+    /* Sub-detail table */
+    .detail-tbl { width: 100%; border-collapse: collapse; margin: 6px 0 0; font-size: 0.78rem; }
+    .detail-tbl th {
+      background: #eef2ff; color: #6366f1; font-weight: 600; font-size: 0.68rem;
+      text-transform: uppercase; letter-spacing: 0.04em; padding: 5px 8px;
+      text-align: left; border-bottom: 1px solid #e0e7ff;
     }
-    /* Chart area */
-    .report-chart {
-      margin-bottom: 28px;
-      text-align: center;
+    .detail-tbl td { padding: 4px 8px; border-bottom: 1px solid #f1f5f9; color: #475569; }
+    .detail-tbl tr:nth-child(even) td { background: #fafbff; }
+    .section-block { margin-bottom: 24px; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+    .section-title {
+      background: linear-gradient(135deg, #1e293b, #334155);
+      color: #fff; padding: 10px 16px; font-weight: 600; font-size: 0.9rem;
+      display: flex; justify-content: space-between; align-items: center;
     }
-    .report-chart svg {
-      max-width: 100%;
-      height: auto;
+    .section-title .badge {
+      background: rgba(255,255,255,0.15); padding: 2px 10px; border-radius: 12px; font-size: 0.78rem;
     }
-    /* Table */
-    .report-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 20px;
-      font-size: 0.88rem;
-    }
-    .report-table thead th {
-      background: #f1f5f9;
-      color: #475569;
-      font-weight: 600;
-      text-transform: uppercase;
-      font-size: 0.72rem;
-      letter-spacing: 0.05em;
-      padding: 10px 14px;
-      text-align: left;
-      border-bottom: 2px solid #e2e8f0;
-    }
-    .report-table thead th:first-child {
-      text-align: center;
-      width: 40px;
-    }
-    .report-table tbody td {
-      padding: 10px 14px;
-      border-bottom: 1px solid #f1f5f9;
-      color: #334155;
-    }
-    .report-table tbody tr:nth-child(even) {
-      background: #f8fafc;
-    }
-    .report-table tbody tr:hover {
-      background: #eff6ff;
-    }
-    .report-table tfoot td {
-      padding: 10px 14px;
-      font-weight: 700;
-      border-top: 2px solid #e2e8f0;
-      background: #f1f5f9;
-      color: #0f172a;
-    }
+    .section-body { padding: 12px 16px; }
+    .section-meta { display: flex; gap: 20px; margin-bottom: 8px; font-size: 0.78rem; color: #64748b; }
+    .section-meta strong { color: #334155; }
     /* Summary */
     .report-summary {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 14px 18px;
-      font-size: 0.82rem;
-      color: #475569;
-      margin-bottom: 24px;
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 14px 18px; font-size: 0.82rem; color: #475569; margin: 20px 0;
     }
     .report-summary strong { color: #1e293b; }
-    /* Footer */
     .report-footer {
-      border-top: 1px solid #e2e8f0;
-      padding-top: 12px;
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.72rem;
-      color: #94a3b8;
+      border-top: 1px solid #e2e8f0; padding-top: 12px;
+      display: flex; justify-content: space-between; font-size: 0.72rem; color: #94a3b8;
     }
-    /* Print */
     @media print {
       body { padding: 0; }
       .page { padding: 20px; max-width: none; }
       .no-print { display: none !important; }
+      .section-block { break-inside: avoid; }
     }
-    .print-actions {
-      text-align: center;
-      margin-bottom: 24px;
-    }
+    .print-actions { text-align: center; margin-bottom: 24px; }
     .print-actions button {
-      background: linear-gradient(135deg, #0ea5e9, #8b5cf6);
-      color: #fff;
-      border: none;
-      padding: 10px 28px;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-weight: 500;
-      cursor: pointer;
-      font-family: inherit;
-      margin: 0 6px;
+      background: linear-gradient(135deg, #0ea5e9, #8b5cf6); color: #fff;
+      border: none; padding: 10px 28px; border-radius: 8px;
+      font-size: 0.95rem; font-weight: 500; cursor: pointer; font-family: inherit; margin: 0 6px;
     }
     .print-actions button:hover { opacity: 0.9; }
-    .print-actions button.secondary {
-      background: #e2e8f0;
-      color: #475569;
-    }
+    .print-actions button.secondary { background: #e2e8f0; color: #475569; }
   </style>
 </head>
 <body>
@@ -206,7 +116,6 @@ const generateReport = ({ title, subtitle, dateRange, columns, rows, chartSvgHtm
       <button onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
       <button class="secondary" onclick="window.close()">Cerrar</button>
     </div>
-
     <div class="report-header">
       <div class="report-brand">
         <img src="${window.location.origin}/logo.png" alt="MEDGLOBAL" />
@@ -216,42 +125,17 @@ const generateReport = ({ title, subtitle, dateRange, columns, rows, chartSvgHtm
         </div>
       </div>
       <div class="report-meta">
-        <strong>Fecha de emisión:</strong><br/>
-        ${dateStr}<br/><br/>
-        <strong>Periodo:</strong><br/>
-        ${dateRange}
+        <strong>Fecha de emisión:</strong><br/>${dateStr}<br/><br/>
+        <strong>Periodo:</strong><br/>${dateRange}
       </div>
     </div>
-
     <div class="report-title-bar">
       <h1>${title}</h1>
       ${subtitle ? `<p>${subtitle}</p>` : ''}
     </div>
-
     ${chartSvgHtml ? `<div class="report-chart">${chartSvgHtml}</div>` : ''}
-
-    <table class="report-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          ${columns.map(c => `<th${c.align ? ` style="text-align:${c.align}"` : ''}>${c.label}</th>`).join('')}
-        </tr>
-      </thead>
-      <tbody>
-        ${tableRows}
-      </tbody>
-      ${rows.length > 0 ? `
-      <tfoot>
-        <tr>
-          <td></td>
-          <td style="text-align:right;" colspan="${columns.length - 1}">TOTAL</td>
-          <td style="text-align:right;">${columns[columns.length - 1].isCurrency ? 'S/ ' + totalValue.toFixed(2) : totalValue}</td>
-        </tr>
-      </tfoot>` : ''}
-    </table>
-
+    ${bodyHtml}
     ${summaryNote ? `<div class="report-summary">${summaryNote}</div>` : ''}
-
     <div class="report-footer">
       <span>MEDGLOBAL — Reporte generado automáticamente</span>
       <span>Página 1 de 1</span>
@@ -366,55 +250,180 @@ const Dashboard = () => {
     return clone.outerHTML;
   };
 
-  const handlePrintReport = (chartId) => {
+  const handlePrintReport = async (chartId) => {
     const dateRange = getDateRangeLabel();
     const chartSvg = captureChartSvg(chartId);
 
-    const reportConfigs = {
-      'chart-enf': {
-        title: 'Reporte de Enfermedades Más Atendidas',
-        subtitle: 'Ranking de diagnósticos con mayor frecuencia de atención médica',
-        columns: [{ label: 'Enfermedad / Diagnóstico' }, { label: 'Nº Atenciones', align: 'right' }],
-        rows: stats.enfermedades.map(e => [e.name, String(e.value)]),
-        summaryNote: `<strong>Análisis:</strong> Este reporte muestra las ${stats.enfermedades.length} enfermedades que concentran la mayor cantidad de atenciones médicas en el periodo seleccionado. Utilice esta información para planificar campañas de prevención y abastecimiento de medicamentos.`
-      },
-      'chart-pac': {
-        title: 'Reporte de Pacientes Más Atendidos',
-        subtitle: 'Trabajadores con mayor frecuencia de visitas al tópico médico',
-        columns: [{ label: 'Nombre del Paciente' }, { label: 'Nº Atenciones', align: 'right' }],
-        rows: stats.pacientes.map(p => [p.name, String(p.value)]),
-        summaryNote: `<strong>Análisis:</strong> Se identificaron ${stats.pacientes.length} pacientes con alta recurrencia de atenciones. Se recomienda evaluar estos casos para seguimiento preventivo o derivación especializada.`
-      },
-      'chart-emp': {
-        title: 'Reporte de Atenciones por Empresa',
-        subtitle: 'Distribución de atenciones médicas agrupadas por empresa contratante',
-        columns: [{ label: 'Empresa' }, { label: 'Nº Atenciones', align: 'right' }],
-        rows: stats.empresas.map(e => [e.name, String(e.value)]),
-        summaryNote: `<strong>Análisis:</strong> Este reporte permite comparar la demanda de servicios médicos entre las diferentes empresas. Las empresas con mayor número de atenciones podrían requerir revisiones de sus condiciones laborales.`
-      },
-      'chart-med': {
-        title: 'Reporte de Medicamentos Más Usados',
-        subtitle: 'Medicamentos con mayor volumen de dispensación en el periodo',
-        columns: [{ label: 'Medicamento' }, { label: 'Unidades Dispensadas', align: 'right' }],
-        rows: stats.medicamentos.map(m => [m.name, String(m.value)]),
-        summaryNote: `<strong>Análisis:</strong> Este ranking de consumo de medicamentos permite optimizar la gestión de inventario y anticipar necesidades de reposición de stock en la farmacia.`
-      },
-      'chart-costos': {
-        title: 'Reporte de Costos Totales por Empresa',
-        subtitle: 'Gasto acumulado en medicamentos desglosado por empresa contratante',
-        columns: [{ label: 'Empresa' }, { label: 'Costo Total (S/)', align: 'right', isCurrency: true }],
-        rows: stats.costos.map(c => [c.name, 'S/ ' + c.value.toFixed(2)]),
-        summaryNote: `<strong>Análisis:</strong> El costo total refleja la suma de medicamentos dispensados (precio unitario × cantidad) para cada empresa. Este informe es clave para la facturación y control de gastos por convenio.`
-      }
+    // Map chartId to report type
+    const typeMap = {
+      'chart-enf': 'enfermedades',
+      'chart-pac': 'pacientes',
+      'chart-emp': 'empresas',
+      'chart-med': 'medicamentos',
+      'chart-costos': 'costos'
+    };
+    const reportType = typeMap[chartId];
+    if (!reportType) return;
+
+    // Fetch detailed data
+    let url = `${API_URL}/dashboard/report/${reportType}?`;
+    if (startDate) url += `fecha_inicio=${format(startDate, 'yyyy-MM-dd')}&`;
+    if (endDate) url += `fecha_fin=${format(endDate, 'yyyy-MM-dd')}`;
+
+    let detailData = [];
+    try {
+      const res = await fetch(url);
+      detailData = await res.json();
+    } catch (err) {
+      console.error(err);
+    }
+
+    // Build rich HTML body per report type
+    let bodyHtml = '';
+    let summaryNote = '';
+
+    if (reportType === 'enfermedades') {
+      const totalAten = detailData.reduce((s, d) => s + d.total, 0);
+      bodyHtml = detailData.map((item, i) => `
+        <div class="section-block">
+          <div class="section-title">
+            <span>${i + 1}. ${item.name}</span>
+            <span class="badge">${item.total} atención${item.total > 1 ? 'es' : ''}</span>
+          </div>
+          <div class="section-body">
+            <table class="detail-tbl">
+              <thead><tr><th>Fecha</th><th>Paciente</th><th>DNI</th><th>Empresa</th><th>Área</th></tr></thead>
+              <tbody>
+                ${item.details.map(d => `<tr><td>${d.fecha}</td><td>${d.paciente}</td><td>${d.dni}</td><td>${d.empresa}</td><td>${d.area}</td></tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `).join('');
+      summaryNote = `<strong>Resumen:</strong> Se registraron <strong>${totalAten}</strong> atenciones distribuidas en <strong>${detailData.length}</strong> diagnósticos distintos durante el periodo seleccionado.`;
+    }
+
+    else if (reportType === 'pacientes') {
+      const totalAten = detailData.reduce((s, d) => s + d.total, 0);
+      bodyHtml = detailData.map((item, i) => `
+        <div class="section-block">
+          <div class="section-title">
+            <span>${i + 1}. ${item.name}</span>
+            <span class="badge">${item.total} atención${item.total > 1 ? 'es' : ''}</span>
+          </div>
+          <div class="section-body">
+            <div class="section-meta">
+              <span><strong>DNI:</strong> ${item.dni}</span>
+              <span><strong>Cargo:</strong> ${item.cargo}</span>
+              <span><strong>Área:</strong> ${item.area}</span>
+            </div>
+            <table class="detail-tbl">
+              <thead><tr><th>Fecha</th><th>Diagnóstico</th><th>Empresa</th><th>Destino</th></tr></thead>
+              <tbody>
+                ${item.details.map(d => `<tr><td>${d.fecha}</td><td>${d.diagnostico}</td><td>${d.empresa}</td><td>${d.destino}</td></tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `).join('');
+      summaryNote = `<strong>Resumen:</strong> Los <strong>${detailData.length}</strong> pacientes más atendidos acumulan un total de <strong>${totalAten}</strong> atenciones. Se recomienda evaluar seguimiento preventivo.`;
+    }
+
+    else if (reportType === 'empresas') {
+      const totalAten = detailData.reduce((s, d) => s + d.total, 0);
+      bodyHtml = detailData.map((item, i) => `
+        <div class="section-block">
+          <div class="section-title">
+            <span>${i + 1}. ${item.name}</span>
+            <span class="badge">${item.total} atención${item.total > 1 ? 'es' : ''}</span>
+          </div>
+          <div class="section-body">
+            <div class="section-meta">
+              <span><strong>RUC:</strong> ${item.ruc || '—'}</span>
+            </div>
+            <table class="detail-tbl">
+              <thead><tr><th>Fecha</th><th>Paciente</th><th>Diagnóstico</th><th>Destino</th></tr></thead>
+              <tbody>
+                ${item.details.map(d => `<tr><td>${d.fecha}</td><td>${d.paciente}</td><td>${d.diagnostico}</td><td>${d.destino}</td></tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `).join('');
+      summaryNote = `<strong>Resumen:</strong> Las <strong>${detailData.length}</strong> empresas registran un total acumulado de <strong>${totalAten}</strong> atenciones en el periodo consultado.`;
+    }
+
+    else if (reportType === 'medicamentos') {
+      const totalUnid = detailData.reduce((s, d) => s + d.total, 0);
+      const totalCost = detailData.reduce((s, d) => s + d.costo_total, 0);
+      bodyHtml = `
+        <table class="rtbl">
+          <thead><tr>
+            <th class="num">#</th><th>Medicamento</th><th>Presentación</th>
+            <th style="text-align:right">C. Unit. (S/)</th>
+            <th style="text-align:right">Dispensado</th>
+            <th style="text-align:right">Stock Actual</th>
+            <th style="text-align:right">Costo Total (S/)</th>
+          </tr></thead>
+          <tbody>
+            ${detailData.map((m, i) => `<tr>
+              <td class="num">${i + 1}</td>
+              <td><strong>${m.name}</strong></td>
+              <td>${m.presentacion}</td>
+              <td class="val">${m.costo_unitario.toFixed(2)}</td>
+              <td class="val">${m.total}</td>
+              <td class="val">${m.stock_actual}</td>
+              <td class="val">${m.costo_total.toFixed(2)}</td>
+            </tr>`).join('')}
+          </tbody>
+          <tfoot><tr>
+            <td></td><td colspan="3" style="text-align:right">TOTALES</td>
+            <td class="val">${totalUnid}</td><td></td>
+            <td class="val">S/ ${totalCost.toFixed(2)}</td>
+          </tr></tfoot>
+        </table>
+      `;
+      summaryNote = `<strong>Resumen:</strong> Se dispensaron <strong>${totalUnid}</strong> unidades de <strong>${detailData.length}</strong> medicamentos distintos, con un costo total de <strong>S/ ${totalCost.toFixed(2)}</strong>.`;
+    }
+
+    else if (reportType === 'costos') {
+      const grandTotal = detailData.reduce((s, d) => s + d.total, 0);
+      bodyHtml = detailData.map((item, i) => `
+        <div class="section-block">
+          <div class="section-title">
+            <span>${i + 1}. ${item.name}</span>
+            <span class="badge">S/ ${item.total.toFixed(2)}</span>
+          </div>
+          <div class="section-body">
+            <div class="section-meta">
+              <span><strong>RUC:</strong> ${item.ruc || '—'}</span>
+            </div>
+            <table class="detail-tbl">
+              <thead><tr><th>Medicamento</th><th>Presentación</th><th style="text-align:right">Cantidad</th><th style="text-align:right">C. Unit. (S/)</th><th style="text-align:right">Subtotal (S/)</th></tr></thead>
+              <tbody>
+                ${item.details.map(d => `<tr><td>${d.medicamento}</td><td>${d.presentacion}</td><td style="text-align:right">${d.cantidad}</td><td style="text-align:right">${d.costo_unitario.toFixed(2)}</td><td style="text-align:right;font-weight:600">${d.subtotal.toFixed(2)}</td></tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `).join('');
+      summaryNote = `<strong>Resumen:</strong> El gasto total en medicamentos para las <strong>${detailData.length}</strong> empresas asciende a <strong>S/ ${grandTotal.toFixed(2)}</strong> en el periodo consultado. Este dato es clave para la facturación y control presupuestario.`;
+    }
+
+    const configs = {
+      'chart-enf': { title: 'Reporte de Enfermedades Más Atendidas', subtitle: 'Detalle de atenciones agrupadas por diagnóstico' },
+      'chart-pac': { title: 'Reporte de Pacientes Más Atendidos', subtitle: 'Historial de atenciones por cada trabajador con mayor recurrencia' },
+      'chart-emp': { title: 'Reporte de Atenciones por Empresa', subtitle: 'Desglose de atenciones médicas agrupadas por empresa contratante' },
+      'chart-med': { title: 'Reporte de Medicamentos Más Usados', subtitle: 'Detalle de medicamentos dispensados con costos y stock' },
+      'chart-costos': { title: 'Reporte de Costos Totales por Empresa', subtitle: 'Desglose de gasto en medicamentos por empresa contratante' }
     };
 
-    const config = reportConfigs[chartId];
-    if (!config) return;
-
     generateReport({
-      ...config,
+      ...configs[chartId],
       dateRange,
-      chartSvgHtml: chartSvg
+      chartSvgHtml: chartSvg,
+      bodyHtml,
+      summaryNote
     });
   };
 
