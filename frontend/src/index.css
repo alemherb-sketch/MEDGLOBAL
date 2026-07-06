@@ -379,6 +379,47 @@ h3 { font-size: 1.5rem; }
   min-width: 200px;
 }
 
+/* Custom react-datepicker styling */
+.react-datepicker-wrapper {
+  width: 110px;
+}
+.react-datepicker-wrapper input {
+  padding: 4px 8px !important;
+  min-height: auto !important;
+  text-align: center;
+}
+.react-datepicker {
+  font-family: inherit !important;
+  background-color: var(--panel-bg) !important;
+  color: var(--text-color) !important;
+  border: 1px solid var(--border-color) !important;
+  backdrop-filter: blur(10px);
+}
+.react-datepicker__header {
+  background-color: var(--surface-color) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+.react-datepicker__current-month, 
+.react-datepicker__day-name {
+  color: var(--text-color) !important;
+}
+.react-datepicker__day {
+  color: var(--text-color) !important;
+}
+.react-datepicker__day:hover {
+  background-color: var(--border-color) !important;
+}
+.react-datepicker__day--selected, 
+.react-datepicker__day--keyboard-selected {
+  background-color: var(--primary-color) !important;
+  color: #fff !important;
+}
+.react-datepicker__close-icon::after {
+  background-color: transparent !important;
+  color: var(--text-muted) !important;
+  font-size: 1.2rem;
+}
+
 /* Print Styles for Dashboard */
 @media print {
   @page {

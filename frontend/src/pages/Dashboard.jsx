@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import { Users, Stethoscope, Pill, AlertTriangle, Printer } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { format } from 'date-fns';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
@@ -21,8 +24,8 @@ const Dashboard = () => {
     costos: []
   });
 
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
 
   useEffect(() => {
     fetch(API_URL + '/dashboard/kpis')
@@ -33,8 +36,8 @@ const Dashboard = () => {
 
   useEffect(() => {
     let url = API_URL + '/dashboard/stats?';
-    if (startDate) url += `fecha_inicio=${startDate}&`;
-    if (endDate) url += `fecha_fin=${endDate}`;
+    if (startDate) url += `fecha_inicio=${format(startDate, 'yyyy-MM-dd')}&`;
+    if (endDate) url += `fecha_fin=${format(endDate, 'yyyy-MM-dd')}`;
       
     fetch(url)
       .then(res => res.json())
@@ -70,9 +73,23 @@ const Dashboard = () => {
         <div className="flex items-center gap-4 no-print">
           <div style={{display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--panel-bg)', padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--border-color)'}}>
             <span style={{fontSize: '0.9rem', color: 'var(--text-muted)'}}>Fechas:</span>
-            <input type="date" className="form-control" style={{padding: '4px 8px', minHeight: 'auto'}} value={startDate} onChange={e => setStartDate(e.target.value)} />
+            <DatePicker 
+              selected={startDate} 
+              onChange={date => setStartDate(date)} 
+              dateFormat="dd/MM/yyyy"
+              placeholderText="Inicio"
+              className="form-control"
+              isClearable
+            />
             <span style={{color: 'var(--text-muted)'}}>-</span>
-            <input type="date" className="form-control" style={{padding: '4px 8px', minHeight: 'auto'}} value={endDate} onChange={e => setEndDate(e.target.value)} />
+            <DatePicker 
+              selected={endDate} 
+              onChange={date => setEndDate(date)} 
+              dateFormat="dd/MM/yyyy"
+              placeholderText="Fin"
+              className="form-control"
+              isClearable
+            />
           </div>
           <button className="btn btn-primary" onClick={handlePrint} style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
             <Printer size={18} /> Todo a PDF
