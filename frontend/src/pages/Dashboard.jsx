@@ -1,27 +1,292 @@
 import { useState, useEffect } from 'react';
 import { API_URL } from '../config';
-import { Users, Stethoscope, Pill, AlertTriangle, Printer, CalendarRange } from 'lucide-react';
+import { Users, Stethoscope, Pill, AlertTriangle, Printer, CalendarRange, FileText } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#14b8a6'];
 
-const ChartCard = ({ id, title, children, onPrint, accentColor }) => (
+/* ══════════════════════════════════════════════════
+   REPORT GENERATOR — opens a new window with a
+   professional formatted report ready for PDF print
+   ══════════════════════════════════════════════════ */
+const generateReport = ({ title, subtitle, dateRange, columns, rows, chartSvgHtml, summaryNote }) => {
+  const now = new Date();
+  const dateStr = format(now, "dd 'de' MMMM 'de' yyyy, HH:mm", { locale: es });
+
+  const tableRows = rows.map((row, i) => `
+    <tr>
+      <td style="text-align:center; color:#64748b; font-weight:600;">${i + 1}</td>
+      ${row.map((cell, ci) => `<td style="${ci === row.length - 1 ? 'text-align:right; font-weight:700;' : ''}">${cell}</td>`).join('')}
+    </tr>
+  `).join('');
+
+  const totalValue = rows.reduce((acc, r) => acc + (parseFloat(r[r.length - 1].replace(/[^0-9.]/g, '')) || 0), 0);
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>${title} - MEDGLOBAL</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      color: #1e293b;
+      background: #fff;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .page {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px;
+    }
+    /* Header */
+    .report-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      border-bottom: 3px solid #0ea5e9;
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+    .report-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .report-brand img {
+      height: 50px;
+    }
+    .report-brand-text h2 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 0;
+    }
+    .report-brand-text p {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin: 2px 0 0;
+    }
+    .report-meta {
+      text-align: right;
+      font-size: 0.78rem;
+      color: #64748b;
+      line-height: 1.6;
+    }
+    .report-meta strong {
+      color: #334155;
+    }
+    /* Title bar */
+    .report-title-bar {
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+    .report-title-bar h1 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin: 0;
+    }
+    .report-title-bar p {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin: 4px 0 0;
+    }
+    /* Chart area */
+    .report-chart {
+      margin-bottom: 28px;
+      text-align: center;
+    }
+    .report-chart svg {
+      max-width: 100%;
+      height: auto;
+    }
+    /* Table */
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+      font-size: 0.88rem;
+    }
+    .report-table thead th {
+      background: #f1f5f9;
+      color: #475569;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .report-table thead th:first-child {
+      text-align: center;
+      width: 40px;
+    }
+    .report-table tbody td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #334155;
+    }
+    .report-table tbody tr:nth-child(even) {
+      background: #f8fafc;
+    }
+    .report-table tbody tr:hover {
+      background: #eff6ff;
+    }
+    .report-table tfoot td {
+      padding: 10px 14px;
+      font-weight: 700;
+      border-top: 2px solid #e2e8f0;
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+    /* Summary */
+    .report-summary {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-size: 0.82rem;
+      color: #475569;
+      margin-bottom: 24px;
+    }
+    .report-summary strong { color: #1e293b; }
+    /* Footer */
+    .report-footer {
+      border-top: 1px solid #e2e8f0;
+      padding-top: 12px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: #94a3b8;
+    }
+    /* Print */
+    @media print {
+      body { padding: 0; }
+      .page { padding: 20px; max-width: none; }
+      .no-print { display: none !important; }
+    }
+    .print-actions {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .print-actions button {
+      background: linear-gradient(135deg, #0ea5e9, #8b5cf6);
+      color: #fff;
+      border: none;
+      padding: 10px 28px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      margin: 0 6px;
+    }
+    .print-actions button:hover { opacity: 0.9; }
+    .print-actions button.secondary {
+      background: #e2e8f0;
+      color: #475569;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="print-actions no-print">
+      <button onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+      <button class="secondary" onclick="window.close()">Cerrar</button>
+    </div>
+
+    <div class="report-header">
+      <div class="report-brand">
+        <img src="/logo.png" alt="MEDGLOBAL" />
+        <div class="report-brand-text">
+          <h2>MEDGLOBAL</h2>
+          <p>Sistema de Gestión de Salud Ocupacional</p>
+        </div>
+      </div>
+      <div class="report-meta">
+        <strong>Fecha de emisión:</strong><br/>
+        ${dateStr}<br/><br/>
+        <strong>Periodo:</strong><br/>
+        ${dateRange}
+      </div>
+    </div>
+
+    <div class="report-title-bar">
+      <h1>${title}</h1>
+      ${subtitle ? `<p>${subtitle}</p>` : ''}
+    </div>
+
+    ${chartSvgHtml ? `<div class="report-chart">${chartSvgHtml}</div>` : ''}
+
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          ${columns.map(c => `<th${c.align ? ` style="text-align:${c.align}"` : ''}>${c.label}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>
+        ${tableRows}
+      </tbody>
+      ${rows.length > 0 ? `
+      <tfoot>
+        <tr>
+          <td></td>
+          <td style="text-align:right;" colspan="${columns.length - 1}">TOTAL</td>
+          <td style="text-align:right;">${columns[columns.length - 1].isCurrency ? 'S/ ' + totalValue.toFixed(2) : totalValue}</td>
+        </tr>
+      </tfoot>` : ''}
+    </table>
+
+    ${summaryNote ? `<div class="report-summary">${summaryNote}</div>` : ''}
+
+    <div class="report-footer">
+      <span>MEDGLOBAL — Reporte generado automáticamente</span>
+      <span>Página 1 de 1</span>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const reportWindow = window.open('', '_blank');
+  reportWindow.document.write(html);
+  reportWindow.document.close();
+};
+
+
+/* ══════════════════════════════════════════════════
+   ChartCard Component
+   ══════════════════════════════════════════════════ */
+const ChartCard = ({ id, title, children, onPrint }) => (
   <div id={id} className="dash-chart-card">
     <div className="dash-chart-header">
       <h3 className="dash-chart-title">{title}</h3>
-      <button className="no-print dash-print-btn" onClick={() => onPrint(id)} title="Imprimir este reporte">
-        <Printer size={16} />
+      <button className="no-print dash-print-btn" onClick={() => onPrint(id)} title="Generar Reporte">
+        <FileText size={16} />
       </button>
     </div>
-    <div className="dash-chart-body" style={{'--accent': accentColor}}>
+    <div className="dash-chart-body">
       {children}
     </div>
   </div>
 );
 
+
+/* ══════════════════════════════════════════════════
+   DASHBOARD
+   ══════════════════════════════════════════════════ */
 const Dashboard = () => {
   const [kpis, setKpis] = useState({
     total_atenciones: 0,
@@ -59,17 +324,78 @@ const Dashboard = () => {
       .catch(err => console.error(err));
   }, [startDate, endDate]);
 
-  const handlePrint = () => {
-    window.print();
+  const getDateRangeLabel = () => {
+    if (startDate && endDate) return `${format(startDate, 'dd/MM/yyyy')} — ${format(endDate, 'dd/MM/yyyy')}`;
+    if (startDate) return `Desde ${format(startDate, 'dd/MM/yyyy')}`;
+    if (endDate) return `Hasta ${format(endDate, 'dd/MM/yyyy')}`;
+    return 'Todos los registros (sin filtro)';
   };
 
-  const handlePrintChart = (chartId) => {
-    document.body.classList.add('print-single-chart');
-    const chart = document.getElementById(chartId);
-    if (chart) chart.classList.add('active-print-chart');
+  const captureChartSvg = (chartId) => {
+    const card = document.getElementById(chartId);
+    if (!card) return '';
+    const svg = card.querySelector('svg');
+    if (!svg) return '';
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('width', '700');
+    clone.setAttribute('height', '320');
+    return clone.outerHTML;
+  };
+
+  const handlePrintReport = (chartId) => {
+    const dateRange = getDateRangeLabel();
+    const chartSvg = captureChartSvg(chartId);
+
+    const reportConfigs = {
+      'chart-enf': {
+        title: 'Reporte de Enfermedades Más Atendidas',
+        subtitle: 'Ranking de diagnósticos con mayor frecuencia de atención médica',
+        columns: [{ label: 'Enfermedad / Diagnóstico' }, { label: 'Nº Atenciones', align: 'right' }],
+        rows: stats.enfermedades.map(e => [e.name, String(e.value)]),
+        summaryNote: `<strong>Análisis:</strong> Este reporte muestra las ${stats.enfermedades.length} enfermedades que concentran la mayor cantidad de atenciones médicas en el periodo seleccionado. Utilice esta información para planificar campañas de prevención y abastecimiento de medicamentos.`
+      },
+      'chart-pac': {
+        title: 'Reporte de Pacientes Más Atendidos',
+        subtitle: 'Trabajadores con mayor frecuencia de visitas al tópico médico',
+        columns: [{ label: 'Nombre del Paciente' }, { label: 'Nº Atenciones', align: 'right' }],
+        rows: stats.pacientes.map(p => [p.name, String(p.value)]),
+        summaryNote: `<strong>Análisis:</strong> Se identificaron ${stats.pacientes.length} pacientes con alta recurrencia de atenciones. Se recomienda evaluar estos casos para seguimiento preventivo o derivación especializada.`
+      },
+      'chart-emp': {
+        title: 'Reporte de Atenciones por Empresa',
+        subtitle: 'Distribución de atenciones médicas agrupadas por empresa contratante',
+        columns: [{ label: 'Empresa' }, { label: 'Nº Atenciones', align: 'right' }],
+        rows: stats.empresas.map(e => [e.name, String(e.value)]),
+        summaryNote: `<strong>Análisis:</strong> Este reporte permite comparar la demanda de servicios médicos entre las diferentes empresas. Las empresas con mayor número de atenciones podrían requerir revisiones de sus condiciones laborales.`
+      },
+      'chart-med': {
+        title: 'Reporte de Medicamentos Más Usados',
+        subtitle: 'Medicamentos con mayor volumen de dispensación en el periodo',
+        columns: [{ label: 'Medicamento' }, { label: 'Unidades Dispensadas', align: 'right' }],
+        rows: stats.medicamentos.map(m => [m.name, String(m.value)]),
+        summaryNote: `<strong>Análisis:</strong> Este ranking de consumo de medicamentos permite optimizar la gestión de inventario y anticipar necesidades de reposición de stock en la farmacia.`
+      },
+      'chart-costos': {
+        title: 'Reporte de Costos Totales por Empresa',
+        subtitle: 'Gasto acumulado en medicamentos desglosado por empresa contratante',
+        columns: [{ label: 'Empresa' }, { label: 'Costo Total (S/)', align: 'right', isCurrency: true }],
+        rows: stats.costos.map(c => [c.name, 'S/ ' + c.value.toFixed(2)]),
+        summaryNote: `<strong>Análisis:</strong> El costo total refleja la suma de medicamentos dispensados (precio unitario × cantidad) para cada empresa. Este informe es clave para la facturación y control de gastos por convenio.`
+      }
+    };
+
+    const config = reportConfigs[chartId];
+    if (!config) return;
+
+    generateReport({
+      ...config,
+      dateRange,
+      chartSvgHtml: chartSvg
+    });
+  };
+
+  const handlePrintAll = () => {
     window.print();
-    document.body.classList.remove('print-single-chart');
-    if (chart) chart.classList.remove('active-print-chart');
   };
 
   return (
@@ -114,7 +440,7 @@ const Dashboard = () => {
               isClearable
             />
           </div>
-          <button className="btn btn-primary" onClick={handlePrint}>
+          <button className="btn btn-primary" onClick={handlePrintAll}>
             <Printer size={16} style={{marginRight: '6px'}} /> Imprimir Todo
           </button>
         </div>
@@ -157,7 +483,7 @@ const Dashboard = () => {
 
       {/* ── Charts Grid ── */}
       <section className="dash-charts print-grid">
-        <ChartCard id="chart-enf" title="Top Enfermedades Más Atendidas" onPrint={handlePrintChart} accentColor="var(--primary-color)">
+        <ChartCard id="chart-enf" title="Top Enfermedades Más Atendidas" onPrint={handlePrintReport}>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={stats.enfermedades} layout="vertical" margin={{top: 5, right: 20, left: 5, bottom: 5}}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
@@ -169,7 +495,7 @@ const Dashboard = () => {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard id="chart-pac" title="Pacientes Más Atendidos" onPrint={handlePrintChart} accentColor="var(--secondary-color)">
+        <ChartCard id="chart-pac" title="Pacientes Más Atendidos" onPrint={handlePrintReport}>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={stats.pacientes} margin={{top: 5, right: 20, left: 5, bottom: 5}}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
@@ -181,7 +507,7 @@ const Dashboard = () => {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard id="chart-emp" title="Atenciones por Empresa" onPrint={handlePrintChart} accentColor="#f59e0b">
+        <ChartCard id="chart-emp" title="Atenciones por Empresa" onPrint={handlePrintReport}>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie data={stats.empresas} cx="50%" cy="45%" innerRadius={55} outerRadius={95} paddingAngle={4} dataKey="value" label={({name, percent}) => `${name} ${(percent*100).toFixed(0)}%`}>
@@ -195,7 +521,7 @@ const Dashboard = () => {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard id="chart-med" title="Medicamentos Más Usados" onPrint={handlePrintChart} accentColor="var(--success-color)">
+        <ChartCard id="chart-med" title="Medicamentos Más Usados" onPrint={handlePrintReport}>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={stats.medicamentos} margin={{top: 5, right: 20, left: 5, bottom: 5}}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
@@ -207,7 +533,7 @@ const Dashboard = () => {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard id="chart-costos" title="Costos Totales en Medicamentos por Empresa" onPrint={handlePrintChart} accentColor="#f43f5e">
+        <ChartCard id="chart-costos" title="Costos Totales en Medicamentos por Empresa" onPrint={handlePrintReport}>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={stats.costos} margin={{top: 5, right: 20, left: 15, bottom: 5}}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
