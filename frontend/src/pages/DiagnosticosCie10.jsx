@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { API_URL } from '../config';
-import { Search, Plus, Trash2, Edit2, Upload, FileSpreadsheet } from 'lucide-react';
+import { Search, Plus, Trash2, Edit2, Upload, FileSpreadsheet, X } from 'lucide-react';
 
 const DiagnosticosCie10 = () => {
   const [diagnosticos, setDiagnosticos] = useState([]);
@@ -185,34 +185,40 @@ const DiagnosticosCie10 = () => {
 
       {isModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{maxWidth: '500px'}}>
-            <h2>{newDiag.id ? 'Editar Diagnóstico' : 'Registrar Nuevo Diagnóstico'}</h2>
-            <form onSubmit={handleAdd}>
-              <div className="form-group">
-                <label>Código CIE-10 (u otro)</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  value={newDiag.codigo} 
-                  onChange={e => setNewDiag({...newDiag, codigo: e.target.value})} 
-                  required 
-                />
-              </div>
-              <div className="form-group">
-                <label>Descripción / Enfermedad</label>
-                <textarea 
-                  className="form-control" 
-                  rows="3"
-                  value={newDiag.descripcion} 
-                  onChange={e => setNewDiag({...newDiag, descripcion: e.target.value})} 
-                  required 
-                />
-              </div>
-              <div className="modal-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-                <button type="submit" className="btn btn-primary">Guardar Diagnóstico</button>
-              </div>
-            </form>
+          <div className="modal-content" style={{maxWidth: '500px', padding: '0'}}>
+            <div className="modal-header" style={{padding: '20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+              <h3 style={{margin: 0}}>{newDiag.id ? 'Editar Diagnóstico' : 'Registrar Nuevo Diagnóstico'}</h3>
+              <button className="icon-btn text-muted" onClick={() => setIsModalOpen(false)}><X size={20} /></button>
+            </div>
+            
+            <div className="modal-body" style={{padding: '20px'}}>
+              <form onSubmit={handleAdd}>
+                <div className="form-group">
+                  <label className="form-label">Código CIE-10 (u otro)</label>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    value={newDiag.codigo} 
+                    onChange={e => setNewDiag({...newDiag, codigo: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Descripción / Enfermedad</label>
+                  <textarea 
+                    className="form-control" 
+                    rows="4"
+                    value={newDiag.descripcion} 
+                    onChange={e => setNewDiag({...newDiag, descripcion: e.target.value})} 
+                    required 
+                  />
+                </div>
+                <div className="modal-actions" style={{marginTop: '30px', display: 'flex', justifyContent: 'flex-end', gap: '10px'}}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Cancelar</button>
+                  <button type="submit" className="btn btn-primary">Guardar Diagnóstico</button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
