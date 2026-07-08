@@ -7,7 +7,7 @@ const DiagnosticosCie10 = () => {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
-  const limit = 50;
+  const limit = 10;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   
