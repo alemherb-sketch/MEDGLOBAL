@@ -32,7 +32,7 @@ with engine.connect() as conn:
     columnas_atencion = [
         "edad VARCHAR(10)", "residencia VARCHAR(200)", "empresa_id INTEGER", "cargo VARCHAR(100)",
         "funciones_biologicas TEXT", "signos_vitales TEXT", "examen_fisico TEXT", "examenes_auxiliares TEXT",
-        "codigo_diagnostico VARCHAR(100)"
+        "codigo_diagnostico VARCHAR(100)", "diagnostico_1 VARCHAR(255)", "diagnostico_2 VARCHAR(255)", "diagnostico_3 VARCHAR(255)"
     ]
     for col in columnas_atencion:
         try:
@@ -57,6 +57,64 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+import pandas as pd
+import io
+
+# --- Diagnosticos CIE10 ---
+@app.get("/diagnosticos/", response_model=List[schemas.DiagnosticoCie10])
+def read_diagnosticos(db: Session = Depends(get_db)):
+    return db.query(models.DiagnosticoCie10).all()
+
+@app.post("/diagnosticos/", response_model=schemas.DiagnosticoCie10)
+def create_diagnostico(diag: schemas.DiagnosticoCie10Create, db: Session = Depends(get_db)):
+    db_diag = models.DiagnosticoCie10(**diag.dict())
+    db.add(db_diag)
+    db.commit()
+    db.refresh(db_diag)
+    return db_diag
+
+@app.delete("/diagnosticos/{id}")
+def delete_diagnostico(id: int, db: Session = Depends(get_db)):
+    db_diag = db.query(models.DiagnosticoCie10).filter(models.DiagnosticoCie10.id == id).first()
+    if not db_diag:
+        raise HTTPException(status_code=404, detail="Diagnóstico no encontrado")
+    db.delete(db_diag)
+    db.commit()
+    return {"detail": "Eliminado"}
+
+@app.post("/diagnosticos/importar/")
+async def import_diagnosticos(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="Formato de archivo inválido. Usa Excel (.xlsx)")
+    
+    contents = await file.read()
+    try:
+        df = pd.read_excel(io.BytesIO(contents))
+        
+        # Asumimos que la primera columna es Codigo y la segunda Descripcion
+        if len(df.columns) < 2:
+            raise HTTPException(status_code=400, detail="El Excel debe tener al menos 2 columnas: Código y Descripción")
+        
+        count = 0
+        for index, row in df.iterrows():
+            codigo = str(row.iloc[0]).strip()
+            descripcion = str(row.iloc[1]).strip()
+            
+            if codigo and codigo != 'nan' and descripcion and descripcion != 'nan':
+                # Evitar duplicados por código
+                exist = db.query(models.DiagnosticoCie10).filter(models.DiagnosticoCie10.codigo == codigo).first()
+                if not exist:
+                    new_diag = models.DiagnosticoCie10(codigo=codigo, descripcion=descripcion)
+                    db.add(new_diag)
+                    count += 1
+        
+        db.commit()
+        return {"message": f"Se importaron {count} diagnósticos nuevos."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- Empresas ---
 @app.get("/empresas/", response_model=List[schemas.Empresa])

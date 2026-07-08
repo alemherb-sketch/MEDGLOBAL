@@ -66,6 +66,13 @@ class ClasificacionAtencion(Base):
     sistema_id = Column(Integer, ForeignKey("sistemas.id"))
     sistema = relationship("SistemaAtencion", back_populates="clasificaciones")
 
+class DiagnosticoCie10(Base):
+    __tablename__ = "diagnosticos_cie10"
+    id = Column(Integer, primary_key=True, index=True)
+    codigo = Column(String(50), unique=True, index=True)
+    descripcion = Column(String(255))
+    estado = Column(String(20), default="ACTIVO")
+
 class AtencionMedicamento(Base):
     __tablename__ = "atencion_medicamentos"
     id = Column(Integer, primary_key=True, index=True)
@@ -98,8 +105,14 @@ class Atencion(Base):
     examen_fisico = Column(Text, nullable=True)
     examenes_auxiliares = Column(Text, nullable=True)
 
-    codigo_diagnostico = Column(String(100), nullable=True)
-    diagnostico = Column(Text, nullable=True)
+    codigo_diagnostico = Column(String(100), nullable=True) # Mantenido por retrocompatibilidad
+    diagnostico = Column(Text, nullable=True) # Mantenido por retrocompatibilidad
+    
+    # Nuevos campos para los 3 diagnosticos (guardaremos el string seleccionado)
+    diagnostico_1 = Column(String(255), nullable=True)
+    diagnostico_2 = Column(String(255), nullable=True)
+    diagnostico_3 = Column(String(255), nullable=True)
+
     tratamiento = Column(Text, nullable=True)
     destino = Column(String(100), nullable=True)
     sede_atencion = Column(String(100), nullable=True)

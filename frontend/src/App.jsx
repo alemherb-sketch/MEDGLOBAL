@@ -8,6 +8,7 @@ import Planilla from './pages/Planilla';
 import Sistemas from './pages/Sistemas';
 import PersonalSalud from './pages/PersonalSalud';
 import Empresas from './pages/Empresas';
+import DiagnosticosCie10 from './pages/DiagnosticosCie10';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
           <Route path="empresas" element={<Empresas />} />
           <Route path="personal-salud" element={<PersonalSalud />} />
           <Route path="sistemas" element={<Sistemas />} />
+          <Route path="diagnosticos-cie10" element={<DiagnosticosCie10 />} />
         </Route>
       </Routes>
     </BrowserRouter>

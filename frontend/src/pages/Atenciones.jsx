@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import { Search, Plus, Trash2, Edit2, X, Link, Clock, Eye } from 'lucide-react';
+import Select from 'react-select';
 
 const Atenciones = () => {
   const [atenciones, setAtenciones] = useState([]);
@@ -10,6 +11,7 @@ const Atenciones = () => {
   const [personalSalud, setPersonalSalud] = useState([]);
   const [medicamentos, setMedicamentos] = useState([]);
   const [empresas, setEmpresas] = useState([]);
+  const [diagnosticosCatalog, setDiagnosticosCatalog] = useState([]);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewAtencion, setViewAtencion] = useState(null);
@@ -34,6 +36,9 @@ const Atenciones = () => {
     examenes_auxiliares: '',
     codigo_diagnostico: '',
     diagnostico: '',
+    diagnostico_1: '',
+    diagnostico_2: '',
+    diagnostico_3: '',
     destino: '',
     observaciones: '',
     tratamiento: '',
@@ -48,6 +53,7 @@ const Atenciones = () => {
     fetch(API_URL + '/personal_salud/').then(res => res.json()).then(setPersonalSalud);
     fetch(API_URL + '/medicamentos/').then(res => res.json()).then(setMedicamentos);
     fetch(API_URL + '/empresas/').then(res => res.json()).then(setEmpresas);
+    fetch(API_URL + '/diagnosticos/').then(res => res.json()).then(setDiagnosticosCatalog);
   };
 
   useEffect(() => {
@@ -120,6 +126,9 @@ const Atenciones = () => {
         examenes_auxiliares: atencion.examenes_auxiliares || '',
         codigo_diagnostico: atencion.codigo_diagnostico || '',
         diagnostico: atencion.diagnostico || '',
+        diagnostico_1: atencion.diagnostico_1 || '',
+        diagnostico_2: atencion.diagnostico_2 || '',
+        diagnostico_3: atencion.diagnostico_3 || '',
         destino: atencion.destino || '',
         observaciones: atencion.observaciones || '',
         tratamiento: atencion.tratamiento || '',
@@ -132,6 +141,7 @@ const Atenciones = () => {
         descripcion: '', funciones_biologicas: { apetito: '', sed: '', sueno: '', estado_animo: '', orina: '', deposiciones: '' },
         signos_vitales: { presion_arterial: '', frec_cardiaca: '', frec_respiratoria: '', temperatura: '', spo2: '', peso: '', talla: '' },
         examen_fisico: '', examenes_auxiliares: '', codigo_diagnostico: '', diagnostico: '',
+        diagnostico_1: '', diagnostico_2: '', diagnostico_3: '',
         destino: '', observaciones: '', tratamiento: '', medicamentos: []
       });
     }
@@ -428,17 +438,43 @@ const Atenciones = () => {
                     </select>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">CÓDIGO</label>
-                    <input className="form-control" value={newAtencion.codigo_diagnostico} onChange={e => setNewAtencion({...newAtencion, codigo_diagnostico: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">NOMBRE ENFERMEDAD</label>
-                    <input className="form-control" value={newAtencion.diagnostico} onChange={e => setNewAtencion({...newAtencion, diagnostico: e.target.value})} />
                   </div>
 
                   <div className="form-group" style={{gridColumn: 'span 2'}}>
-                    <label className="form-label">Diagnóstico</label>
+                    <label className="form-label">Diagnóstico Principal</label>
+                    <Select 
+                      options={diagnosticosCatalog.map(d => ({ value: `${d.codigo} - ${d.descripcion}`, label: `${d.codigo} - ${d.descripcion}` }))}
+                      value={newAtencion.diagnostico_1 ? {label: newAtencion.diagnostico_1, value: newAtencion.diagnostico_1} : null}
+                      onChange={opt => setNewAtencion({...newAtencion, diagnostico_1: opt ? opt.value : ''})}
+                      isClearable
+                      placeholder="Buscar diagnóstico..."
+                    />
+                  </div>
+                  
+                  <div className="form-group" style={{gridColumn: 'span 2'}}>
+                    <label className="form-label">Diagnóstico Secundario 1</label>
+                    <Select 
+                      options={diagnosticosCatalog.map(d => ({ value: `${d.codigo} - ${d.descripcion}`, label: `${d.codigo} - ${d.descripcion}` }))}
+                      value={newAtencion.diagnostico_2 ? {label: newAtencion.diagnostico_2, value: newAtencion.diagnostico_2} : null}
+                      onChange={opt => setNewAtencion({...newAtencion, diagnostico_2: opt ? opt.value : ''})}
+                      isClearable
+                      placeholder="Buscar diagnóstico secundario..."
+                    />
+                  </div>
+
+                  <div className="form-group" style={{gridColumn: 'span 2'}}>
+                    <label className="form-label">Diagnóstico Secundario 2</label>
+                    <Select 
+                      options={diagnosticosCatalog.map(d => ({ value: `${d.codigo} - ${d.descripcion}`, label: `${d.codigo} - ${d.descripcion}` }))}
+                      value={newAtencion.diagnostico_3 ? {label: newAtencion.diagnostico_3, value: newAtencion.diagnostico_3} : null}
+                      onChange={opt => setNewAtencion({...newAtencion, diagnostico_3: opt ? opt.value : ''})}
+                      isClearable
+                      placeholder="Buscar diagnóstico secundario..."
+                    />
+                  </div>
+
+                  <div className="form-group" style={{gridColumn: 'span 2', marginTop: '10px'}}>
+                    <label className="form-label">Detalles / Tratamiento</label>
                     <textarea className="form-control" rows="3" value={newAtencion.tratamiento} onChange={e => setNewAtencion({...newAtencion, tratamiento: e.target.value})}></textarea>
                   </div>
                 </div>
@@ -609,13 +645,21 @@ const Atenciones = () => {
 
               <h4 style={{borderBottom: '1px solid #ccc', paddingBottom: '5px', marginTop: '25px', color: '#333'}}>III. DIAGNÓSTICO</h4>
               
-              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px'}}>
-                <div><strong>Sistema:</strong> {viewAtencion.sistema?.nombre || '--'}</div>
-                <div><strong>Contingencia:</strong> {viewAtencion.clasificacion?.nombre || '--'}</div>
-                <div><strong>Código:</strong> {viewAtencion.codigo_diagnostico || '--'}</div>
-                <div><strong>Enfermedad:</strong> {viewAtencion.diagnostico || '--'}</div>
-                <div style={{gridColumn: 'span 2'}}>
-                  <strong>Diagnóstico:</strong>
+              <div style={{display: 'grid', gridTemplateColumns: '1fr', gap: '10px', fontSize: '14px'}}>
+                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px'}}>
+                  <div><strong>Sistema:</strong> {viewAtencion.sistema?.nombre || '--'}</div>
+                  <div><strong>Contingencia:</strong> {viewAtencion.clasificacion?.nombre || '--'}</div>
+                </div>
+                
+                <div style={{marginTop: '10px', padding: '10px', background: '#f0f4f8', border: '1px solid #dce4ec', borderRadius: '4px'}}>
+                  {viewAtencion.codigo_diagnostico && <div style={{marginBottom: '5px'}}><strong>Diag. Anterior:</strong> {viewAtencion.codigo_diagnostico} - {viewAtencion.diagnostico}</div>}
+                  {viewAtencion.diagnostico_1 && <div style={{marginBottom: '5px'}}><strong>Diag. Principal:</strong> {viewAtencion.diagnostico_1}</div>}
+                  {viewAtencion.diagnostico_2 && <div style={{marginBottom: '5px'}}><strong>Diag. Secundario 1:</strong> {viewAtencion.diagnostico_2}</div>}
+                  {viewAtencion.diagnostico_3 && <div style={{marginBottom: '5px'}}><strong>Diag. Secundario 2:</strong> {viewAtencion.diagnostico_3}</div>}
+                </div>
+
+                <div>
+                  <strong>Detalles / Tratamiento:</strong>
                   <p style={{marginTop: '5px', whiteSpace: 'pre-wrap', background: '#f9f9f9', padding: '10px', border: '1px solid #eee'}}>{viewAtencion.tratamiento || '--'}</p>
                 </div>
               </div>

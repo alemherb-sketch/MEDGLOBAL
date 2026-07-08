@@ -77,6 +77,21 @@ class Clasificacion(ClasificacionBase):
         orm_mode = True
         from_attributes = True
 
+# --- Diagnosticos CIE10 ---
+class DiagnosticoCie10Base(BaseModel):
+    codigo: str
+    descripcion: str
+    estado: Optional[str] = "ACTIVO"
+
+class DiagnosticoCie10Create(DiagnosticoCie10Base):
+    pass
+
+class DiagnosticoCie10(DiagnosticoCie10Base):
+    id: int
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
 class SistemaBase(BaseModel):
     nombre: str
 
@@ -181,6 +196,9 @@ class AtencionBase(BaseModel):
 
     codigo_diagnostico: Optional[str] = None
     diagnostico: Optional[str] = None
+    diagnostico_1: Optional[str] = None
+    diagnostico_2: Optional[str] = None
+    diagnostico_3: Optional[str] = None
     tratamiento: Optional[str] = None
     destino: Optional[str] = None
     sede_atencion: Optional[str] = None

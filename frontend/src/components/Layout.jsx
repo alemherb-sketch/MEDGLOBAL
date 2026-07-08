@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Home, Users, Settings, Pill, Stethoscope, Package, CalendarDays, UserRoundPlus, Building2 } from 'lucide-react';
+import { Home, Users, Settings, Pill, Stethoscope, Package, CalendarDays, UserRoundPlus, Building2, BookOpen } from 'lucide-react';
 
 const Layout = () => {
   const location = useLocation();
@@ -12,6 +12,7 @@ const Layout = () => {
     { path: '/empresas', label: 'Empresas', icon: <Building2 size={20} /> },
     { path: '/planilla', label: 'Planilla', icon: <Users size={20} /> },
     { path: '/personal-salud', label: 'Personal de Salud', icon: <UserRoundPlus size={20} /> },
+    { path: '/diagnosticos-cie10', label: 'Catálogo CIE-10', icon: <BookOpen size={20} /> },
     { path: '/sistemas', label: 'Sistemas Clínicos', icon: <Settings size={20} /> },
   ];
 
