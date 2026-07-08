@@ -92,6 +92,10 @@ class DiagnosticoCie10(DiagnosticoCie10Base):
         orm_mode = True
         from_attributes = True
 
+class PaginatedDiagnosticos(BaseModel):
+    total: int
+    items: List[DiagnosticoCie10]
+
 class SistemaBase(BaseModel):
     nombre: str
 

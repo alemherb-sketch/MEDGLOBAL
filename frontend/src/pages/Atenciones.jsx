@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import { Search, Plus, Trash2, Edit2, X, Link, Clock, Eye } from 'lucide-react';
 import Select from 'react-select';
+import AsyncSelect from 'react-select/async';
 
 const Atenciones = () => {
   const [atenciones, setAtenciones] = useState([]);
@@ -11,7 +12,6 @@ const Atenciones = () => {
   const [personalSalud, setPersonalSalud] = useState([]);
   const [medicamentos, setMedicamentos] = useState([]);
   const [empresas, setEmpresas] = useState([]);
-  const [diagnosticosCatalog, setDiagnosticosCatalog] = useState([]);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewAtencion, setViewAtencion] = useState(null);
@@ -53,7 +53,26 @@ const Atenciones = () => {
     fetch(API_URL + '/personal_salud/').then(res => res.json()).then(setPersonalSalud);
     fetch(API_URL + '/medicamentos/').then(res => res.json()).then(setMedicamentos);
     fetch(API_URL + '/empresas/').then(res => res.json()).then(setEmpresas);
-    fetch(API_URL + '/diagnosticos/').then(res => res.json()).then(setDiagnosticosCatalog);
+  };
+
+  const loadDiagnosticos = (inputValue, callback) => {
+    if (!inputValue || inputValue.length < 2) {
+      callback([]);
+      return;
+    }
+    fetch(`${API_URL}/diagnosticos/?search=${encodeURIComponent(inputValue)}&limit=50`)
+      .then(res => res.json())
+      .then(data => {
+        const options = (data.items || []).map(d => ({
+          value: `${d.codigo} - ${d.descripcion}`,
+          label: `${d.codigo} - ${d.descripcion}`
+        }));
+        callback(options);
+      })
+      .catch(err => {
+        console.error("Error fetching diagnosticos", err);
+        callback([]);
+      });
   };
 
   useEffect(() => {
@@ -439,34 +458,46 @@ const Atenciones = () => {
                   </div>
                   <div className="form-group" style={{gridColumn: 'span 2'}}>
                     <label className="form-label">Diagnóstico Principal</label>
-                    <Select 
-                      options={diagnosticosCatalog.map(d => ({ value: `${d.codigo} - ${d.descripcion}`, label: `${d.codigo} - ${d.descripcion}` }))}
+                    <AsyncSelect 
+                      cacheOptions
+                      loadOptions={loadDiagnosticos}
+                      defaultOptions={false}
                       value={newAtencion.diagnostico_1 ? {label: newAtencion.diagnostico_1, value: newAtencion.diagnostico_1} : null}
                       onChange={opt => setNewAtencion({...newAtencion, diagnostico_1: opt ? opt.value : ''})}
                       isClearable
-                      placeholder="Buscar diagnóstico..."
+                      placeholder="Escriba el código o descripción para buscar..."
+                      noOptionsMessage={() => "Escriba para buscar (mín. 2 letras)"}
+                      loadingMessage={() => "Buscando..."}
                     />
                   </div>
                   
                   <div className="form-group" style={{gridColumn: 'span 2'}}>
                     <label className="form-label">Diagnóstico Secundario 1</label>
-                    <Select 
-                      options={diagnosticosCatalog.map(d => ({ value: `${d.codigo} - ${d.descripcion}`, label: `${d.codigo} - ${d.descripcion}` }))}
+                    <AsyncSelect 
+                      cacheOptions
+                      loadOptions={loadDiagnosticos}
+                      defaultOptions={false}
                       value={newAtencion.diagnostico_2 ? {label: newAtencion.diagnostico_2, value: newAtencion.diagnostico_2} : null}
                       onChange={opt => setNewAtencion({...newAtencion, diagnostico_2: opt ? opt.value : ''})}
                       isClearable
-                      placeholder="Buscar diagnóstico secundario..."
+                      placeholder="Escriba el código o descripción para buscar..."
+                      noOptionsMessage={() => "Escriba para buscar (mín. 2 letras)"}
+                      loadingMessage={() => "Buscando..."}
                     />
                   </div>
 
                   <div className="form-group" style={{gridColumn: 'span 2'}}>
                     <label className="form-label">Diagnóstico Secundario 2</label>
-                    <Select 
-                      options={diagnosticosCatalog.map(d => ({ value: `${d.codigo} - ${d.descripcion}`, label: `${d.codigo} - ${d.descripcion}` }))}
+                    <AsyncSelect 
+                      cacheOptions
+                      loadOptions={loadDiagnosticos}
+                      defaultOptions={false}
                       value={newAtencion.diagnostico_3 ? {label: newAtencion.diagnostico_3, value: newAtencion.diagnostico_3} : null}
                       onChange={opt => setNewAtencion({...newAtencion, diagnostico_3: opt ? opt.value : ''})}
                       isClearable
-                      placeholder="Buscar diagnóstico secundario..."
+                      placeholder="Escriba el código o descripción para buscar..."
+                      noOptionsMessage={() => "Escriba para buscar (mín. 2 letras)"}
+                      loadingMessage={() => "Buscando..."}
                     />
                   </div>
 

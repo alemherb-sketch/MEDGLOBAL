@@ -4,7 +4,10 @@ import { Search, Plus, Trash2, Edit2, Upload, FileSpreadsheet, X } from 'lucide-
 
 const DiagnosticosCie10 = () => {
   const [diagnosticos, setDiagnosticos] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+  const limit = 50;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   
@@ -17,15 +20,21 @@ const DiagnosticosCie10 = () => {
   const fileInputRef = useRef(null);
 
   const fetchDiagnosticos = () => {
-    fetch(API_URL + '/diagnosticos/')
+    fetch(`${API_URL}/diagnosticos/?skip=${page * limit}&limit=${limit}${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ''}`)
       .then(res => res.json())
-      .then(data => setDiagnosticos(data))
+      .then(data => {
+        setDiagnosticos(data.items || []);
+        setTotal(data.total || 0);
+      })
       .catch(err => console.error("Error cargando diagnosticos", err));
   };
 
   useEffect(() => {
-    fetchDiagnosticos();
-  }, []);
+    const timer = setTimeout(() => {
+      fetchDiagnosticos();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [page, searchTerm]);
 
   const handleAdd = (e) => {
     e.preventDefault();
@@ -102,10 +111,7 @@ const DiagnosticosCie10 = () => {
     });
   };
 
-  const filtered = diagnosticos.filter(d => 
-    d.codigo.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    d.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Removed frontend filter, handled by server
 
   return (
     <div>
@@ -140,12 +146,12 @@ const DiagnosticosCie10 = () => {
                 style={{paddingLeft: '40px'}}
                 placeholder="Buscar por código o descripción..." 
                 value={searchTerm} 
-                onChange={e => setSearchTerm(e.target.value)} 
+                onChange={e => { setSearchTerm(e.target.value); setPage(0); }} 
               />
             </div>
           </div>
           <div style={{color: 'var(--text-muted)', fontSize: '0.9rem', display: 'flex', alignItems: 'center'}}>
-            Total: {diagnosticos.length} registros
+            Total: {total} registros
           </div>
         </div>
 
@@ -159,7 +165,7 @@ const DiagnosticosCie10 = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(d => (
+              {diagnosticos.map(d => (
                 <tr key={d.id}>
                   <td><strong>{d.codigo}</strong></td>
                   <td>{d.descripcion}</td>
@@ -173,13 +179,35 @@ const DiagnosticosCie10 = () => {
                   </td>
                 </tr>
               ))}
-              {filtered.length === 0 && (
+              {diagnosticos.length === 0 && (
                 <tr>
                   <td colSpan="3" style={{textAlign: 'center', padding: '2rem'}}>No se encontraron diagnósticos</td>
                 </tr>
               )}
             </tbody>
           </table>
+          
+          {total > limit && (
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderTop: '1px solid var(--border-color)', background: '#fff'}}>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setPage(p => Math.max(0, p - 1))} 
+                disabled={page === 0}
+              >
+                Anterior
+              </button>
+              <span style={{fontSize: '0.9rem', color: 'var(--text-muted)'}}>
+                Página {page + 1} de {Math.ceil(total / limit)}
+              </span>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setPage(p => p + 1)} 
+                disabled={(page + 1) * limit >= total}
+              >
+                Siguiente
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

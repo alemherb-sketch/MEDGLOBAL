@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import List
+from typing import List, Optional
 
 import models, schemas
 from database import engine, get_db
@@ -64,9 +64,26 @@ import pandas as pd
 import io
 
 # --- Diagnosticos CIE10 ---
-@app.get("/diagnosticos/", response_model=List[schemas.DiagnosticoCie10])
-def read_diagnosticos(db: Session = Depends(get_db)):
-    return db.query(models.DiagnosticoCie10).all()
+@app.get("/diagnosticos/", response_model=schemas.PaginatedDiagnosticos)
+def read_diagnosticos(
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.DiagnosticoCie10)
+    
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            (models.DiagnosticoCie10.codigo.ilike(search_term)) | 
+            (models.DiagnosticoCie10.descripcion.ilike(search_term))
+        )
+        
+    total = query.count()
+    items = query.order_by(models.DiagnosticoCie10.codigo.asc()).offset(skip).limit(limit).all()
+    
+    return {"total": total, "items": items}
 
 @app.post("/diagnosticos/", response_model=schemas.DiagnosticoCie10)
 def create_diagnostico(diag: schemas.DiagnosticoCie10Create, db: Session = Depends(get_db)):
