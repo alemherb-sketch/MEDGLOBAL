@@ -156,7 +156,7 @@ const DiagnosticosCie10 = () => {
         </div>
 
         <div className="table-container">
-          <table className="table">
+          <table className="table table-compact">
             <thead>
               <tr>
                 <th style={{width: '120px'}}>Código</th>
@@ -170,11 +170,11 @@ const DiagnosticosCie10 = () => {
                   <td><strong>{d.codigo}</strong></td>
                   <td>{d.descripcion}</td>
                   <td style={{textAlign: 'center', whiteSpace: 'nowrap'}}>
-                    <button className="icon-btn text-primary" style={{marginRight: '8px'}} onClick={() => openEditModal(d)} title="Editar">
-                      <Edit2 size={18} />
+                    <button className="icon-btn text-primary" style={{marginRight: '8px', padding: '4px'}} onClick={() => openEditModal(d)} title="Editar">
+                      <Edit2 size={16} />
                     </button>
-                    <button className="icon-btn text-danger" onClick={() => handleDelete(d.id)} title="Eliminar">
-                      <Trash2 size={18} />
+                    <button className="icon-btn text-danger" style={{padding: '4px'}} onClick={() => handleDelete(d.id)} title="Eliminar">
+                      <Trash2 size={16} />
                     </button>
                   </td>
                 </tr>
