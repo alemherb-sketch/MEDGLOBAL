@@ -188,7 +188,7 @@ const DiagnosticosCie10 = () => {
           </table>
           
           {total > limit && (
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderTop: '1px solid var(--border-color)', background: '#fff'}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderTop: '1px solid var(--border-color)'}}>
               <button 
                 className="btn btn-secondary" 
                 onClick={() => setPage(p => Math.max(0, p - 1))} 
