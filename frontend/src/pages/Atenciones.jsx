@@ -75,6 +75,38 @@ const Atenciones = () => {
       });
   };
 
+  const selectStyles = {
+    control: (base) => ({
+      ...base,
+      background: 'rgba(0,0,0,0.2)',
+      borderColor: 'var(--border-color)',
+      color: '#fff'
+    }),
+    menu: (base) => ({
+      ...base,
+      background: '#1e293b',
+      border: '1px solid var(--border-color)'
+    }),
+    option: (base, state) => ({
+      ...base,
+      background: state.isFocused ? 'var(--primary-color)' : 'transparent',
+      color: '#fff',
+      cursor: 'pointer'
+    }),
+    singleValue: (base) => ({
+      ...base,
+      color: '#fff'
+    }),
+    input: (base) => ({
+      ...base,
+      color: '#fff'
+    }),
+    placeholder: (base) => ({
+      ...base,
+      color: 'var(--text-muted)'
+    })
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -318,7 +350,7 @@ const Atenciones = () => {
       {isModalOpen && (
         <div className="modal-overlay" style={{padding: '20px 0'}}>
           <div className="modal-content" style={{maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto'}}>
-            <div className="modal-header" style={{position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-color)'}}>
+            <div className="modal-header" style={{position: 'sticky', top: 0, zIndex: 10, background: '#1e293b'}}>
               <h3>{newAtencion.id ? 'Editar Atención / Tópico' : 'Registrar Nueva Atención'}</h3>
               <button className="close-btn" onClick={closeModal}><X size={24} /></button>
             </div>
@@ -462,6 +494,7 @@ const Atenciones = () => {
                       cacheOptions
                       loadOptions={loadDiagnosticos}
                       defaultOptions={false}
+                      styles={selectStyles}
                       value={newAtencion.diagnostico_1 ? {label: newAtencion.diagnostico_1, value: newAtencion.diagnostico_1} : null}
                       onChange={opt => setNewAtencion({...newAtencion, diagnostico_1: opt ? opt.value : ''})}
                       isClearable
@@ -477,6 +510,7 @@ const Atenciones = () => {
                       cacheOptions
                       loadOptions={loadDiagnosticos}
                       defaultOptions={false}
+                      styles={selectStyles}
                       value={newAtencion.diagnostico_2 ? {label: newAtencion.diagnostico_2, value: newAtencion.diagnostico_2} : null}
                       onChange={opt => setNewAtencion({...newAtencion, diagnostico_2: opt ? opt.value : ''})}
                       isClearable
@@ -492,6 +526,7 @@ const Atenciones = () => {
                       cacheOptions
                       loadOptions={loadDiagnosticos}
                       defaultOptions={false}
+                      styles={selectStyles}
                       value={newAtencion.diagnostico_3 ? {label: newAtencion.diagnostico_3, value: newAtencion.diagnostico_3} : null}
                       onChange={opt => setNewAtencion({...newAtencion, diagnostico_3: opt ? opt.value : ''})}
                       isClearable
