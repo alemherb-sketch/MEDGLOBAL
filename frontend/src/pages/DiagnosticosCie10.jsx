@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { API_URL } from '../config';
-import { Search, Plus, Trash2, Upload, FileSpreadsheet } from 'lucide-react';
+import { Search, Plus, Trash2, Edit2, Upload, FileSpreadsheet } from 'lucide-react';
 
 const DiagnosticosCie10 = () => {
   const [diagnosticos, setDiagnosticos] = useState([]);
@@ -9,6 +9,7 @@ const DiagnosticosCie10 = () => {
   const [isImporting, setIsImporting] = useState(false);
   
   const [newDiag, setNewDiag] = useState({
+    id: null,
     codigo: '',
     descripcion: ''
   });
@@ -28,10 +29,17 @@ const DiagnosticosCie10 = () => {
 
   const handleAdd = (e) => {
     e.preventDefault();
-    fetch(API_URL + '/diagnosticos/', {
-      method: 'POST',
+    
+    const isEdit = !!newDiag.id;
+    const url = isEdit ? `${API_URL}/diagnosticos/${newDiag.id}` : `${API_URL}/diagnosticos/`;
+    const method = isEdit ? 'PUT' : 'POST';
+    
+    const payload = { codigo: newDiag.codigo, descripcion: newDiag.descripcion };
+
+    fetch(url, {
+      method: method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newDiag)
+      body: JSON.stringify(payload)
     })
     .then(res => {
       if(!res.ok) throw new Error("Error al guardar");
@@ -40,12 +48,17 @@ const DiagnosticosCie10 = () => {
     .then(() => {
       fetchDiagnosticos();
       setIsModalOpen(false);
-      setNewDiag({ codigo: '', descripcion: '' });
+      setNewDiag({ id: null, codigo: '', descripcion: '' });
     })
     .catch(err => {
-      alert("Error al guardar el diagnóstico (Verifica que el código no exista).");
+      alert("Error al guardar el diagnóstico (Verifica que el código no exista o sea correcto).");
       console.error(err);
     });
+  };
+
+  const openEditModal = (diag) => {
+    setNewDiag({ id: diag.id, codigo: diag.codigo, descripcion: diag.descripcion });
+    setIsModalOpen(true);
   };
 
   const handleDelete = (id) => {
@@ -111,7 +124,7 @@ const DiagnosticosCie10 = () => {
             Importar Excel
           </button>
           
-          <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+          <button className="btn btn-primary" onClick={() => { setNewDiag({id: null, codigo: '', descripcion: ''}); setIsModalOpen(true); }}>
             <Plus size={18} style={{marginRight: '8px'}} /> Nuevo Diagnóstico
           </button>
         </div>
@@ -150,7 +163,10 @@ const DiagnosticosCie10 = () => {
                 <tr key={d.id}>
                   <td><strong>{d.codigo}</strong></td>
                   <td>{d.descripcion}</td>
-                  <td style={{textAlign: 'center'}}>
+                  <td style={{textAlign: 'center', whiteSpace: 'nowrap'}}>
+                    <button className="icon-btn text-primary" style={{marginRight: '8px'}} onClick={() => openEditModal(d)} title="Editar">
+                      <Edit2 size={18} />
+                    </button>
                     <button className="icon-btn text-danger" onClick={() => handleDelete(d.id)} title="Eliminar">
                       <Trash2 size={18} />
                     </button>
@@ -170,7 +186,7 @@ const DiagnosticosCie10 = () => {
       {isModalOpen && (
         <div className="modal-overlay">
           <div className="modal-content" style={{maxWidth: '500px'}}>
-            <h2>Registrar Nuevo Diagnóstico</h2>
+            <h2>{newDiag.id ? 'Editar Diagnóstico' : 'Registrar Nuevo Diagnóstico'}</h2>
             <form onSubmit={handleAdd}>
               <div className="form-group">
                 <label>Código CIE-10 (u otro)</label>

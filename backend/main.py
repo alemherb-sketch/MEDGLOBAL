@@ -76,6 +76,24 @@ def create_diagnostico(diag: schemas.DiagnosticoCie10Create, db: Session = Depen
     db.refresh(db_diag)
     return db_diag
 
+@app.put("/diagnosticos/{id}", response_model=schemas.DiagnosticoCie10)
+def update_diagnostico(id: int, diag: schemas.DiagnosticoCie10Create, db: Session = Depends(get_db)):
+    db_diag = db.query(models.DiagnosticoCie10).filter(models.DiagnosticoCie10.id == id).first()
+    if not db_diag:
+        raise HTTPException(status_code=404, detail="Diagnóstico no encontrado")
+    
+    # Check if new code already exists in another record
+    if diag.codigo != db_diag.codigo:
+        exist = db.query(models.DiagnosticoCie10).filter(models.DiagnosticoCie10.codigo == diag.codigo).first()
+        if exist:
+            raise HTTPException(status_code=400, detail="El código CIE-10 ya existe")
+            
+    for key, value in diag.dict().items():
+        setattr(db_diag, key, value)
+    db.commit()
+    db.refresh(db_diag)
+    return db_diag
+
 @app.delete("/diagnosticos/{id}")
 def delete_diagnostico(id: int, db: Session = Depends(get_db)):
     db_diag = db.query(models.DiagnosticoCie10).filter(models.DiagnosticoCie10.id == id).first()
