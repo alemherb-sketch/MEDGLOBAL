@@ -92,16 +92,30 @@ async def import_diagnosticos(file: UploadFile = File(...), db: Session = Depend
     
     contents = await file.read()
     try:
-        df = pd.read_excel(io.BytesIO(contents))
-        
-        # Asumimos que la primera columna es Codigo y la segunda Descripcion
-        if len(df.columns) < 2:
-            raise HTTPException(status_code=400, detail="El Excel debe tener al menos 2 columnas: Código y Descripción")
+        df = pd.read_excel(io.BytesIO(contents), header=None)
         
         count = 0
+        import re
+        
         for index, row in df.iterrows():
-            codigo = str(row.iloc[0]).strip()
-            descripcion = str(row.iloc[1]).strip()
+            if pd.isna(row.iloc[0]):
+                continue
+                
+            celda = str(row.iloc[0]).strip()
+            
+            # Buscar el patron "CODIGO - DESCRIPCION" (ej. "A00 - COLERA")
+            match = re.match(r"^([A-Z0-9.]{3,8})\s*-\s*(.+)$", celda)
+            
+            if match:
+                codigo = match.group(1).strip()
+                descripcion = match.group(2).strip()
+            else:
+                # Si tiene 2 columnas, plan B clásico
+                if len(df.columns) >= 2 and not pd.isna(row.iloc[1]):
+                    codigo = celda
+                    descripcion = str(row.iloc[1]).strip()
+                else:
+                    continue
             
             if codigo and codigo != 'nan' and descripcion and descripcion != 'nan':
                 # Evitar duplicados por código
