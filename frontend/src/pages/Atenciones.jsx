@@ -437,9 +437,6 @@ const Atenciones = () => {
                       {clasificacionesDisponibles.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                     </select>
                   </div>
-
-                  </div>
-
                   <div className="form-group" style={{gridColumn: 'span 2'}}>
                     <label className="form-label">Diagnóstico Principal</label>
                     <Select 
