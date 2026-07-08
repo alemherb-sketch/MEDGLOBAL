@@ -68,7 +68,13 @@ const DiagnosticosCie10 = () => {
       method: 'POST',
       body: formData
     })
-    .then(res => res.json())
+    .then(async res => {
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Error desconocido del servidor");
+      }
+      return data;
+    })
     .then(data => {
       setIsImporting(false);
       alert(data.message || "Importación completada");
@@ -77,7 +83,7 @@ const DiagnosticosCie10 = () => {
     })
     .catch(err => {
       setIsImporting(false);
-      alert("Error en la importación. Asegúrate de usar un archivo Excel con Código en la 1ra columna y Descripción en la 2da.");
+      alert("Error en la importación: " + err.message);
       console.error(err);
       if(fileInputRef.current) fileInputRef.current.value = '';
     });
