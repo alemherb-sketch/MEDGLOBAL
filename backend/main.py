@@ -269,6 +269,10 @@ def delete_sistema(id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"detail": "Eliminado"}
 
+@app.get("/clasificaciones/", response_model=List[schemas.Clasificacion])
+def read_clasificaciones(db: Session = Depends(get_db)):
+    return db.query(models.ClasificacionAtencion).all()
+
 @app.post("/clasificaciones/", response_model=schemas.Clasificacion)
 def create_clasificacion(clasificacion: schemas.ClasificacionCreate, db: Session = Depends(get_db)):
     db_clas = models.ClasificacionAtencion(**clasificacion.dict())

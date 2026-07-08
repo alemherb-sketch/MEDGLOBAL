@@ -67,11 +67,10 @@ class ClasificacionBase(BaseModel):
     nombre: str
 
 class ClasificacionCreate(ClasificacionBase):
-    sistema_id: int
+    pass
 
 class Clasificacion(ClasificacionBase):
     id: int
-    sistema_id: int
 
     class Config:
         orm_mode = True
@@ -104,7 +103,6 @@ class SistemaCreate(SistemaBase):
 
 class Sistema(SistemaBase):
     id: int
-    clasificaciones: List[Clasificacion] = []
 
     class Config:
         orm_mode = True

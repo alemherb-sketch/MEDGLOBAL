@@ -4,19 +4,24 @@ import { Search, Plus, Trash2, Edit2, X } from 'lucide-react';
 
 const Sistemas = () => {
   const [sistemas, setSistemas] = useState([]);
+  const [contingencias, setContingencias] = useState([]);
   const [modalType, setModalType] = useState(null); // 'sistema' or 'clasificacion'
   const [newSistema, setNewSistema] = useState({ id: null, nombre: '' });
-  const [newClasificacion, setNewClasificacion] = useState({ id: null, nombre: '', sistema_id: '' });
-  const [filters, setFilters] = useState({ search: '' });
+  const [newClasificacion, setNewClasificacion] = useState({ id: null, nombre: '' });
+  const [filters, setFilters] = useState({ searchSistemas: '', searchContingencias: '' });
 
-  const fetchSistemas = () => {
+  const fetchData = () => {
     fetch(API_URL + '/sistemas/')
       .then(res => res.json())
       .then(data => setSistemas(data));
+    
+    fetch(API_URL + '/clasificaciones/')
+      .then(res => res.json())
+      .then(data => setContingencias(data));
   };
 
   useEffect(() => {
-    fetchSistemas();
+    fetchData();
   }, []);
 
   const handleAddSistema = (e) => {
@@ -30,15 +35,15 @@ const Sistemas = () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nombre: newSistema.nombre })
     }).then(() => {
-      fetchSistemas();
+      fetchData();
       closeModal();
     });
   };
 
   const handleDeleteSistema = (id) => {
-    if (window.confirm('¿Eliminar sistema y sus contingencias?')) {
+    if (window.confirm('¿Eliminar este sistema?')) {
       fetch(`${API_URL}/sistemas/${id}`, { method: 'DELETE' })
-        .then(() => fetchSistemas());
+        .then(() => fetchData());
     }
   };
 
@@ -48,15 +53,14 @@ const Sistemas = () => {
     const url = isEditing ? `${API_URL}/clasificaciones/${newClasificacion.id}` : API_URL + '/clasificaciones/';
     const method = isEditing ? 'PUT' : 'POST';
 
-    const dataToSend = { ...newClasificacion };
-    delete dataToSend.id;
+    const dataToSend = { nombre: newClasificacion.nombre };
 
     fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dataToSend)
     }).then(() => {
-      fetchSistemas();
+      fetchData();
       closeModal();
     });
   };
@@ -64,7 +68,7 @@ const Sistemas = () => {
   const handleDeleteClasificacion = (id) => {
     if (window.confirm('¿Eliminar esta contingencia?')) {
       fetch(`${API_URL}/clasificaciones/${id}`, { method: 'DELETE' })
-        .then(() => fetchSistemas());
+        .then(() => fetchData());
     }
   };
 
@@ -78,77 +82,103 @@ const Sistemas = () => {
       }
     } else if (type === 'clasificacion') {
       if (data) {
-        setNewClasificacion({ id: data.id, nombre: data.nombre, sistema_id: data.sistema_id });
+        setNewClasificacion({ id: data.id, nombre: data.nombre });
       } else {
-        setNewClasificacion({ id: null, nombre: '', sistema_id: data?.sistema_id || '' });
+        setNewClasificacion({ id: null, nombre: '' });
       }
     }
   };
 
   const closeModal = () => setModalType(null);
 
-  const filteredSistemas = sistemas.filter(s => s.nombre.toLowerCase().includes(filters.search.toLowerCase()));
+  const filteredSistemas = sistemas.filter(s => s.nombre.toLowerCase().includes(filters.searchSistemas.toLowerCase()));
+  const filteredContingencias = contingencias.filter(c => c.nombre.toLowerCase().includes(filters.searchContingencias.toLowerCase()));
 
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
         <h1>Sistemas Clínicos y Contingencias</h1>
-        <div className="flex gap-2">
-          <button className="btn btn-secondary" onClick={() => openModal('sistema')}>
-            <Plus size={18} style={{marginRight: '8px'}} /> Nuevo Sistema
-          </button>
-          <button className="btn btn-primary" onClick={() => openModal('clasificacion')}>
-            <Plus size={18} style={{marginRight: '8px'}} /> Nueva Contingencia
-          </button>
-        </div>
       </div>
       
-      <div className="glass-panel">
-        <div className="filter-bar">
-          <div className="form-group mb-0" style={{flex: 1}}>
-            <div style={{position: 'relative'}}>
-              <Search size={18} style={{position: 'absolute', top: '14px', left: '14px', color: 'var(--text-muted)'}} />
-              <input 
-                className="form-control search-input" 
-                style={{paddingLeft: '40px'}}
-                placeholder="Buscar sistema clínico..." 
-                value={filters.search} 
-                onChange={e => setFilters({...filters, search: e.target.value})} 
-              />
+      <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+        {/* Sistemas Column */}
+        <div className="glass-panel">
+          <div className="flex justify-between items-center mb-4">
+            <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Sistemas Clínicos</h2>
+            <button className="btn btn-secondary btn-sm" onClick={() => openModal('sistema')} style={{ padding: '6px 12px' }}>
+              <Plus size={16} style={{marginRight: '6px'}} /> Nuevo
+            </button>
+          </div>
+          
+          <div className="filter-bar mb-4">
+            <div className="form-group mb-0" style={{flex: 1}}>
+              <div style={{position: 'relative'}}>
+                <Search size={18} style={{position: 'absolute', top: '14px', left: '14px', color: 'var(--text-muted)'}} />
+                <input 
+                  className="form-control search-input" 
+                  style={{paddingLeft: '40px'}}
+                  placeholder="Buscar sistema..." 
+                  value={filters.searchSistemas} 
+                  onChange={e => setFilters({...filters, searchSistemas: e.target.value})} 
+                />
+              </div>
             </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {filteredSistemas.map(s => (
+              <div key={s.id} className="p-3 flex justify-between items-center" style={{background: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid var(--border-color)'}}>
+                <span style={{color: 'var(--primary-color)', fontWeight: '500'}}>{s.nombre}</span>
+                <div className="flex gap-2">
+                  <button className="action-btn edit" onClick={() => openModal('sistema', s)}><Edit2 size={16} /></button>
+                  <button className="action-btn delete" onClick={() => handleDeleteSistema(s.id)}><Trash2 size={16} /></button>
+                </div>
+              </div>
+            ))}
+            {filteredSistemas.length === 0 && (
+              <div className="text-center text-muted py-4">No se encontraron sistemas</div>
+            )}
           </div>
         </div>
 
-        <div className="mt-3">
-          {filteredSistemas.map(s => (
-            <div key={s.id} className="mb-4 p-4" style={{background: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid var(--border-color)'}}>
-              <div className="flex justify-between items-center mb-3 pb-2" style={{borderBottom: '1px solid rgba(255,255,255,0.1)'}}>
-                <h3 style={{color: 'var(--primary-color)', margin: 0}}>{s.nombre}</h3>
-                <div>
-                  <button className="action-btn edit" onClick={() => openModal('sistema', s)}><Edit2 size={18} /></button>
-                  <button className="action-btn delete" onClick={() => handleDeleteSistema(s.id)}><Trash2 size={18} /></button>
+        {/* Contingencias Column */}
+        <div className="glass-panel">
+          <div className="flex justify-between items-center mb-4">
+            <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Contingencias</h2>
+            <button className="btn btn-primary btn-sm" onClick={() => openModal('clasificacion')} style={{ padding: '6px 12px' }}>
+              <Plus size={16} style={{marginRight: '6px'}} /> Nueva
+            </button>
+          </div>
+          
+          <div className="filter-bar mb-4">
+            <div className="form-group mb-0" style={{flex: 1}}>
+              <div style={{position: 'relative'}}>
+                <Search size={18} style={{position: 'absolute', top: '14px', left: '14px', color: 'var(--text-muted)'}} />
+                <input 
+                  className="form-control search-input" 
+                  style={{paddingLeft: '40px'}}
+                  placeholder="Buscar contingencia..." 
+                  value={filters.searchContingencias} 
+                  onChange={e => setFilters({...filters, searchContingencias: e.target.value})} 
+                />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {filteredContingencias.map(c => (
+              <div key={c.id} className="p-3 flex justify-between items-center" style={{background: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid var(--border-color)'}}>
+                <span style={{ fontWeight: '500' }}>{c.nombre}</span>
+                <div className="flex gap-2">
+                  <button className="action-btn edit" onClick={() => openModal('clasificacion', c)}><Edit2 size={16} /></button>
+                  <button className="action-btn delete" onClick={() => handleDeleteClasificacion(c.id)}><Trash2 size={16} /></button>
                 </div>
               </div>
-              <ul style={{listStyle: 'none', paddingLeft: '0', margin: 0}}>
-                {s.clasificaciones && s.clasificaciones.length > 0 ? (
-                  s.clasificaciones.map(c => (
-                    <li key={c.id} className="flex justify-between items-center" style={{padding: '8px 12px', borderRadius: '6px', transition: 'background 0.2s'}}>
-                      <span>{c.nombre}</span>
-                      <div className="flex gap-2">
-                        <button className="action-btn edit" onClick={() => openModal('clasificacion', {id: c.id, nombre: c.nombre, sistema_id: s.id})}><Edit2 size={16} /></button>
-                        <button className="action-btn delete" onClick={() => handleDeleteClasificacion(c.id)}><Trash2 size={16} /></button>
-                      </div>
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-muted p-2">Sin contingencias</li>
-                )}
-              </ul>
-            </div>
-          ))}
-          {filteredSistemas.length === 0 && (
-            <div className="text-center text-muted py-4">No se encontraron sistemas</div>
-          )}
+            ))}
+            {filteredContingencias.length === 0 && (
+              <div className="text-center text-muted py-4">No se encontraron contingencias</div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -184,13 +214,6 @@ const Sistemas = () => {
             </div>
             <div className="modal-body">
               <form onSubmit={handleAddClasificacion}>
-                <div className="form-group">
-                  <label className="form-label">Sistema</label>
-                  <select required className="form-control" value={newClasificacion.sistema_id} onChange={e => setNewClasificacion({...newClasificacion, sistema_id: e.target.value})}>
-                    <option value="">Seleccione un sistema...</option>
-                    {sistemas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                  </select>
-                </div>
                 <div className="form-group">
                   <label className="form-label">Nombre de Contingencia</label>
                   <input required className="form-control" placeholder="Ej. Neumonía leve" value={newClasificacion.nombre} onChange={e => setNewClasificacion({...newClasificacion, nombre: e.target.value})} />

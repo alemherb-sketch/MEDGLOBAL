@@ -57,14 +57,11 @@ class SistemaAtencion(Base):
     __tablename__ = "sistemas"
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(100), unique=True, index=True)
-    clasificaciones = relationship("ClasificacionAtencion", back_populates="sistema")
 
 class ClasificacionAtencion(Base):
     __tablename__ = "clasificaciones"
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(100))
-    sistema_id = Column(Integer, ForeignKey("sistemas.id"))
-    sistema = relationship("SistemaAtencion", back_populates="clasificaciones")
 
 class DiagnosticoCie10(Base):
     __tablename__ = "diagnosticos_cie10"

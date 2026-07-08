@@ -8,6 +8,7 @@ const Atenciones = () => {
   const [atenciones, setAtenciones] = useState([]);
   const [trabajadores, setTrabajadores] = useState([]);
   const [sistemas, setSistemas] = useState([]);
+  const [contingencias, setContingencias] = useState([]);
   const [citas, setCitas] = useState([]);
   const [personalSalud, setPersonalSalud] = useState([]);
   const [medicamentos, setMedicamentos] = useState([]);
@@ -49,6 +50,7 @@ const Atenciones = () => {
     fetch(API_URL + '/atenciones/').then(res => res.json()).then(setAtenciones);
     fetch(API_URL + '/trabajadores/').then(res => res.json()).then(setTrabajadores);
     fetch(API_URL + '/sistemas/').then(res => res.json()).then(setSistemas);
+    fetch(API_URL + '/clasificaciones/').then(res => res.json()).then(setContingencias);
     fetch(API_URL + '/citas/').then(res => res.json()).then(setCitas);
     fetch(API_URL + '/personal_salud/').then(res => res.json()).then(setPersonalSalud);
     fetch(API_URL + '/medicamentos/').then(res => res.json()).then(setMedicamentos);
@@ -241,7 +243,7 @@ const Atenciones = () => {
     setNewAtencion({...newAtencion, medicamentos: newMeds});
   };
 
-  const clasificacionesDisponibles = sistemas.flatMap(s => s.clasificaciones || []);
+  const clasificacionesDisponibles = contingencias;
   
   const filteredAtenciones = atenciones.filter(a => {
     const searchStr = (
