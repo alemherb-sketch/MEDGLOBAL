@@ -184,8 +184,15 @@ const Dashboard = () => {
     pacientes: [],
     empresas: [],
     medicamentos: [],
-    costos: []
+    costos: [],
+    estado_empresas: [],
+    atenciones_por_dia: [],
+    ultimas_atenciones: [],
+    sistemas_afectados: []
   });
+
+  const [allEmpresas, setAllEmpresas] = useState([]);
+  const [empresaFilter, setEmpresaFilter] = useState('ALL'); // 'ALL' or 'ACTIVO'
 
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
@@ -194,6 +201,11 @@ const Dashboard = () => {
     fetch(API_URL + '/dashboard/kpis')
       .then(res => res.json())
       .then(data => setKpis(data))
+      .catch(err => console.error(err));
+      
+    fetch(API_URL + '/empresas/')
+      .then(res => res.json())
+      .then(data => setAllEmpresas(data))
       .catch(err => console.error(err));
   }, []);
 
@@ -577,6 +589,133 @@ const Dashboard = () => {
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
+
+        {/* 1. Lista de Empresas (Activas vs Inactivas) y Gráfico */}
+        <div className="dash-chart-card" style={{ gridColumn: '1 / -1' }}>
+          <div className="dash-chart-header">
+            <h3 className="dash-chart-title">Empresas (Registradas vs Activas)</h3>
+          </div>
+          <div className="dash-chart-body" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 400px', minWidth: 0 }}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+                <button className={`btn ${empresaFilter === 'ALL' ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '6px 12px', fontSize: '0.85rem' }} onClick={() => setEmpresaFilter('ALL')}>Registradas ({allEmpresas.length})</button>
+                <button className={`btn ${empresaFilter === 'ACTIVO' ? 'btn-primary' : 'btn-secondary'}`} style={{ padding: '6px 12px', fontSize: '0.85rem' }} onClick={() => setEmpresaFilter('ACTIVO')}>Activas ({allEmpresas.filter(e => e.estado === 'ACTIVO').length})</button>
+              </div>
+              <div style={{ maxHeight: '300px', overflowY: 'auto', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                <table className="table" style={{ margin: 0 }}>
+                  <thead style={{ position: 'sticky', top: 0, background: '#1e293b' }}>
+                    <tr><th>RUC</th><th>Nombre</th><th>Estado</th></tr>
+                  </thead>
+                  <tbody>
+                    {allEmpresas.filter(e => empresaFilter === 'ALL' || e.estado === empresaFilter).map(e => (
+                      <tr key={e.id}>
+                        <td>{e.ruc}</td>
+                        <td style={{ fontWeight: '500' }}>{e.nombre}</td>
+                        <td>
+                          <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', background: e.estado === 'ACTIVO' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: e.estado === 'ACTIVO' ? 'var(--success-color)' : 'var(--danger-color)' }}>
+                            {e.estado}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div style={{ flex: '1 1 300px', minWidth: 0 }}>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie data={stats.estado_empresas} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={4} dataKey="value" label={({name, percent}) => `${name} ${(percent*100).toFixed(0)}%`}>
+                    {stats.estado_empresas.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.name === 'ACTIVO' ? '#10b981' : '#ef4444'} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip contentStyle={{backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px'}} />
+                  <Legend iconType="circle" />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Últimas Atenciones Realizadas */}
+        <div className="dash-chart-card" style={{ gridColumn: '1 / -1' }}>
+          <div className="dash-chart-header">
+            <h3 className="dash-chart-title">Últimas Atenciones Realizadas</h3>
+          </div>
+          <div className="dash-chart-body" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 400px', minWidth: 0 }}>
+              <h4 style={{ fontSize: '1rem', marginBottom: '12px', color: 'var(--text-muted)' }}>Lista de Atenciones (Últimas 10)</h4>
+              <div style={{ maxHeight: '300px', overflowY: 'auto', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                <table className="table" style={{ margin: 0, fontSize: '0.85rem' }}>
+                  <thead style={{ position: 'sticky', top: 0, background: '#1e293b' }}>
+                    <tr><th>ID</th><th>Fecha</th><th>Paciente</th><th>Diagnóstico / Sistema</th></tr>
+                  </thead>
+                  <tbody>
+                    {stats.ultimas_atenciones && stats.ultimas_atenciones.map(a => (
+                      <tr key={a.id}>
+                        <td style={{ color: 'var(--primary-color)' }}>#{a.id.toString().padStart(4, '0')}</td>
+                        <td>{a.fecha}</td>
+                        <td style={{ fontWeight: '500' }}>{a.paciente}</td>
+                        <td>{a.diagnostico}<br/><span className="text-muted" style={{ fontSize: '0.75rem' }}>{a.sistema}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div style={{ flex: '1 1 300px', minWidth: 0 }}>
+              <h4 style={{ fontSize: '1rem', marginBottom: '12px', color: 'var(--text-muted)' }}>Tendencia por Día</h4>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={stats.atenciones_por_dia} margin={{top: 5, right: 10, left: 0, bottom: 5}}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
+                  <XAxis dataKey="name" stroke="#64748b" tick={{fontSize: 10}} tickFormatter={(val) => val.substring(5)} />
+                  <YAxis stroke="#64748b" tick={{fontSize: 11}} />
+                  <RechartsTooltip contentStyle={{backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px'}} />
+                  <Bar dataKey="value" fill="#f97316" radius={[4, 4, 0, 0]} name="Atenciones" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Ranking de Atención con SISTEMAS Afectados */}
+        <div className="dash-chart-card" style={{ gridColumn: '1 / -1' }}>
+          <div className="dash-chart-header">
+            <h3 className="dash-chart-title">Ranking de Sistemas Clínicos Afectados</h3>
+          </div>
+          <div className="dash-chart-body" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 300px', minWidth: 0 }}>
+              <div style={{ maxHeight: '300px', overflowY: 'auto', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                <table className="table" style={{ margin: 0 }}>
+                  <thead style={{ position: 'sticky', top: 0, background: '#1e293b' }}>
+                    <tr><th>N°</th><th>Sistema Clínico</th><th style={{ textAlign: 'right' }}>Total Atenciones</th></tr>
+                  </thead>
+                  <tbody>
+                    {stats.sistemas_afectados && stats.sistemas_afectados.map((s, idx) => (
+                      <tr key={idx}>
+                        <td className="text-muted">{idx + 1}</td>
+                        <td style={{ fontWeight: '500' }}>{s.name}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--primary-color)' }}>{s.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div style={{ flex: '1 1 400px', minWidth: 0 }}>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={stats.sistemas_afectados} layout="vertical" margin={{top: 5, right: 20, left: 5, bottom: 5}}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
+                  <XAxis type="number" stroke="#64748b" tick={{fontSize: 11}} />
+                  <YAxis dataKey="name" type="category" width={110} stroke="#64748b" tick={{fontSize: 10}} tickFormatter={(val) => val.length > 15 ? val.substring(0, 15) + '…' : val} />
+                  <RechartsTooltip contentStyle={{backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px'}} />
+                  <Bar dataKey="value" fill="#06b6d4" radius={[0, 4, 4, 0]} name="Atenciones" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
       </section>
     </div>
   );

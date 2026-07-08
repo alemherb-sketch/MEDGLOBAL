@@ -582,12 +582,48 @@ def get_dashboard_stats(fecha_inicio: str = None, fecha_fin: str = None, db: Ses
         
     costos = [{"name": str(c.nombre), "value": float(c.total_costo or 0)} for c in costos_empresa_query]
 
+    # 6. Estado de Empresas (Activas vs Inactivas)
+    q_estado = db.query(models.Empresa.estado, func.count(models.Empresa.id).label('total')) \
+        .group_by(models.Empresa.estado).all()
+    estado_empresas = [{"name": str(e.estado or 'Desconocido'), "value": int(e.total)} for e in q_estado]
+
+    # 7. Atenciones por Día (Últimas Atenciones Gráfico)
+    q_dias = db.query(func.date(models.Atencion.fecha).label('dia'), func.count(models.Atencion.id).label('total'))
+    q_dias = apply_date_filter(q_dias)
+    dias_query = q_dias.group_by(func.date(models.Atencion.fecha)).order_by(func.date(models.Atencion.fecha).asc()).limit(14).all()
+    atenciones_por_dia = [{"name": str(d.dia), "value": int(d.total)} for d in dias_query]
+
+    # 8. Últimas Atenciones Realizadas (Lista)
+    q_ultimas = db.query(models.Atencion)
+    q_ultimas = apply_date_filter(q_ultimas)
+    ultimas = q_ultimas.order_by(models.Atencion.fecha.desc()).limit(10).all()
+    ultimas_atenciones = []
+    for a in ultimas:
+        ultimas_atenciones.append({
+            "id": a.id,
+            "fecha": str(a.fecha.date()) if a.fecha else "",
+            "paciente": f"{a.trabajador.nombre} {a.trabajador.apellidos}" if a.trabajador else "N/A",
+            "diagnostico": str(a.diagnostico or ""),
+            "sistema": a.sistema.nombre if a.sistema else "N/A"
+        })
+
+    # 9. Sistemas Afectados (Ranking)
+    q_sist = db.query(models.SistemaAtencion.nombre, func.count(models.Atencion.id).label('total')) \
+        .join(models.Atencion, models.SistemaAtencion.id == models.Atencion.sistema_id)
+    q_sist = apply_date_filter(q_sist)
+    top_sistemas = q_sist.group_by(models.SistemaAtencion.id).order_by(func.count(models.Atencion.id).desc()).limit(10).all()
+    sistemas_afectados = [{"name": str(s.nombre), "value": int(s.total)} for s in top_sistemas]
+
     return {
         "enfermedades": enfermedades,
         "pacientes": pacientes,
         "empresas": empresas,
         "medicamentos": medicamentos,
-        "costos": costos
+        "costos": costos,
+        "estado_empresas": estado_empresas,
+        "atenciones_por_dia": atenciones_por_dia,
+        "ultimas_atenciones": ultimas_atenciones,
+        "sistemas_afectados": sistemas_afectados
     }
 
 # ── Detailed Report Data ──
