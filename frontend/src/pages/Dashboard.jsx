@@ -881,21 +881,9 @@ const Dashboard = () => {
                   </div>
                 )}
               </div>
-            </div>} />
-                      <RechartsTooltip contentStyle={{backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px'}} />
-                      <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} name="Atenciones" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: '8px' }}>
-                    Sin datos para graficar
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </div>
-
       </section>
     </div>
   );
