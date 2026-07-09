@@ -840,9 +840,9 @@ def get_reporte_consumo_medicamentos(
     empresa_id: int = None,
     db: Session = Depends(get_db)
 ):
-    query = db.query(models.AtencionMedicamento) \
-        .join(models.Atencion) \
-        .join(models.Medicamento)
+    query = db.query(models.AtencionMedicamento, models.Atencion, models.Medicamento) \
+        .join(models.Atencion, models.Atencion.id == models.AtencionMedicamento.atencion_id) \
+        .join(models.Medicamento, models.Medicamento.id == models.AtencionMedicamento.medicamento_id)
         
     if fecha_inicio:
         query = query.filter(func.date(models.Atencion.fecha) >= fecha_inicio)
@@ -851,15 +851,15 @@ def get_reporte_consumo_medicamentos(
     if empresa_id:
         query = query.filter(models.Atencion.empresa_id == empresa_id)
         
-    atenciones_med = query.all()
+    resultados = query.all()
     
     from collections import defaultdict
     medicamentos_dict = {}
     fechas_set = set()
     
-    for am in atenciones_med:
-        if not am.atencion.fecha: continue
-        fecha_str = am.atencion.fecha.strftime("%Y-%m-%d")
+    for am, atencion, med in resultados:
+        if not atencion.fecha: continue
+        fecha_str = atencion.fecha.strftime("%Y-%m-%d")
         fechas_set.add(fecha_str)
         
         med = am.medicamento
