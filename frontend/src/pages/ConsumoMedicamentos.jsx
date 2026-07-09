@@ -237,20 +237,6 @@ const ConsumoMedicamentos = () => {
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="print-only-tfoot">
-                <tr style={{ background: 'rgba(15, 23, 42, 0.95)' }}>
-                  <td colSpan={3 + reporte.rango_fechas.length + 1} style={{ textAlign: 'right', fontWeight: 'bold' }}>SUB TOTAL:</td>
-                  <td colSpan={2} style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--primary-color)' }}>S/ {reporte.totales.sub_total.toFixed(2)}</td>
-                </tr>
-                <tr style={{ background: 'rgba(15, 23, 42, 0.95)' }}>
-                  <td colSpan={3 + reporte.rango_fechas.length + 1} style={{ textAlign: 'right', fontWeight: 'bold' }}>IGV (18%):</td>
-                  <td colSpan={2} style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--primary-color)' }}>S/ {reporte.totales.igv.toFixed(2)}</td>
-                </tr>
-                <tr style={{ background: 'rgba(15, 23, 42, 0.95)' }}>
-                  <td colSpan={3 + reporte.rango_fechas.length + 1} style={{ textAlign: 'right', fontWeight: 'bold' }}>TOTAL GENERAL:</td>
-                  <td colSpan={2} style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--primary-color)' }}>S/ {reporte.totales.total.toFixed(2)}</td>
-                </tr>
-              </tfoot>
             </table>
           ) : (
             <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -270,7 +256,6 @@ const ConsumoMedicamentos = () => {
           .table { border: 1px solid #ddd; }
           .table th { background: #f1f5f9 !important; color: #000 !important; border: 1px solid #ddd !important; }
           .table td { color: #000 !important; border: 1px solid #ddd !important; }
-          .print-only-tfoot td { color: #000 !important; background: transparent !important; }
           body { background: #fff !important; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
