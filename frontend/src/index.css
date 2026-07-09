@@ -735,3 +735,6 @@ h3 { font-size: 1.5rem; }
     page-break-inside: avoid !important;
   }
 }
+
+.date-picker-wrapper { width: 100%; display: block; }
+.date-picker-wrapper input { width: 100%; }

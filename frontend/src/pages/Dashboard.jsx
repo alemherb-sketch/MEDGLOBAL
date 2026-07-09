@@ -739,70 +739,64 @@ const Dashboard = () => {
                   <YAxis dataKey="name" type="category" width={110} stroke="#64748b" tick={{fontSize: 10}} tickFormatter={(val) => val.length > 15 ? val.substring(0, 15) + '…' : val} />
                   <RechartsTooltip contentStyle={{backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px'}} />
                   <Bar dataKey="value" fill="#06b6d4" radius={[0, 4, 4, 0]} name="Atenciones" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-        {/* 4. Reporte Específico de Sistemas Atendidos */}
-        <div className="dash-chart-card" style={{ gridColumn: '1 / -1', border: '1px solid var(--primary-color)' }}>
-          <div className="dash-chart-header" style={{ background: 'rgba(14, 165, 233, 0.1)', borderBottom: '1px solid var(--primary-color)' }}>
-            <h3 className="dash-chart-title" style={{ color: 'var(--primary-color)' }}>Reporte Detallado de Sistemas Atendidos</h3>
-          </div>
-          <div className="dash-chart-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
-            {/* Filtros */}
-            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', padding: '15px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
-              <div style={{ flex: '1 1 200px' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '5px' }}>Rango de Fechas</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <DatePicker
-                    selected={repSisFiltros.fecha_inicio}
-                    onChange={date => setRepSisFiltros({...repSisFiltros, fecha_inicio: date})}
-                    selectsStart
-                    startDate={repSisFiltros.fecha_inicio}
-                    endDate={repSisFiltros.fecha_fin}
-                    dateFormat="dd/MM/yyyy"
-                    placeholderText="Inicio"
-                    className="form-control"
-                    isClearable
-                    style={{ width: '100px' }}
-                  />
+                </BarChart            {/* Filtros */}
+            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', padding: '16px 20px', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ flex: '1 1 220px' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-color)', marginBottom: '8px' }}>Rango de Fechas</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ flex: 1 }}>
+                    <DatePicker
+                      selected={repSisFiltros.fecha_inicio}
+                      onChange={date => setRepSisFiltros({...repSisFiltros, fecha_inicio: date})}
+                      selectsStart
+                      startDate={repSisFiltros.fecha_inicio}
+                      endDate={repSisFiltros.fecha_fin}
+                      dateFormat="dd/MM/yyyy"
+                      placeholderText="Desde..."
+                      className="form-control"
+                      isClearable
+                      wrapperClassName="date-picker-wrapper"
+                    />
+                  </div>
                   <span style={{ color: 'var(--text-muted)' }}>-</span>
-                  <DatePicker
-                    selected={repSisFiltros.fecha_fin}
-                    onChange={date => setRepSisFiltros({...repSisFiltros, fecha_fin: date})}
-                    selectsEnd
-                    startDate={repSisFiltros.fecha_inicio}
-                    endDate={repSisFiltros.fecha_fin}
-                    minDate={repSisFiltros.fecha_inicio}
-                    dateFormat="dd/MM/yyyy"
-                    placeholderText="Fin"
-                    className="form-control"
-                    isClearable
-                    style={{ width: '100px' }}
-                  />
+                  <div style={{ flex: 1 }}>
+                    <DatePicker
+                      selected={repSisFiltros.fecha_fin}
+                      onChange={date => setRepSisFiltros({...repSisFiltros, fecha_fin: date})}
+                      selectsEnd
+                      startDate={repSisFiltros.fecha_inicio}
+                      endDate={repSisFiltros.fecha_fin}
+                      minDate={repSisFiltros.fecha_inicio}
+                      dateFormat="dd/MM/yyyy"
+                      placeholderText="Hasta..."
+                      className="form-control"
+                      isClearable
+                      wrapperClassName="date-picker-wrapper"
+                    />
+                  </div>
                 </div>
               </div>
               <div style={{ flex: '1 1 200px' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '5px' }}>Sistema Clínico</label>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-color)', marginBottom: '8px' }}>Sistema Clínico</label>
                 <select 
                   className="form-control" 
                   value={repSisFiltros.sistema_id} 
                   onChange={e => setRepSisFiltros({...repSisFiltros, sistema_id: e.target.value})}
+                  style={{ cursor: 'pointer' }}
                 >
-                  <option value="">Todos los sistemas</option>
+                  <option value="">Todos los sistemas...</option>
                   {allSistemas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                 </select>
               </div>
               <div style={{ flex: '1 1 200px' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '5px' }}>Empresa</label>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-color)', marginBottom: '8px' }}>Empresa Contratante</label>
                 <select 
                   className="form-control" 
                   value={repSisFiltros.empresa_id} 
                   onChange={e => setRepSisFiltros({...repSisFiltros, empresa_id: e.target.value})}
+                  style={{ cursor: 'pointer' }}
                 >
-                  <option value="">Todas las empresas</option>
+                  <option value="">Todas las empresas...</option>
                   {allEmpresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
                 </select>
               </div>
@@ -810,40 +804,71 @@ const Dashboard = () => {
 
             {/* Resultados */}
             <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 300px', minWidth: 0 }}>
-                <div style={{ padding: '20px', background: 'rgba(14, 165, 233, 0.05)', borderRadius: '10px', textAlign: 'center', marginBottom: '20px', border: '1px solid rgba(14, 165, 233, 0.2)' }}>
-                  <span style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Total Atenciones en Sistemas</span>
-                  <span style={{ display: 'block', fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>{repSistemas.total_general}</span>
+              <div style={{ flex: '1 1 320px', display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0 }}>
+                {/* KPI Total */}
+                <div style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(139, 92, 246, 0.05))', borderRadius: '12px', border: '1px solid rgba(14, 165, 233, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Atenciones</span>
+                    <span style={{ display: 'block', fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>Según filtros aplicados</span>
+                  </div>
+                  <span style={{ display: 'block', fontSize: '3rem', lineHeight: '1', fontWeight: '800', color: 'var(--primary-color)', textShadow: '0 0 20px rgba(14,165,233,0.3)' }}>
+                    {repSistemas.total_general}
+                  </span>
                 </div>
                 
-                <div style={{ maxHeight: '300px', overflowY: 'auto', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                {/* Lista */}
+                <div style={{ flex: 1, maxHeight: '350px', overflowY: 'auto', background: 'rgba(15, 23, 42, 0.3)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px' }}>
                   <table className="table" style={{ margin: 0 }}>
-                    <thead style={{ position: 'sticky', top: 0, background: '#1e293b' }}>
-                      <tr><th>Sistema Clínico</th><th style={{ textAlign: 'right' }}>Cantidad</th></tr>
+                    <thead style={{ position: 'sticky', top: 0, background: '#1e293b', zIndex: 1, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                      <tr>
+                        <th style={{ padding: '12px 16px', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>Sistema Clínico</th>
+                        <th style={{ padding: '12px 16px', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', textAlign: 'right' }}>Cantidad</th>
+                      </tr>
                     </thead>
                     <tbody>
                       {repSistemas.sistemas && repSistemas.sistemas.length > 0 ? (
                         repSistemas.sistemas.map((s, idx) => (
-                          <tr key={idx}>
-                            <td style={{ fontWeight: '500' }}>{s.name}</td>
-                            <td style={{ textAlign: 'right', fontWeight: 'bold' }}>{s.value}</td>
+                          <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                            <td style={{ padding: '12px 16px', fontWeight: '500', color: 'var(--text-color)' }}>{s.name}</td>
+                            <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '700', color: 'var(--primary-color)' }}>{s.value}</td>
                           </tr>
                         ))
                       ) : (
-                        <tr><td colSpan="2" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>No hay datos para estos filtros</td></tr>
+                        <tr><td colSpan="2" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '30px' }}>No hay datos para estos filtros</td></tr>
                       )}
                     </tbody>
                   </table>
                 </div>
               </div>
               
-              <div style={{ flex: '1 1 400px', minWidth: 0 }}>
+              <div style={{ flex: '1 1 450px', minWidth: 0, background: 'rgba(15, 23, 42, 0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '16px' }}>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: '500', color: 'var(--text-muted)', marginBottom: '16px', paddingLeft: '8px' }}>Distribución Visual</h4>
                 {repSistemas.sistemas && repSistemas.sistemas.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={repSistemas.sistemas} layout="vertical" margin={{top: 5, right: 20, left: 5, bottom: 5}}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
-                      <XAxis type="number" stroke="#64748b" tick={{fontSize: 11}} />
-                      <YAxis dataKey="name" type="category" width={120} stroke="#64748b" tick={{fontSize: 10}} tickFormatter={(val) => val.length > 18 ? val.substring(0, 18) + '…' : val} />
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={repSistemas.sistemas} layout="vertical" margin={{top: 5, right: 30, left: 10, bottom: 5}}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.05)" horizontal={true} vertical={false} />
+                      <XAxis type="number" stroke="#475569" tick={{fontSize: 11, fill: '#94a3b8'}} axisLine={{stroke: '#334155'}} tickLine={false} />
+                      <YAxis dataKey="name" type="category" width={140} stroke="#475569" tick={{fontSize: 11, fill: '#cbd5e1'}} axisLine={{stroke: '#334155'}} tickLine={false} tickFormatter={(val) => val.length > 20 ? val.substring(0, 20) + '…' : val} />
+                      <RechartsTooltip cursor={{fill: 'rgba(255,255,255,0.02)'}} contentStyle={{backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', color: '#fff'}} itemStyle={{color: '#38bdf8', fontWeight: '600'}} />
+                      <Bar dataKey="value" fill="#8b5cf6" maxBarSize={32} radius={[0, 4, 4, 0]} name="Atenciones" animationDuration={1000}>
+                        {
+                          repSistemas.sistemas.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={`hsl(${190 + (index * 15)}, 80%, 55%)`} />
+                          ))
+                        }
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', borderRadius: '8px' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <span style={{ fontSize: '2rem', display: 'block', marginBottom: '8px', opacity: 0.5 }}>📊</span>
+                      Sin datos para graficar
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>} />
                       <RechartsTooltip contentStyle={{backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px'}} />
                       <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} name="Atenciones" />
                     </BarChart>
