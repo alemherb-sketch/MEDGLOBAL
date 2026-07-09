@@ -53,6 +53,13 @@ const ConsumoMedicamentos = () => {
   const handleExportExcel = () => {
     if (!reporte.medicamentos.length) return;
     
+    const empresaSeleccionada = empresas.find(e => e.id.toString() === filtros.empresa_id);
+    const empresaName = empresaSeleccionada ? empresaSeleccionada.nombre : 'Todas las Empresas';
+    
+    const fInicio = filtros.fecha_inicio ? filtros.fecha_inicio.toLocaleDateString() : '';
+    const fFin = filtros.fecha_fin ? filtros.fecha_fin.toLocaleDateString() : '';
+    const dateRangeText = (fInicio && fFin) ? `${fInicio} al ${fFin}` : 'Todas las fechas';
+    
     // Prepare data for Excel
     const excelData = reporte.medicamentos.map(med => {
       const row = {
@@ -108,7 +115,13 @@ const ConsumoMedicamentos = () => {
     
     excelData.push(emptyRow, totalRow, igvRow, globalTotalRow);
     
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const titleRow = { 'Código': 'Reporte de Consumo de Medicamentos' };
+    const empRow = { 'Código': 'Empresa: ' + empresaName };
+    const dateRow = { 'Código': 'Fechas: ' + dateRangeText };
+    
+    const finalExcelData = [titleRow, empRow, dateRow, emptyRow, ...excelData];
+    
+    const worksheet = XLSX.utils.json_to_sheet(finalExcelData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Consumo Medicamentos");
     XLSX.writeFile(workbook, "Reporte_Consumo_Medicamentos.xlsx");
@@ -192,7 +205,7 @@ const ConsumoMedicamentos = () => {
 
       {/* Global Totals KPI */}
       {reporte.medicamentos.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+        <div className="no-print" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '24px' }}>
           <div className="dash-chart-card" style={{ padding: '20px', background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(15, 23, 42, 0.5))' }}>
             <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sub Total (S/.)</span>
             <span style={{ display: 'block', fontSize: '2rem', fontWeight: '800', color: '#fff', marginTop: '8px' }}>S/ {reporte.totales.sub_total.toFixed(2)}</span>
@@ -211,11 +224,10 @@ const ConsumoMedicamentos = () => {
       {/* Table */}
       <div className="dash-chart-card print-full-width">
         <div className="dash-chart-header print-only" style={{ display: 'none', padding: '20px', borderBottom: '2px solid #000' }}>
-          <h2 style={{ color: '#000', margin: 0 }}>Reporte de Consumo de Medicamentos</h2>
-          <div style={{ display: 'flex', gap: '40px', marginTop: '10px' }}>
-            <div><strong>Sub Total:</strong> S/ {reporte.totales.sub_total.toFixed(2)}</div>
-            <div><strong>IGV (18%):</strong> S/ {reporte.totales.igv.toFixed(2)}</div>
-            <div><strong>Total General:</strong> S/ {reporte.totales.total.toFixed(2)}</div>
+          <h2 style={{ color: '#000', margin: 0, marginBottom: '12px' }}>Reporte de Consumo de Medicamentos</h2>
+          <div style={{ display: 'flex', gap: '40px', color: '#000' }}>
+            <div><strong>Empresa:</strong> {empresas.find(e => e.id.toString() === filtros.empresa_id)?.nombre || 'Todas las Empresas'}</div>
+            <div><strong>Rango de Fechas:</strong> {(filtros.fecha_inicio && filtros.fecha_fin) ? `${filtros.fecha_inicio.toLocaleDateString()} al ${filtros.fecha_fin.toLocaleDateString()}` : 'Todas las fechas'}</div>
           </div>
         </div>
         <div className="dash-chart-body" style={{ overflowX: 'auto', padding: 0 }}>
@@ -255,6 +267,20 @@ const ConsumoMedicamentos = () => {
                   </tr>
                 ))}
               </tbody>
+              <tfoot className="print-only-tfoot">
+                <tr style={{ background: 'rgba(15, 23, 42, 0.95)' }}>
+                  <td colSpan={3 + reporte.rango_fechas.length + 1} style={{ textAlign: 'right', fontWeight: 'bold' }}>SUB TOTAL:</td>
+                  <td colSpan={2} style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--primary-color)' }}>S/ {reporte.totales.sub_total.toFixed(2)}</td>
+                </tr>
+                <tr style={{ background: 'rgba(15, 23, 42, 0.95)' }}>
+                  <td colSpan={3 + reporte.rango_fechas.length + 1} style={{ textAlign: 'right', fontWeight: 'bold' }}>IGV (18%):</td>
+                  <td colSpan={2} style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--primary-color)' }}>S/ {reporte.totales.igv.toFixed(2)}</td>
+                </tr>
+                <tr style={{ background: 'rgba(15, 23, 42, 0.95)' }}>
+                  <td colSpan={3 + reporte.rango_fechas.length + 1} style={{ textAlign: 'right', fontWeight: 'bold' }}>TOTAL GENERAL:</td>
+                  <td colSpan={2} style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--primary-color)' }}>S/ {reporte.totales.total.toFixed(2)}</td>
+                </tr>
+              </tfoot>
             </table>
           ) : (
             <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -274,6 +300,7 @@ const ConsumoMedicamentos = () => {
           .table { border: 1px solid #ddd; }
           .table th { background: #f1f5f9 !important; color: #000 !important; border: 1px solid #ddd !important; }
           .table td { color: #000 !important; border: 1px solid #ddd !important; }
+          .print-only-tfoot td { color: #000 !important; background: transparent !important; }
           body { background: #fff !important; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
