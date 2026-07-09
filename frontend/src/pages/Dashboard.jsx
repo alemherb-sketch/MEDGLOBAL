@@ -739,7 +739,20 @@ const Dashboard = () => {
                   <YAxis dataKey="name" type="category" width={110} stroke="#64748b" tick={{fontSize: 10}} tickFormatter={(val) => val.length > 15 ? val.substring(0, 15) + '…' : val} />
                   <RechartsTooltip contentStyle={{backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px'}} />
                   <Bar dataKey="value" fill="#06b6d4" radius={[0, 4, 4, 0]} name="Atenciones" />
-                </BarChart            {/* Filtros */}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* 4. Reporte Específico de Sistemas Atendidos */}
+        <div className="dash-chart-card" style={{ gridColumn: '1 / -1', border: '1px solid var(--primary-color)' }}>
+          <div className="dash-chart-header" style={{ background: 'rgba(14, 165, 233, 0.1)', borderBottom: '1px solid var(--primary-color)' }}>
+            <h3 className="dash-chart-title" style={{ color: 'var(--primary-color)' }}>Reporte Detallado de Sistemas Atendidos</h3>
+          </div>
+          <div className="dash-chart-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            
+            {/* Filtros */}
             <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', padding: '16px 20px', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{ flex: '1 1 220px' }}>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-color)', marginBottom: '8px' }}>Rango de Fechas</label>
