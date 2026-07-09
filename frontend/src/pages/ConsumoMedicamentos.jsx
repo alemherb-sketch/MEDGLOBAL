@@ -195,10 +195,17 @@ const ConsumoMedicamentos = () => {
       <div className="dash-chart-card print-full-width">
         <div className="dash-chart-header print-only" style={{ display: 'none', padding: '20px', borderBottom: '2px solid #000' }}>
           <h2 style={{ color: '#000', margin: 0, marginBottom: '12px' }}>Reporte de Consumo de Medicamentos</h2>
-          <div style={{ display: 'flex', gap: '40px', color: '#000' }}>
+          <div style={{ display: 'flex', gap: '40px', color: '#000', marginBottom: '8px' }}>
             <div><strong>Empresa:</strong> {empresas.find(e => e.id.toString() === filtros.empresa_id)?.nombre || 'Todas las Empresas'}</div>
             <div><strong>Rango de Fechas:</strong> {(filtros.fecha_inicio && filtros.fecha_fin) ? `${filtros.fecha_inicio.toLocaleDateString()} al ${filtros.fecha_fin.toLocaleDateString()}` : 'Todas las fechas'}</div>
           </div>
+          {reporte.medicamentos.length > 0 && (
+            <div style={{ display: 'flex', gap: '40px', color: '#000' }}>
+              <div><strong>Sub Total:</strong> S/ {reporte.totales.sub_total.toFixed(2)}</div>
+              <div><strong>IGV (18%):</strong> S/ {reporte.totales.igv.toFixed(2)}</div>
+              <div><strong>Total General:</strong> S/ {reporte.totales.total.toFixed(2)}</div>
+            </div>
+          )}
         </div>
         <div className="dash-chart-body" style={{ overflowX: 'auto', padding: 0 }}>
           {reporte.medicamentos.length > 0 ? (
