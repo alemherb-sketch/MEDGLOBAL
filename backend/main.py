@@ -832,3 +832,73 @@ def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str
         return result[:10]
 
     return []
+
+@app.get("/reportes/consumo-medicamentos")
+def get_reporte_consumo_medicamentos(
+    fecha_inicio: str = None,
+    fecha_fin: str = None,
+    empresa_id: int = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.AtencionMedicamento) \
+        .join(models.Atencion) \
+        .join(models.Medicamento)
+        
+    if fecha_inicio:
+        query = query.filter(func.date(models.Atencion.fecha) >= fecha_inicio)
+    if fecha_fin:
+        query = query.filter(func.date(models.Atencion.fecha) <= fecha_fin)
+    if empresa_id:
+        query = query.filter(models.Atencion.empresa_id == empresa_id)
+        
+    atenciones_med = query.all()
+    
+    from collections import defaultdict
+    medicamentos_dict = {}
+    fechas_set = set()
+    
+    for am in atenciones_med:
+        if not am.atencion.fecha: continue
+        fecha_str = am.atencion.fecha.strftime("%Y-%m-%d")
+        fechas_set.add(fecha_str)
+        
+        med = am.medicamento
+        if med.id not in medicamentos_dict:
+            medicamentos_dict[med.id] = {
+                "id": med.id,
+                "codigo": med.codigo or "",
+                "nombre": med.nombre or "",
+                "presentacion": med.presentacion or "",
+                "precio_und": float(med.costo_unitario or 0),
+                "consumos": defaultdict(int),
+                "sub_total_cantidad": 0,
+                "total_soles": 0.0
+            }
+        
+        medicamentos_dict[med.id]["consumos"][fecha_str] += am.cantidad
+        medicamentos_dict[med.id]["sub_total_cantidad"] += am.cantidad
+        
+    lista_medicamentos = []
+    total_general = 0.0
+    
+    for med_id, m in medicamentos_dict.items():
+        m["total_soles"] = round(m["sub_total_cantidad"] * m["precio_und"], 2)
+        total_general += m["total_soles"]
+        m["consumos"] = dict(m["consumos"])
+        lista_medicamentos.append(m)
+        
+    total_general = round(total_general, 2)
+    sub_total = round(total_general / 1.18, 2)
+    igv = round(total_general - sub_total, 2)
+    
+    rango_fechas = sorted(list(fechas_set))
+    
+    return {
+        "rango_fechas": rango_fechas,
+        "medicamentos": lista_medicamentos,
+        "totales": {
+            "sub_total": sub_total,
+            "igv": igv,
+            "total": total_general
+        }
+    }
