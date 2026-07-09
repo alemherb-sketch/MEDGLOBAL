@@ -60,68 +60,38 @@ const ConsumoMedicamentos = () => {
     const fFin = filtros.fecha_fin ? filtros.fecha_fin.toLocaleDateString() : '';
     const dateRangeText = (fInicio && fFin) ? `${fInicio} al ${fFin}` : 'Todas las fechas';
     
-    // Prepare data for Excel
-    const excelData = reporte.medicamentos.map(med => {
-      const row = {
-        'Código': med.codigo,
-        'Medicamento': med.nombre,
-        'Presentación': med.presentacion
-      };
-      
-      // Add dynamic date columns
+    const aoa = [
+      ['Reporte de Consumo de Medicamentos'],
+      ['Empresa: ' + empresaName],
+      ['Fechas: ' + dateRangeText],
+      [],
+      ['Código', 'Medicamento', 'Presentación', ...reporte.rango_fechas, 'Sub Total (Cant)', 'Precio UND', 'Total (Soles)']
+    ];
+
+    reporte.medicamentos.forEach(med => {
+      const row = [med.codigo, med.nombre, med.presentacion];
       reporte.rango_fechas.forEach(fecha => {
-        row[fecha] = med.consumos[fecha] || 0;
+        row.push(med.consumos[fecha] || 0);
       });
-      
-      // Add totals
-      row['Sub Total (Cant)'] = med.sub_total_cantidad;
-      row['Precio UND'] = med.precio_und;
-      row['Total (Soles)'] = med.total_soles;
-      
-      return row;
+      row.push(med.sub_total_cantidad, med.precio_und, med.total_soles);
+      aoa.push(row);
     });
-    
-    // Add global totals at the bottom
-    const emptyRow = {};
-    const totalRow = {
-      'Código': '',
-      'Medicamento': '',
-      'Presentación': 'TOTALES',
+
+    aoa.push([]); // Empty row before totals
+
+    const makeTotalRow = (labelC, labelF, valG) => {
+      const row = new Array(3 + reporte.rango_fechas.length + 3).fill('');
+      if (labelC) row[2] = labelC;
+      row[3 + reporte.rango_fechas.length + 1] = labelF;
+      row[3 + reporte.rango_fechas.length + 2] = valG;
+      return row;
     };
-    reporte.rango_fechas.forEach(fecha => totalRow[fecha] = '');
-    totalRow['Sub Total (Cant)'] = '';
-    totalRow['Precio UND'] = 'SUB TOTAL';
-    totalRow['Total (Soles)'] = reporte.totales.sub_total;
-    
-    const igvRow = {
-      'Código': '',
-      'Medicamento': '',
-      'Presentación': '',
-    };
-    reporte.rango_fechas.forEach(fecha => igvRow[fecha] = '');
-    igvRow['Sub Total (Cant)'] = '';
-    igvRow['Precio UND'] = 'IGV (18%)';
-    igvRow['Total (Soles)'] = reporte.totales.igv;
-    
-    const globalTotalRow = {
-      'Código': '',
-      'Medicamento': '',
-      'Presentación': '',
-    };
-    reporte.rango_fechas.forEach(fecha => globalTotalRow[fecha] = '');
-    globalTotalRow['Sub Total (Cant)'] = '';
-    globalTotalRow['Precio UND'] = 'TOTAL GENERAL';
-    globalTotalRow['Total (Soles)'] = reporte.totales.total;
-    
-    excelData.push(emptyRow, totalRow, igvRow, globalTotalRow);
-    
-    const titleRow = { 'Código': 'Reporte de Consumo de Medicamentos' };
-    const empRow = { 'Código': 'Empresa: ' + empresaName };
-    const dateRow = { 'Código': 'Fechas: ' + dateRangeText };
-    
-    const finalExcelData = [titleRow, empRow, dateRow, emptyRow, ...excelData];
-    
-    const worksheet = XLSX.utils.json_to_sheet(finalExcelData);
+
+    aoa.push(makeTotalRow('TOTALES', 'SUB TOTAL', reporte.totales.sub_total));
+    aoa.push(makeTotalRow('', 'IGV (18%)', reporte.totales.igv));
+    aoa.push(makeTotalRow('', 'TOTAL GENERAL', reporte.totales.total));
+
+    const worksheet = XLSX.utils.aoa_to_sheet(aoa);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Consumo Medicamentos");
     XLSX.writeFile(workbook, "Reporte_Consumo_Medicamentos.xlsx");
