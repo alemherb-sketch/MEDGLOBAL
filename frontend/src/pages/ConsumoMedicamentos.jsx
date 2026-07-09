@@ -3,6 +3,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { Download, Printer, Search } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { API_URL } from '../config';
 
 const ConsumoMedicamentos = () => {
   const [empresas, setEmpresas] = useState([]);
@@ -21,7 +22,7 @@ const ConsumoMedicamentos = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:8000/empresas/')
+    fetch(`${API_URL}/empresas/`)
       .then(res => res.json())
       .then(data => setEmpresas(data))
       .catch(err => console.error("Error fetching empresas:", err));
@@ -35,7 +36,7 @@ const ConsumoMedicamentos = () => {
       if (filtros.fecha_inicio) params.append('fecha_inicio', filtros.fecha_inicio.toISOString().split('T')[0]);
       if (filtros.fecha_fin) params.append('fecha_fin', filtros.fecha_fin.toISOString().split('T')[0]);
       
-      const res = await fetch(`http://localhost:8000/reportes/consumo-medicamentos?${params.toString()}`);
+      const res = await fetch(`${API_URL}/reportes/consumo-medicamentos?${params.toString()}`);
       const data = await res.json();
       setReporte(data);
     } catch (err) {
