@@ -192,10 +192,20 @@ const Dashboard = () => {
   });
 
   const [allEmpresas, setAllEmpresas] = useState([]);
+  const [allSistemas, setAllSistemas] = useState([]);
   const [empresaFilter, setEmpresaFilter] = useState('ALL'); // 'ALL' or 'ACTIVO'
 
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
+
+  // Filtros y datos para el cuadro específico de Sistemas Atendidos
+  const [repSistemas, setRepSistemas] = useState({ total_general: 0, sistemas: [] });
+  const [repSisFiltros, setRepSisFiltros] = useState({
+    fecha_inicio: null,
+    fecha_fin: null,
+    sistema_id: '',
+    empresa_id: ''
+  });
 
   useEffect(() => {
     fetch(API_URL + '/dashboard/kpis')
@@ -206,6 +216,11 @@ const Dashboard = () => {
     fetch(API_URL + '/empresas/')
       .then(res => res.json())
       .then(data => setAllEmpresas(data))
+      .catch(err => console.error(err));
+
+    fetch(API_URL + '/sistemas/')
+      .then(res => res.json())
+      .then(data => setAllSistemas(data))
       .catch(err => console.error(err));
   }, []);
 
@@ -219,6 +234,19 @@ const Dashboard = () => {
       .then(data => setStats(data))
       .catch(err => console.error(err));
   }, [startDate, endDate]);
+
+  useEffect(() => {
+    let url = API_URL + '/dashboard/reporte-sistemas?';
+    if (repSisFiltros.fecha_inicio) url += `fecha_inicio=${format(repSisFiltros.fecha_inicio, 'yyyy-MM-dd')}&`;
+    if (repSisFiltros.fecha_fin) url += `fecha_fin=${format(repSisFiltros.fecha_fin, 'yyyy-MM-dd')}&`;
+    if (repSisFiltros.sistema_id) url += `sistema_id=${repSisFiltros.sistema_id}&`;
+    if (repSisFiltros.empresa_id) url += `empresa_id=${repSisFiltros.empresa_id}`;
+    
+    fetch(url)
+      .then(res => res.json())
+      .then(data => setRepSistemas(data))
+      .catch(err => console.error(err));
+  }, [repSisFiltros]);
 
   const getDateRangeLabel = () => {
     if (startDate && endDate) return `${format(startDate, 'dd/MM/yyyy')} — ${format(endDate, 'dd/MM/yyyy')}`;
@@ -716,6 +744,120 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+        {/* 4. Reporte Específico de Sistemas Atendidos */}
+        <div className="dash-chart-card" style={{ gridColumn: '1 / -1', border: '1px solid var(--primary-color)' }}>
+          <div className="dash-chart-header" style={{ background: 'rgba(14, 165, 233, 0.1)', borderBottom: '1px solid var(--primary-color)' }}>
+            <h3 className="dash-chart-title" style={{ color: 'var(--primary-color)' }}>Reporte Detallado de Sistemas Atendidos</h3>
+          </div>
+          <div className="dash-chart-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            
+            {/* Filtros */}
+            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', padding: '15px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
+              <div style={{ flex: '1 1 200px' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '5px' }}>Rango de Fechas</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <DatePicker
+                    selected={repSisFiltros.fecha_inicio}
+                    onChange={date => setRepSisFiltros({...repSisFiltros, fecha_inicio: date})}
+                    selectsStart
+                    startDate={repSisFiltros.fecha_inicio}
+                    endDate={repSisFiltros.fecha_fin}
+                    dateFormat="dd/MM/yyyy"
+                    placeholderText="Inicio"
+                    className="form-control"
+                    isClearable
+                    style={{ width: '100px' }}
+                  />
+                  <span style={{ color: 'var(--text-muted)' }}>-</span>
+                  <DatePicker
+                    selected={repSisFiltros.fecha_fin}
+                    onChange={date => setRepSisFiltros({...repSisFiltros, fecha_fin: date})}
+                    selectsEnd
+                    startDate={repSisFiltros.fecha_inicio}
+                    endDate={repSisFiltros.fecha_fin}
+                    minDate={repSisFiltros.fecha_inicio}
+                    dateFormat="dd/MM/yyyy"
+                    placeholderText="Fin"
+                    className="form-control"
+                    isClearable
+                    style={{ width: '100px' }}
+                  />
+                </div>
+              </div>
+              <div style={{ flex: '1 1 200px' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '5px' }}>Sistema Clínico</label>
+                <select 
+                  className="form-control" 
+                  value={repSisFiltros.sistema_id} 
+                  onChange={e => setRepSisFiltros({...repSisFiltros, sistema_id: e.target.value})}
+                >
+                  <option value="">Todos los sistemas</option>
+                  {allSistemas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: '1 1 200px' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '5px' }}>Empresa</label>
+                <select 
+                  className="form-control" 
+                  value={repSisFiltros.empresa_id} 
+                  onChange={e => setRepSisFiltros({...repSisFiltros, empresa_id: e.target.value})}
+                >
+                  <option value="">Todas las empresas</option>
+                  {allEmpresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Resultados */}
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 300px', minWidth: 0 }}>
+                <div style={{ padding: '20px', background: 'rgba(14, 165, 233, 0.05)', borderRadius: '10px', textAlign: 'center', marginBottom: '20px', border: '1px solid rgba(14, 165, 233, 0.2)' }}>
+                  <span style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Total Atenciones en Sistemas</span>
+                  <span style={{ display: 'block', fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>{repSistemas.total_general}</span>
+                </div>
+                
+                <div style={{ maxHeight: '300px', overflowY: 'auto', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                  <table className="table" style={{ margin: 0 }}>
+                    <thead style={{ position: 'sticky', top: 0, background: '#1e293b' }}>
+                      <tr><th>Sistema Clínico</th><th style={{ textAlign: 'right' }}>Cantidad</th></tr>
+                    </thead>
+                    <tbody>
+                      {repSistemas.sistemas && repSistemas.sistemas.length > 0 ? (
+                        repSistemas.sistemas.map((s, idx) => (
+                          <tr key={idx}>
+                            <td style={{ fontWeight: '500' }}>{s.name}</td>
+                            <td style={{ textAlign: 'right', fontWeight: 'bold' }}>{s.value}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr><td colSpan="2" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>No hay datos para estos filtros</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              
+              <div style={{ flex: '1 1 400px', minWidth: 0 }}>
+                {repSistemas.sistemas && repSistemas.sistemas.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={repSistemas.sistemas} layout="vertical" margin={{top: 5, right: 20, left: 5, bottom: 5}}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
+                      <XAxis type="number" stroke="#64748b" tick={{fontSize: 11}} />
+                      <YAxis dataKey="name" type="category" width={120} stroke="#64748b" tick={{fontSize: 10}} tickFormatter={(val) => val.length > 18 ? val.substring(0, 18) + '…' : val} />
+                      <RechartsTooltip contentStyle={{backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px'}} />
+                      <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} name="Atenciones" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: '8px' }}>
+                    Sin datos para graficar
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
       </section>
     </div>
   );

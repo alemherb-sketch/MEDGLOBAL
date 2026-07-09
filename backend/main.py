@@ -626,6 +626,34 @@ def get_dashboard_stats(fecha_inicio: str = None, fecha_fin: str = None, db: Ses
         "sistemas_afectados": sistemas_afectados
     }
 
+@app.get("/dashboard/reporte-sistemas")
+def get_reporte_sistemas(
+    fecha_inicio: str = None, 
+    fecha_fin: str = None, 
+    sistema_id: int = None, 
+    empresa_id: int = None, 
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.SistemaAtencion.nombre, func.count(models.Atencion.id).label('total')) \
+        .join(models.Atencion, models.SistemaAtencion.id == models.Atencion.sistema_id)
+        
+    if fecha_inicio:
+        query = query.filter(func.date(models.Atencion.fecha) >= fecha_inicio)
+    if fecha_fin:
+        query = query.filter(func.date(models.Atencion.fecha) <= fecha_fin)
+    if sistema_id:
+        query = query.filter(models.Atencion.sistema_id == sistema_id)
+    if empresa_id:
+        query = query.filter(models.Atencion.empresa_id == empresa_id)
+        
+    resultados = query.group_by(models.SistemaAtencion.id).order_by(func.count(models.Atencion.id).desc()).all()
+    total_general = sum([r.total for r in resultados])
+    
+    return {
+        "total_general": total_general,
+        "sistemas": [{"name": str(r.nombre), "value": int(r.total)} for r in resultados]
+    }
+
 # ── Detailed Report Data ──
 @app.get("/dashboard/report/{report_type}")
 def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str = None, db: Session = Depends(get_db)):
