@@ -557,11 +557,15 @@ const Dashboard = () => {
       {/* ── Charts Grid ── */}
       <section className="dash-charts print-grid">
         {/* 4. Reporte Específico de Sistemas Atendidos */}
-        <div className="dash-chart-card" style={{ gridColumn: '1 / -1', border: '1px solid var(--primary-color)' }}>
-          <div className="dash-chart-header" style={{ background: 'rgba(14, 165, 233, 0.1)', borderBottom: '1px solid var(--primary-color)' }}>
-            <h3 className="dash-chart-title" style={{ color: 'var(--primary-color)' }}>Reporte Detallado de Sistemas Atendidos</h3>
+        <section className="dash-systems-report">
+          <div className="dash-report-heading">
+            <div>
+              <span className="dash-report-eyebrow">Análisis clínico</span>
+              <h2>Reporte de sistemas atendidos</h2>
+              <p>Consulta y compara la distribución de atenciones según el periodo, sistema clínico y empresa.</p>
+            </div>
           </div>
-          <div className="dash-chart-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="dash-report-content">
             
             {/* Filtros */}
             <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', padding: '16px 20px', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -694,7 +698,7 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
 
       </section>
