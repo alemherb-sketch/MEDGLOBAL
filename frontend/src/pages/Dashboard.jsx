@@ -672,13 +672,13 @@ const Dashboard = () => {
               <div style={{ width: '100%', minWidth: 0, background: 'rgba(15, 23, 42, 0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '16px' }}>
                 <h4 style={{ fontSize: '0.9rem', fontWeight: '500', color: 'var(--text-muted)', marginBottom: '16px', paddingLeft: '8px' }}>Distribución Visual</h4>
                 {repSistemas.sistemas && repSistemas.sistemas.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={repSistemas.sistemas} layout="vertical" margin={{top: 5, right: 30, left: 10, bottom: 5}}>
+                  <ResponsiveContainer width="100%" height={420}>
+                    <BarChart data={repSistemas.sistemas} margin={{top: 10, right: 20, left: 0, bottom: 70}}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.05)" horizontal={true} vertical={false} />
-                      <XAxis type="number" stroke="#475569" tick={{fontSize: 11, fill: '#94a3b8'}} axisLine={{stroke: '#334155'}} tickLine={false} />
-                      <YAxis dataKey="name" type="category" width={140} stroke="#475569" tick={{fontSize: 11, fill: '#cbd5e1'}} axisLine={{stroke: '#334155'}} tickLine={false} tickFormatter={(val) => val.length > 20 ? val.substring(0, 20) + '…' : val} />
+                      <XAxis dataKey="name" type="category" interval={0} height={70} stroke="#475569" tick={{fontSize: 11, fill: '#cbd5e1'}} axisLine={{stroke: '#334155'}} tickLine={false} angle={-35} textAnchor="end" tickFormatter={(val) => val.length > 18 ? val.substring(0, 18) + '…' : val} />
+                      <YAxis type="number" allowDecimals={false} width={40} stroke="#475569" tick={{fontSize: 11, fill: '#94a3b8'}} axisLine={{stroke: '#334155'}} tickLine={false} />
                       <RechartsTooltip cursor={{fill: 'rgba(255,255,255,0.02)'}} contentStyle={{backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', color: '#fff'}} itemStyle={{color: '#38bdf8', fontWeight: '600'}} />
-                      <Bar dataKey="value" fill="#8b5cf6" maxBarSize={32} radius={[0, 4, 4, 0]} name="Atenciones" animationDuration={1000}>
+                      <Bar dataKey="value" fill="#8b5cf6" maxBarSize={56} radius={[4, 4, 0, 0]} name="Atenciones" animationDuration={1000}>
                         {
                           repSistemas.sistemas.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={`hsl(${190 + (index * 15)}, 80%, 55%)`} />
