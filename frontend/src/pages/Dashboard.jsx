@@ -631,8 +631,8 @@ const Dashboard = () => {
             </div>
 
             {/* Resultados */}
-            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 320px', display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0 }}>
                 {/* KPI Total */}
                 <div style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(139, 92, 246, 0.05))', borderRadius: '12px', border: '1px solid rgba(14, 165, 233, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
@@ -669,7 +669,7 @@ const Dashboard = () => {
                 </div>
               </div>
               
-              <div style={{ flex: '1 1 450px', minWidth: 0, background: 'rgba(15, 23, 42, 0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '16px' }}>
+              <div style={{ width: '100%', minWidth: 0, background: 'rgba(15, 23, 42, 0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '16px' }}>
                 <h4 style={{ fontSize: '0.9rem', fontWeight: '500', color: 'var(--text-muted)', marginBottom: '16px', paddingLeft: '8px' }}>Distribución Visual</h4>
                 {repSistemas.sistemas && repSistemas.sistemas.length > 0 ? (
                   <ResponsiveContainer width="100%" height={400}>
