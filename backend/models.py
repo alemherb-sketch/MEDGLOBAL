@@ -35,6 +35,7 @@ class Trabajador(Base):
     centro_costo = Column(String(100), nullable=True)
     tipo_calculo_nomina = Column(String(100), nullable=True)
     area = Column(String(150), nullable=True) # Added Area
+    obra = Column(String(150), nullable=True)
     area_personal = Column(String(100), nullable=True)
     grupo_personal = Column(String(100), nullable=True)
     nivel_org_1 = Column(String(100), nullable=True)

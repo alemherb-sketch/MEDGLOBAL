@@ -20,7 +20,8 @@ with engine.connect() as conn:
         "tipo_calculo_nomina VARCHAR(100)", "area VARCHAR(150)", "area_personal VARCHAR(100)", "grupo_personal VARCHAR(100)",
         "nivel_org_1 VARCHAR(100)", "nivel_org_2 VARCHAR(100)", "nivel_org_3 VARCHAR(100)", "nivel_org_4 VARCHAR(100)",
         "nivel_org_5 VARCHAR(100)", "fecha_nacimiento VARCHAR(20)", "genero VARCHAR(20)", "jefe_inmediato VARCHAR(150)",
-        "telefono VARCHAR(50)", "correo_electronico VARCHAR(150)", "empresa_id INTEGER"
+        "telefono VARCHAR(50)", "correo_electronico VARCHAR(150)", "empresa_id INTEGER",
+        "obra VARCHAR(150)"
     ]
     for col in columnas_trabajador:
         try:
@@ -215,6 +216,14 @@ def create_trabajador(trabajador: schemas.TrabajadorCreate, db: Session = Depend
     db.commit()
     db.refresh(db_trabajador)
     return db_trabajador
+
+@app.get("/trabajadores/obras")
+def get_obras(db: Session = Depends(get_db)):
+    obras = db.query(models.Trabajador.obra).filter(
+        models.Trabajador.obra.isnot(None),
+        models.Trabajador.obra != ""
+    ).distinct().order_by(models.Trabajador.obra).all()
+    return [o[0] for o in obras if o[0]]
 
 @app.put("/trabajadores/{id}", response_model=schemas.Trabajador)
 def update_trabajador(id: int, trabajador: schemas.TrabajadorCreate, db: Session = Depends(get_db)):
@@ -838,6 +847,7 @@ def get_reporte_consumo_medicamentos(
     fecha_inicio: str = None,
     fecha_fin: str = None,
     empresa_id: int = None,
+    obra: str = None,
     db: Session = Depends(get_db)
 ):
     query = db.query(models.AtencionMedicamento, models.Atencion, models.Medicamento) \
@@ -850,6 +860,9 @@ def get_reporte_consumo_medicamentos(
         query = query.filter(func.date(models.Atencion.fecha) <= fecha_fin)
     if empresa_id:
         query = query.filter(models.Atencion.empresa_id == empresa_id)
+    if obra:
+        query = query.join(models.Trabajador, models.Atencion.trabajador_id == models.Trabajador.id) \
+            .filter(models.Trabajador.obra == obra)
         
     resultados = query.all()
     
@@ -902,3 +915,14 @@ def get_reporte_consumo_medicamentos(
             "total": total_general
         }
     }
+
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+os.makedirs('static', exist_ok=True)
+app.mount('/', StaticFiles(directory='static', html=True), name='static')
+@app.exception_handler(404)
+async def custom_404_handler(request, exc):
+    if request.url.path.startswith('/api'): return exc
+    return FileResponse('static/index.html')
+
