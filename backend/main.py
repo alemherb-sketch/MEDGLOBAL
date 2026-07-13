@@ -640,7 +640,8 @@ def get_reporte_sistemas(
     fecha_inicio: str = None, 
     fecha_fin: str = None, 
     sistema_id: int = None, 
-    empresa_id: int = None, 
+    empresa_id: int = None,
+    obra: str = None,
     db: Session = Depends(get_db)
 ):
     query = db.query(models.SistemaAtencion.nombre, func.count(models.Atencion.id).label('total')) \
@@ -654,6 +655,9 @@ def get_reporte_sistemas(
         query = query.filter(models.Atencion.sistema_id == sistema_id)
     if empresa_id:
         query = query.filter(models.Atencion.empresa_id == empresa_id)
+    if obra:
+        query = query.join(models.Trabajador, models.Atencion.trabajador_id == models.Trabajador.id) \
+            .filter(models.Trabajador.obra == obra)
         
     resultados = query.group_by(models.SistemaAtencion.id).order_by(func.count(models.Atencion.id).desc()).all()
     total_general = sum([r.total for r in resultados])

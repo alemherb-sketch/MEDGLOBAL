@@ -193,6 +193,7 @@ const Dashboard = () => {
 
   const [allEmpresas, setAllEmpresas] = useState([]);
   const [allSistemas, setAllSistemas] = useState([]);
+  const [allObras, setAllObras] = useState([]);
   const [empresaFilter, setEmpresaFilter] = useState('ALL'); // 'ALL' or 'ACTIVO'
 
   const [startDate, setStartDate] = useState(null);
@@ -204,7 +205,8 @@ const Dashboard = () => {
     fecha_inicio: null,
     fecha_fin: null,
     sistema_id: '',
-    empresa_id: ''
+    empresa_id: '',
+    obra: ''
   });
 
   useEffect(() => {
@@ -221,6 +223,11 @@ const Dashboard = () => {
     fetch(API_URL + '/sistemas/')
       .then(res => res.json())
       .then(data => setAllSistemas(data))
+      .catch(err => console.error(err));
+
+    fetch(API_URL + '/trabajadores/obras')
+      .then(res => res.json())
+      .then(data => setAllObras(data))
       .catch(err => console.error(err));
   }, []);
 
@@ -240,7 +247,8 @@ const Dashboard = () => {
     if (repSisFiltros.fecha_inicio) url += `fecha_inicio=${format(repSisFiltros.fecha_inicio, 'yyyy-MM-dd')}&`;
     if (repSisFiltros.fecha_fin) url += `fecha_fin=${format(repSisFiltros.fecha_fin, 'yyyy-MM-dd')}&`;
     if (repSisFiltros.sistema_id) url += `sistema_id=${repSisFiltros.sistema_id}&`;
-    if (repSisFiltros.empresa_id) url += `empresa_id=${repSisFiltros.empresa_id}`;
+    if (repSisFiltros.empresa_id) url += `empresa_id=${repSisFiltros.empresa_id}&`;
+    if (repSisFiltros.obra) url += `obra=${encodeURIComponent(repSisFiltros.obra)}`;
     
     fetch(url)
       .then(res => res.json())
@@ -562,7 +570,7 @@ const Dashboard = () => {
             <div>
               <span className="dash-report-eyebrow">Análisis clínico</span>
               <h2>Reporte de sistemas atendidos</h2>
-              <p>Consulta y compara la distribución de atenciones según el periodo, sistema clínico y empresa.</p>
+              <p>Consulta y compara la distribución de atenciones según el periodo, sistema clínico, empresa y obra.</p>
             </div>
           </div>
           <div className="dash-report-content">
@@ -626,6 +634,18 @@ const Dashboard = () => {
                 >
                   <option value="">Todas las empresas...</option>
                   {allEmpresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: '1 1 200px' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-color)', marginBottom: '8px' }}>Obra</label>
+                <select 
+                  className="form-control" 
+                  value={repSisFiltros.obra} 
+                  onChange={e => setRepSisFiltros({...repSisFiltros, obra: e.target.value})}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <option value="">Todas las obras...</option>
+                  {allObras.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
             </div>
