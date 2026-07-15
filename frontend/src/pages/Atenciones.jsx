@@ -266,8 +266,18 @@ const Atenciones = () => {
 
   const handlePrint = (mode) => {
     setPrintMode(mode);
-    setTimeout(() => window.print(), 100);
+    document.body.classList.remove('printing-ficha', 'printing-receta');
+    document.body.classList.add('printing-atencion', mode === 'ficha' ? 'printing-ficha' : 'printing-receta');
+    setTimeout(() => window.print(), 150);
   };
+
+  useEffect(() => {
+    const cleanupPrintClasses = () => {
+      document.body.classList.remove('printing-atencion', 'printing-ficha', 'printing-receta');
+    };
+    window.addEventListener('afterprint', cleanupPrintClasses);
+    return () => window.removeEventListener('afterprint', cleanupPrintClasses);
+  }, []);
 
   return (
     <div>
@@ -632,7 +642,7 @@ const Atenciones = () => {
             
             <div className={`modal-body ${printMode === 'ficha' ? 'ficha-print-mode' : 'receta-print-mode'}`} style={{padding: 0}}>
               {/* Contenedor FICHA */}
-              <div className="print-area ficha-content" style={{padding: '30px', background: 'white', color: 'black'}}>
+              <div className="ficha-content" style={{padding: '30px', background: 'white', color: 'black'}}>
               <div style={{textAlign: 'center', marginBottom: '30px', borderBottom: '2px solid #333', paddingBottom: '15px'}}>
                 <img src="/logo.png" alt="MEDGLOBAL" style={{maxHeight: '60px', marginBottom: '10px'}} />
                 <h2 style={{fontSize: '18px', margin: 0, fontWeight: 'normal', color: '#555'}}>FICHA DE ATENCIÓN / TÓPICO OCUPACIONAL</h2>
@@ -766,7 +776,7 @@ const Atenciones = () => {
             </div>
               
               {/* Contenedor RECETA */}
-              <div className="print-area receta-content print-only" style={{padding: '30px', background: 'white', color: 'black'}}>
+              <div className="receta-content print-only" style={{padding: '30px', background: 'white', color: 'black'}}>
                 <div style={{textAlign: 'center', marginBottom: '30px', borderBottom: '2px solid #333', paddingBottom: '15px'}}>
                   <img src="/logo.png" alt="MEDGLOBAL" style={{maxHeight: '60px', marginBottom: '10px'}} />
                   <h2 style={{fontSize: '18px', margin: 0, fontWeight: 'normal', color: '#555'}}>RECETA MÉDICA OCUPACIONAL</h2>
@@ -824,28 +834,79 @@ const Atenciones = () => {
           .print-only { display: none !important; }
         }
         @media print {
-          body * {
+          @page {
+            size: portrait;
+            margin: 12mm;
+          }
+
+          body.printing-atencion * {
             visibility: hidden;
           }
-          .print-area, .print-area * {
+
+          body.printing-atencion .modal-overlay,
+          body.printing-atencion .modal-content,
+          body.printing-atencion .ficha-content,
+          body.printing-atencion .ficha-content *,
+          body.printing-atencion .receta-content,
+          body.printing-atencion .receta-content * {
             visibility: visible;
           }
-          .print-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
+
+          body.printing-atencion .modal-overlay {
+            position: static !important;
+            inset: auto !important;
+            background: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: visible !important;
           }
-          .hide-on-print {
-            display: none !important;
-          }
-          .modal-content {
+
+          body.printing-atencion .modal-content {
+            position: static !important;
+            max-height: none !important;
+            overflow: visible !important;
             box-shadow: none !important;
             border: none !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
-          .ficha-print-mode .receta-content { display: none !important; }
-          .receta-print-mode .ficha-content { display: none !important; }
-          .receta-print-mode .receta-content { display: block !important; }
+
+          body.printing-atencion .modal-body {
+            overflow: visible !important;
+            padding: 0 !important;
+          }
+
+          body.printing-atencion .hide-on-print {
+            display: none !important;
+          }
+
+          body.printing-atencion .ficha-content,
+          body.printing-atencion .receta-content {
+            position: static !important;
+            width: 100% !important;
+            page-break-inside: auto;
+            break-inside: auto;
+          }
+
+          body.printing-atencion.printing-ficha .receta-content {
+            display: none !important;
+          }
+
+          body.printing-atencion.printing-receta .ficha-content {
+            display: none !important;
+          }
+
+          body.printing-atencion.printing-receta .receta-content {
+            display: block !important;
+          }
+
+          body.printing-atencion .ficha-content h4,
+          body.printing-atencion .receta-content h4 {
+            page-break-after: avoid;
+            break-after: avoid-page;
+          }
         }
       `}</style>
     </div>

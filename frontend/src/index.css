@@ -721,7 +721,6 @@ h3 { font-size: 1.5rem; }
    ═══════════════════════════════════════════════ */
 @media print {
   @page {
-    size: landscape;
     margin: 10mm;
   }
 
