@@ -280,7 +280,7 @@ const Atenciones = () => {
   }, []);
 
   return (
-    <div>
+    <div className="atenciones-page">
       <div className="flex justify-between items-center mb-4">
         <h1>Gestión de Atenciones / Tópico</h1>
         <button className="btn btn-primary" onClick={() => openModal()}>
@@ -629,7 +629,7 @@ const Atenciones = () => {
 
       {/* View / Print Modal */}
       {viewAtencion && (
-        <div className="modal-overlay" style={{padding: '20px 0'}}>
+        <div className="modal-overlay atencion-print-modal" style={{padding: '20px 0'}}>
           <div className="modal-content" style={{maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto'}}>
             <div className="modal-header hide-on-print" style={{position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-color)', borderBottom: '1px solid var(--border-color)'}}>
               <h3>Ficha de Atención #{viewAtencion.id.toString().padStart(4, '0')}</h3>
@@ -839,29 +839,40 @@ const Atenciones = () => {
             margin: 12mm;
           }
 
-          body.printing-atencion * {
-            visibility: hidden;
+          body.printing-atencion {
+            background: #fff !important;
           }
 
-          body.printing-atencion .modal-overlay,
-          body.printing-atencion .modal-content,
-          body.printing-atencion .ficha-content,
-          body.printing-atencion .ficha-content *,
-          body.printing-atencion .receta-content,
-          body.printing-atencion .receta-content * {
-            visibility: visible;
+          body.printing-atencion .sidebar,
+          body.printing-atencion .atenciones-page > *:not(.atencion-print-modal) {
+            display: none !important;
           }
 
-          body.printing-atencion .modal-overlay {
+          body.printing-atencion .app-layout,
+          body.printing-atencion .main-content,
+          body.printing-atencion .atenciones-page {
+            display: block !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            max-width: none !important;
+          }
+
+          body.printing-atencion .atencion-print-modal {
             position: static !important;
             inset: auto !important;
+            display: block !important;
             background: none !important;
             padding: 0 !important;
             margin: 0 !important;
             overflow: visible !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            box-shadow: none !important;
           }
 
-          body.printing-atencion .modal-content {
+          body.printing-atencion .atencion-print-modal .modal-content {
             position: static !important;
             max-height: none !important;
             overflow: visible !important;
@@ -871,6 +882,7 @@ const Atenciones = () => {
             max-width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
+            border-radius: 0 !important;
           }
 
           body.printing-atencion .modal-body {
@@ -886,8 +898,6 @@ const Atenciones = () => {
           body.printing-atencion .receta-content {
             position: static !important;
             width: 100% !important;
-            page-break-inside: auto;
-            break-inside: auto;
           }
 
           body.printing-atencion.printing-ficha .receta-content {
