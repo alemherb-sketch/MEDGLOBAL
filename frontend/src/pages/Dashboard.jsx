@@ -193,6 +193,7 @@ const Dashboard = () => {
 
   const [allEmpresas, setAllEmpresas] = useState([]);
   const [allSistemas, setAllSistemas] = useState([]);
+  const [allObras, setAllObras] = useState([]);
   const [empresaFilter, setEmpresaFilter] = useState('ALL'); // 'ALL' or 'ACTIVO'
 
   const [startDate, setStartDate] = useState(null);
@@ -204,7 +205,8 @@ const Dashboard = () => {
     fecha_inicio: null,
     fecha_fin: null,
     sistema_id: '',
-    empresa_id: ''
+    empresa_id: '',
+    obra: ''
   });
 
   useEffect(() => {
@@ -221,6 +223,11 @@ const Dashboard = () => {
     fetch(API_URL + '/sistemas/')
       .then(res => res.json())
       .then(data => setAllSistemas(data))
+      .catch(err => console.error(err));
+
+    fetch(API_URL + '/trabajadores/obras')
+      .then(res => res.json())
+      .then(data => setAllObras(data))
       .catch(err => console.error(err));
   }, []);
 
@@ -240,7 +247,8 @@ const Dashboard = () => {
     if (repSisFiltros.fecha_inicio) url += `fecha_inicio=${format(repSisFiltros.fecha_inicio, 'yyyy-MM-dd')}&`;
     if (repSisFiltros.fecha_fin) url += `fecha_fin=${format(repSisFiltros.fecha_fin, 'yyyy-MM-dd')}&`;
     if (repSisFiltros.sistema_id) url += `sistema_id=${repSisFiltros.sistema_id}&`;
-    if (repSisFiltros.empresa_id) url += `empresa_id=${repSisFiltros.empresa_id}`;
+    if (repSisFiltros.empresa_id) url += `empresa_id=${repSisFiltros.empresa_id}&`;
+    if (repSisFiltros.obra) url += `obra=${encodeURIComponent(repSisFiltros.obra)}`;
     
     fetch(url)
       .then(res => res.json())
@@ -557,11 +565,15 @@ const Dashboard = () => {
       {/* ── Charts Grid ── */}
       <section className="dash-charts print-grid">
         {/* 4. Reporte Específico de Sistemas Atendidos */}
-        <div className="dash-chart-card" style={{ gridColumn: '1 / -1', border: '1px solid var(--primary-color)' }}>
-          <div className="dash-chart-header" style={{ background: 'rgba(14, 165, 233, 0.1)', borderBottom: '1px solid var(--primary-color)' }}>
-            <h3 className="dash-chart-title" style={{ color: 'var(--primary-color)' }}>Reporte Detallado de Sistemas Atendidos</h3>
+        <section className="dash-systems-report">
+          <div className="dash-report-heading">
+            <div>
+              <span className="dash-report-eyebrow">Análisis clínico</span>
+              <h2>Reporte de sistemas atendidos</h2>
+              <p>Consulta y compara la distribución de atenciones según el periodo, sistema clínico, empresa y obra.</p>
+            </div>
           </div>
-          <div className="dash-chart-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="dash-report-content">
             
             {/* Filtros */}
             <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', padding: '16px 20px', background: 'rgba(15, 23, 42, 0.4)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -624,11 +636,23 @@ const Dashboard = () => {
                   {allEmpresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
                 </select>
               </div>
+              <div style={{ flex: '1 1 200px' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-color)', marginBottom: '8px' }}>Obra</label>
+                <select 
+                  className="form-control" 
+                  value={repSisFiltros.obra} 
+                  onChange={e => setRepSisFiltros({...repSisFiltros, obra: e.target.value})}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <option value="">Todas las obras...</option>
+                  {allObras.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
             </div>
 
             {/* Resultados */}
-            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 320px', display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0 }}>
                 {/* KPI Total */}
                 <div style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(139, 92, 246, 0.05))', borderRadius: '12px', border: '1px solid rgba(14, 165, 233, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
@@ -665,16 +689,16 @@ const Dashboard = () => {
                 </div>
               </div>
               
-              <div style={{ flex: '1 1 450px', minWidth: 0, background: 'rgba(15, 23, 42, 0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '16px' }}>
+              <div style={{ width: '100%', minWidth: 0, background: 'rgba(15, 23, 42, 0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '16px' }}>
                 <h4 style={{ fontSize: '0.9rem', fontWeight: '500', color: 'var(--text-muted)', marginBottom: '16px', paddingLeft: '8px' }}>Distribución Visual</h4>
                 {repSistemas.sistemas && repSistemas.sistemas.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={repSistemas.sistemas} layout="vertical" margin={{top: 5, right: 30, left: 10, bottom: 5}}>
+                  <ResponsiveContainer width="100%" height={420}>
+                    <BarChart data={repSistemas.sistemas} margin={{top: 10, right: 20, left: 0, bottom: 70}}>
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.05)" horizontal={true} vertical={false} />
-                      <XAxis type="number" stroke="#475569" tick={{fontSize: 11, fill: '#94a3b8'}} axisLine={{stroke: '#334155'}} tickLine={false} />
-                      <YAxis dataKey="name" type="category" width={140} stroke="#475569" tick={{fontSize: 11, fill: '#cbd5e1'}} axisLine={{stroke: '#334155'}} tickLine={false} tickFormatter={(val) => val.length > 20 ? val.substring(0, 20) + '…' : val} />
+                      <XAxis dataKey="name" type="category" interval={0} height={70} stroke="#475569" tick={{fontSize: 11, fill: '#cbd5e1'}} axisLine={{stroke: '#334155'}} tickLine={false} angle={-35} textAnchor="end" tickFormatter={(val) => val.length > 18 ? val.substring(0, 18) + '…' : val} />
+                      <YAxis type="number" allowDecimals={false} width={40} stroke="#475569" tick={{fontSize: 11, fill: '#94a3b8'}} axisLine={{stroke: '#334155'}} tickLine={false} />
                       <RechartsTooltip cursor={{fill: 'rgba(255,255,255,0.02)'}} contentStyle={{backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', color: '#fff'}} itemStyle={{color: '#38bdf8', fontWeight: '600'}} />
-                      <Bar dataKey="value" fill="#8b5cf6" maxBarSize={32} radius={[0, 4, 4, 0]} name="Atenciones" animationDuration={1000}>
+                      <Bar dataKey="value" fill="#8b5cf6" maxBarSize={56} radius={[4, 4, 0, 0]} name="Atenciones" animationDuration={1000}>
                         {
                           repSistemas.sistemas.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={`hsl(${190 + (index * 15)}, 80%, 55%)`} />
@@ -694,7 +718,7 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
 
       </section>

@@ -7,8 +7,10 @@ import { API_URL } from '../config';
 
 const ConsumoMedicamentos = () => {
   const [empresas, setEmpresas] = useState([]);
+  const [obras, setObras] = useState([]);
   const [filtros, setFiltros] = useState({
     empresa_id: '',
+    obra: '',
     fecha_inicio: null,
     fecha_fin: null
   });
@@ -26,6 +28,11 @@ const ConsumoMedicamentos = () => {
       .then(res => res.json())
       .then(data => setEmpresas(data))
       .catch(err => console.error("Error fetching empresas:", err));
+
+    fetch(`${API_URL}/trabajadores/obras`)
+      .then(res => res.json())
+      .then(data => setObras(data))
+      .catch(err => console.error("Error fetching obras:", err));
   }, []);
 
   const handleSearch = async () => {
@@ -33,6 +40,7 @@ const ConsumoMedicamentos = () => {
     try {
       const params = new URLSearchParams();
       if (filtros.empresa_id) params.append('empresa_id', filtros.empresa_id);
+      if (filtros.obra) params.append('obra', filtros.obra);
       if (filtros.fecha_inicio) params.append('fecha_inicio', filtros.fecha_inicio.toISOString().split('T')[0]);
       if (filtros.fecha_fin) params.append('fecha_fin', filtros.fecha_fin.toISOString().split('T')[0]);
       
@@ -55,6 +63,7 @@ const ConsumoMedicamentos = () => {
     
     const empresaSeleccionada = empresas.find(e => e.id.toString() === filtros.empresa_id);
     const empresaName = empresaSeleccionada ? empresaSeleccionada.nombre : 'Todas las Empresas';
+    const obraName = filtros.obra || 'Todas las obras';
     
     const fInicio = filtros.fecha_inicio ? filtros.fecha_inicio.toLocaleDateString() : '';
     const fFin = filtros.fecha_fin ? filtros.fecha_fin.toLocaleDateString() : '';
@@ -63,6 +72,7 @@ const ConsumoMedicamentos = () => {
     const aoa = [
       ['Reporte de Consumo de Medicamentos'],
       ['Empresa: ' + empresaName],
+      ['Obra: ' + obraName],
       ['Fechas: ' + dateRangeText],
       [],
       ['Código', 'Medicamento', 'Presentación', ...reporte.rango_fechas, 'Sub Total (Cant)', 'Precio UND', 'Total (Soles)']
@@ -127,6 +137,17 @@ const ConsumoMedicamentos = () => {
               >
                 <option value="">Todas las empresas...</option>
                 {empresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: '1 1 250px' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-color)', marginBottom: '8px' }}>Obra</label>
+              <select 
+                className="form-control" 
+                value={filtros.obra} 
+                onChange={e => setFiltros({...filtros, obra: e.target.value})}
+              >
+                <option value="">Todas las obras...</option>
+                {obras.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </div>
             <div style={{ flex: '1 1 350px' }}>
@@ -197,6 +218,7 @@ const ConsumoMedicamentos = () => {
           <h2 style={{ color: '#000', margin: 0, marginBottom: '12px' }}>Reporte de Consumo de Medicamentos</h2>
           <div style={{ display: 'flex', gap: '40px', color: '#000', marginBottom: '8px' }}>
             <div><strong>Empresa:</strong> {empresas.find(e => e.id.toString() === filtros.empresa_id)?.nombre || 'Todas las Empresas'}</div>
+            <div><strong>Obra:</strong> {filtros.obra || 'Todas las obras'}</div>
             <div><strong>Rango de Fechas:</strong> {(filtros.fecha_inicio && filtros.fecha_fin) ? `${filtros.fecha_inicio.toLocaleDateString()} al ${filtros.fecha_fin.toLocaleDateString()}` : 'Todas las fechas'}</div>
           </div>
           {reporte.medicamentos.length > 0 && (

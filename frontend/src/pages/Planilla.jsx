@@ -9,7 +9,7 @@ const Planilla = () => {
   const [formData, setFormData] = useState({
     id: null, nombre: '', apellidos: '', dni: '', tipo_contrato: '', afp_onp: '', rol: 'Médico',
     codigo_trabajador: '', cargo: '', fecha_ingreso: '', fecha_cese: '', estado_trabajador: 'ACTIVO',
-    subdivision_sede: '', centro_costo: '', tipo_calculo_nomina: '', area: '', area_personal: '',
+    subdivision_sede: '', centro_costo: '', tipo_calculo_nomina: '', area: '', obra: '', area_personal: '',
     grupo_personal: '', nivel_org_1: '', nivel_org_2: '', nivel_org_3: '', nivel_org_4: '',
     nivel_org_5: '', fecha_nacimiento: '', genero: '', jefe_inmediato: '', telefono: '', correo_electronico: '',
     empresa_id: ''
@@ -75,7 +75,7 @@ const Planilla = () => {
         codigo_trabajador: trabajador.codigo_trabajador || '', cargo: trabajador.cargo || '', fecha_ingreso: trabajador.fecha_ingreso || '',
         fecha_cese: trabajador.fecha_cese || '', estado_trabajador: trabajador.estado_trabajador || 'ACTIVO',
         subdivision_sede: trabajador.subdivision_sede || '', centro_costo: trabajador.centro_costo || '',
-        tipo_calculo_nomina: trabajador.tipo_calculo_nomina || '', area: trabajador.area || '', area_personal: trabajador.area_personal || '',
+        tipo_calculo_nomina: trabajador.tipo_calculo_nomina || '', area: trabajador.area || '', obra: trabajador.obra || '', area_personal: trabajador.area_personal || '',
         grupo_personal: trabajador.grupo_personal || '', nivel_org_1: trabajador.nivel_org_1 || '',
         nivel_org_2: trabajador.nivel_org_2 || '', nivel_org_3: trabajador.nivel_org_3 || '',
         nivel_org_4: trabajador.nivel_org_4 || '', nivel_org_5: trabajador.nivel_org_5 || '',
@@ -87,7 +87,7 @@ const Planilla = () => {
       setFormData({
         id: null, nombre: '', apellidos: '', dni: '', tipo_contrato: '', afp_onp: '', rol: 'Médico',
         codigo_trabajador: '', cargo: '', fecha_ingreso: '', fecha_cese: '', estado_trabajador: 'ACTIVO',
-        subdivision_sede: '', centro_costo: '', tipo_calculo_nomina: '', area: '', area_personal: '',
+        subdivision_sede: '', centro_costo: '', tipo_calculo_nomina: '', area: '', obra: '', area_personal: '',
         grupo_personal: '', nivel_org_1: '', nivel_org_2: '', nivel_org_3: '', nivel_org_4: '',
         nivel_org_5: '', fecha_nacimiento: '', genero: '', jefe_inmediato: '', telefono: '', correo_electronico: '',
         empresa_id: ''
@@ -99,7 +99,7 @@ const Planilla = () => {
   const closeModal = () => setIsModalOpen(false);
 
   const filteredTrabajadores = trabajadores.filter(t => {
-    const searchMatch = ((t.codigo_trabajador||'') + ' ' + t.nombre + ' ' + t.apellidos + ' ' + t.dni).toLowerCase().includes(filters.search.toLowerCase());
+    const searchMatch = ((t.codigo_trabajador||'') + ' ' + t.nombre + ' ' + t.apellidos + ' ' + t.dni + ' ' + (t.obra||'')).toLowerCase().includes(filters.search.toLowerCase());
     return searchMatch;
   });
 
@@ -136,6 +136,7 @@ const Planilla = () => {
                 <th>DNI</th>
                 <th>Nombre Completo</th>
                 <th>Empresa</th>
+                <th>Obra</th>
                 <th>Sede</th>
                 <th>Estado</th>
                 <th style={{textAlign: 'right'}}>Acciones</th>
@@ -151,6 +152,7 @@ const Planilla = () => {
                     {t.cargo && <div>{t.cargo}</div>}
                     <div style={{fontSize: '0.8rem', color: 'var(--primary-color)'}}>{t.empresa ? t.empresa.nombre : ''}</div>
                   </td>
+                  <td>{t.obra || '-'}</td>
                   <td>{t.subdivision_sede || '-'}</td>
                   <td>
                     <span style={{
@@ -170,7 +172,7 @@ const Planilla = () => {
               ))}
               {filteredTrabajadores.length === 0 && (
                 <tr>
-                  <td colSpan="7" className="text-center text-muted py-4">No se encontraron trabajadores</td>
+                  <td colSpan="8" className="text-center text-muted py-4">No se encontraron trabajadores</td>
                 </tr>
               )}
             </tbody>
@@ -242,6 +244,10 @@ const Planilla = () => {
                     <input className="form-control" value={formData.area} onChange={e => setFormData({...formData, area: e.target.value})} />
                   </div>
                   <div className="form-group">
+                    <label className="form-label">Obra</label>
+                    <input className="form-control" value={formData.obra} onChange={e => setFormData({...formData, obra: e.target.value})} />
+                  </div>
+                  <div className="form-group">
                     <label className="form-label">Puesto de Trabajo (Cargo)</label>
                     <input className="form-control" value={formData.cargo} onChange={e => setFormData({...formData, cargo: e.target.value})} />
                   </div>
@@ -293,6 +299,7 @@ const Planilla = () => {
                 <h4 style={{gridColumn: 'span 2', borderBottom: '1px solid #ccc', marginTop: '10px', paddingTop: '10px'}}>Datos Corporativos</h4>
                 <div style={{gridColumn: 'span 2'}}><strong>Empresa:</strong> {viewTrabajador.empresa?.nombre || '--'}</div>
                 <div><strong>Área:</strong> {viewTrabajador.area || '--'}</div>
+                <div><strong>Obra:</strong> {viewTrabajador.obra || '--'}</div>
                 <div><strong>Puesto / Cargo:</strong> {viewTrabajador.cargo || '--'}</div>
                 <div><strong>Sede:</strong> {viewTrabajador.subdivision_sede || '--'}</div>
               </div>

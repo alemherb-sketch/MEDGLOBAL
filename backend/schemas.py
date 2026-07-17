@@ -37,6 +37,7 @@ class TrabajadorBase(BaseModel):
     centro_costo: Optional[str] = None
     tipo_calculo_nomina: Optional[str] = None
     area: Optional[str] = None
+    obra: Optional[str] = None
     empresa_id: Optional[int] = None
     area_personal: Optional[str] = None
     grupo_personal: Optional[str] = None
