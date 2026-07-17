@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -50,9 +52,12 @@ with engine.connect() as conn:
 app = FastAPI(title="MEDGLOBAL API")
 
 # Configure CORS
+# ALLOWED_ORIGINS es una lista separada por comas (ej. "https://medglobal.erpgest.com.pe").
+# Por defecto "*" para no romper el desarrollo local ni el .exe de escritorio.
+_allowed_origins = os.getenv("ALLOWED_ORIGINS", "*")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # For development
+    allow_origins=["*"] if _allowed_origins == "*" else [o.strip() for o in _allowed_origins.split(",")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -902,3 +907,13 @@ def get_reporte_consumo_medicamentos(
             "total": total_general
         }
     }
+
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+os.makedirs('static', exist_ok=True)
+app.mount('/', StaticFiles(directory='static', html=True), name='static')
+@app.exception_handler(404)
+async def custom_404_handler(request, exc):
+    if request.url.path.startswith('/api'): return exc
+    return FileResponse('static/index.html')
+
