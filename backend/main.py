@@ -218,6 +218,26 @@ def _procesar_kardex_nuevo(db: Session, kardex_row):
     kardex_row.saldo = db_med.stock_actual
 
 
+# Import diferido y protegido: sync_client importa `requests`, que no todo
+# despliegue de main.py tiene instalado (p.ej. el del VPS, que solo sirve la
+# API web y nunca corre el hilo de sync). Si no esta disponible, /sync/estado
+# simplemente reporta "desactivado" en vez de tumbar el arranque del server.
+try:
+    import sync_client
+except ImportError:
+    sync_client = None
+
+
+@app.get("/sync/estado")
+def sync_estado(current_user: models.Usuario = Depends(auth.get_current_user)):
+    """Para el indicador de estado del frontend. No indica si ESTE request
+    tiene conexion -- indica lo que el hilo de fondo de sync_client observo
+    en su ultimo chequeo (cada SYNC_INTERVAL_SEGUNDOS)."""
+    if sync_client is None:
+        return {"estado": "desactivado", "ultima_sincronizacion": None, "ultimo_error": None}
+    return sync_client.obtener_estado()
+
+
 @app.get("/sync/cambios")
 def sync_cambios(since: Optional[str] = None, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     """Pull: todo lo que cambio desde 'since' (ISO 8601), incluyendo

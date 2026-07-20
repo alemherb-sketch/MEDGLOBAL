@@ -39,6 +39,16 @@ _CURSOR_FILE = "sync_cursor.json"
 
 LocalSession = sessionmaker(bind=engine)
 
+# Estado compartido entre el hilo de fondo (que lo escribe) y el endpoint
+# GET /sync/estado (que lo lee) -- no hace falta un lock porque cada campo
+# se reemplaza en una sola asignacion atomica (GIL), nunca se muta en su
+# lugar.
+_estado = {"estado": "desactivado", "ultima_sincronizacion": None, "ultimo_error": None}
+
+
+def obtener_estado():
+    return dict(_estado)
+
 
 def sync_habilitado():
     return bool(SYNC_SERVER_URL and SYNC_USERNAME and SYNC_PASSWORD)
@@ -187,10 +197,31 @@ def iniciar_hilo_sincronizacion():
     if not sync_habilitado():
         return
 
+    # El cursor persistido ya es, en los hechos, la hora del ultimo pull
+    # exitoso -- lo usamos para que "ultima sincronizacion" no aparezca en
+    # blanco cada vez que se reinicia la app (p.ej. tras reiniciar la PC)
+    # aunque haya sincronizado bien minutos antes.
+    _cursor_inicial = _leer_cursor()
+    if _cursor_inicial:
+        _estado["ultima_sincronizacion"] = _cursor_inicial + "Z"
+
     def loop():
         while True:
             if esta_en_linea():
-                sincronizar_una_vez()
+                if sincronizar_una_vez():
+                    _estado["estado"] = "en_linea"
+                    # +"Z": datetime.utcnow().isoformat() no incluye marca de
+                    # zona horaria, y new Date(...) en JS interpreta un ISO
+                    # sin zona como hora LOCAL, no UTC -- sin la Z el
+                    # indicador del frontend mostraba la ultima sync como si
+                    # hubiera sido en el futuro.
+                    _estado["ultima_sincronizacion"] = datetime.utcnow().isoformat() + "Z"
+                    _estado["ultimo_error"] = None
+                else:
+                    _estado["estado"] = "error"
+                    _estado["ultimo_error"] = "hay conexion pero la sincronizacion fallo -- revisar usuario/password de sync"
+            else:
+                _estado["estado"] = "fuera_de_linea"
             time.sleep(SYNC_INTERVAL_SEGUNDOS)
 
     threading.Thread(target=loop, daemon=True).start()
