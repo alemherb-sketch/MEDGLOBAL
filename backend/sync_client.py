@@ -35,7 +35,7 @@ SYNC_USERNAME = os.getenv("SYNC_USERNAME")
 SYNC_PASSWORD = os.getenv("SYNC_PASSWORD")
 SYNC_INTERVAL_SEGUNDOS = int(os.getenv("SYNC_INTERVAL_SEGUNDOS", "30"))
 
-_CURSOR_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sync_cursor.json")
+_CURSOR_FILE = "sync_cursor.json"
 
 LocalSession = sessionmaker(bind=engine)
 

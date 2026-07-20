@@ -15,4 +15,8 @@ backend/medglobal.db
 backend/*.db.bak
 backend/*.db.*.bak
 backend/sync_cursor.json
+backend/static/
+backend/build/
+backend/MEDGLOBAL.egg-info/
+MEDGLOBAL_Instalador_Offline.zip
 .DS_Store
