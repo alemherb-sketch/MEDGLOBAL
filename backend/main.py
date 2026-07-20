@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 
 import models, schemas
@@ -95,11 +96,15 @@ def _next_prefixed_code(db: Session, model, field_name: str, prefix: str) -> str
 # --- Sincronizacion (Fase 2) ---
 # Tablas que participan del protocolo generico de sync. atencion_medicamentos
 # se sincroniza embebida dentro de cada atencion (igual que ya se expone en
-# la API normal), no como tabla independiente. usuarios se deja fuera a
-# proposito por ahora: sincronizar cuentas/credenciales entre dispositivos
-# es un problema distinto al de sincronizar datos clinicos, y mezclarlos
-# ahora seria un riesgo de seguridad innecesario para esta version.
+# la API normal), no como tabla independiente. usuarios SI participa (a
+# diferencia del diseño original de la Fase 2): el mismo login debe
+# funcionar tanto en la web como en el instalable de escritorio. Usa
+# exactamente el mismo mecanismo generico de conflicto que cualquier otra
+# tabla -- no hay tratamiento especial para password_hash, porque cualquier
+# dispositivo con credenciales de sync validas ya puede escribir cualquier
+# otra tabla igual.
 SYNCABLE_MODELS = {
+    "usuarios": models.Usuario,
     "empresas": models.Empresa,
     "sistemas": models.SistemaAtencion,
     "clasificaciones": models.ClasificacionAtencion,
@@ -288,6 +293,15 @@ def sync_subir(payload: schemas.SyncPushRequest, db: Session = Depends(get_db), 
         conflicto real: gana el updated_at mas reciente entre las dos
         versiones, y la version que pierde se guarda completa en
         conflictos_sync en vez de perderse en silencio.
+
+    Se confirma fila por fila (no una vez por tabla) a proposito: varias
+    tablas synceables tienen columnas unique (username, ruc, dni, codigo,
+    nombre...), y dos dispositivos offline pueden crear el mismo valor sin
+    saberlo. Con un solo commit por tabla, esa fila chocando tumbaria TODA
+    la transaccion de la tabla entera -- incluidas filas anteriores ya
+    aplicadas sin problema. Confirmando de a una, un choque solo pierde esa
+    fila (se audita en conflictos_sync en vez de perderse en silencio), sin
+    arrastrarse las demas.
     """
     since_dt = _parse_sync_dt(payload.since) if payload.since else None
 
@@ -303,49 +317,66 @@ def sync_subir(payload: schemas.SyncPushRequest, db: Session = Depends(get_db), 
             row_id = fila.get("id")
             if not row_id:
                 continue
-            incoming_updated_at = _parse_sync_dt(fila.get("updated_at")) or datetime.utcnow()
-            existing = db.query(model).filter(model.id == row_id).first()
+            try:
+                incoming_updated_at = _parse_sync_dt(fila.get("updated_at")) or datetime.utcnow()
+                existing = db.query(model).filter(model.id == row_id).first()
 
-            if existing is None:
-                nuevo = model(id=row_id)
-                _apply_sync_fields(nuevo, fila, tabla)
-                db.add(nuevo)
-                db.flush()
-                if tabla == "atenciones":
-                    _procesar_atencion_nueva(db, nuevo, fila.get("medicamentos", []))
-                elif tabla == "kardex":
-                    _procesar_kardex_nuevo(db, nuevo)
-                aplicados += 1
-                continue
+                if existing is None:
+                    nuevo = model(id=row_id)
+                    _apply_sync_fields(nuevo, fila, tabla)
+                    db.add(nuevo)
+                    db.flush()
+                    if tabla == "atenciones":
+                        _procesar_atencion_nueva(db, nuevo, fila.get("medicamentos", []))
+                    elif tabla == "kardex":
+                        _procesar_kardex_nuevo(db, nuevo)
+                    db.commit()
+                    aplicados += 1
+                    continue
 
-            servidor_cambio_despues = since_dt is None or (
-                existing.server_updated_at is not None and existing.server_updated_at > since_dt
-            )
+                servidor_cambio_despues = since_dt is None or (
+                    existing.server_updated_at is not None and existing.server_updated_at > since_dt
+                )
 
-            if not servidor_cambio_despues:
-                _apply_sync_fields(existing, fila, tabla)
-                aplicados += 1
-                continue
+                if not servidor_cambio_despues:
+                    _apply_sync_fields(existing, fila, tabla)
+                    db.commit()
+                    aplicados += 1
+                    continue
 
-            # Conflicto real
-            conflictos += 1
-            if existing.updated_at is None or incoming_updated_at >= existing.updated_at:
-                perdedora = _row_to_sync_dict(existing)
-                db.add(models.ConflictoSync(
-                    tabla=tabla, registro_id=row_id,
-                    version_perdedora=json.dumps(perdedora, default=str),
-                    version_ganadora_id=row_id,
-                ))
-                _apply_sync_fields(existing, fila, tabla)
-            else:
+                # Conflicto real
+                conflictos += 1
+                if existing.updated_at is None or incoming_updated_at >= existing.updated_at:
+                    perdedora = _row_to_sync_dict(existing)
+                    db.add(models.ConflictoSync(
+                        tabla=tabla, registro_id=row_id,
+                        version_perdedora=json.dumps(perdedora, default=str),
+                        version_ganadora_id=row_id,
+                    ))
+                    _apply_sync_fields(existing, fila, tabla)
+                else:
+                    db.add(models.ConflictoSync(
+                        tabla=tabla, registro_id=row_id,
+                        version_perdedora=json.dumps(fila, default=str),
+                        version_ganadora_id=row_id,
+                    ))
+                    # el servidor conserva su version, no se aplica la entrante
+                db.commit()
+            except IntegrityError:
+                # Choco contra una columna unique (username/ruc/dni/codigo/
+                # nombre repetido creado en paralelo por otro dispositivo).
+                # Se descarta SOLO esta fila -- rollback aca no afecta las
+                # filas anteriores de este mismo tabla porque cada una ya
+                # confirmo su propio commit por separado.
+                db.rollback()
+                conflictos += 1
                 db.add(models.ConflictoSync(
                     tabla=tabla, registro_id=row_id,
                     version_perdedora=json.dumps(fila, default=str),
-                    version_ganadora_id=row_id,
+                    version_ganadora_id=None,
                 ))
-                # el servidor conserva su version, no se aplica la entrante
+                db.commit()
 
-        db.commit()
         resultado[tabla] = {"aplicados": aplicados, "conflictos": conflictos}
 
     return {"server_time": datetime.utcnow().isoformat(), "resultado": resultado}

@@ -16,6 +16,13 @@ class Usuario(Base):
     rol = Column(String(50), default="ESTANDAR")  # ADMIN, ESTANDAR
     estado = Column(String(20), default="ACTIVO")
     creado_en = Column(DateTime, default=datetime.datetime.utcnow)
+    # creado_en/estado se dejan tal cual estaban (no son lo mismo que
+    # created_at/is_deleted de las demas tablas) -- estas tres son nuevas,
+    # necesarias para que usuarios entre al protocolo generico de sync igual
+    # que cualquier otra tabla.
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    server_updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    is_deleted = Column(Boolean, default=False, index=True)
 
 class Empresa(Base):
     __tablename__ = "empresas"

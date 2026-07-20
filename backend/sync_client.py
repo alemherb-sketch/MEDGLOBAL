@@ -123,6 +123,28 @@ def _empujar_cambios(token, since, db):
     ).raise_for_status()
 
 
+def _limpiar_colisiones_locales(db, model, fila):
+    """Antes de insertar una fila nueva que llega por pull, borra cualquier
+    fila local (con OTRO id) que choque en una columna unique (username,
+    ruc, dni, codigo, nombre...). Hace falta porque este mismo dispositivo
+    puede tener localmente su propia version de un registro que el
+    servidor YA rechazo por chocar con la de otro dispositivo (ver el
+    except IntegrityError en sync_subir, main.py) -- esa fila local nunca
+    llego a existir para el servidor, asi que no tiene sentido conservarla
+    bloqueando la version autoritativa que ahora llega por pull."""
+    row_id = fila.get("id")
+    for col in model.__table__.columns:
+        if not col.unique or col.name not in fila:
+            continue
+        valor = fila[col.name]
+        if valor is None:
+            continue
+        choque = db.query(model).filter(getattr(model, col.name) == valor, model.id != row_id).first()
+        if choque is not None:
+            db.delete(choque)
+    db.flush()
+
+
 def _traer_cambios(token, since, db):
     params = {"since": since} if since else {}
     r = requests.get(
@@ -145,6 +167,7 @@ def _traer_cambios(token, since, db):
             medicamentos = fila.pop("medicamentos", None)
             existing = db.query(model).filter(model.id == row_id).first()
             if existing is None:
+                _limpiar_colisiones_locales(db, model, fila)
                 nuevo = model(id=row_id)
                 # trusted_source=True: esto viene del servidor, no de otro
                 # dispositivo — folio y stock_actual SI se aceptan tal cual,
@@ -185,7 +208,15 @@ def sincronizar_una_vez():
         nuevo_cursor = _traer_cambios(token, since, db)
         _guardar_cursor(nuevo_cursor)
         return True
-    except requests.RequestException:
+    except Exception:
+        # Deliberadamente amplio, no solo requests.RequestException: el
+        # hilo de fondo (iniciar_hilo_sincronizacion) no tiene su propio
+        # try/except alrededor de esta llamada, asi que cualquier excepcion
+        # que se escape de aca mata el hilo para siempre (nunca mas vuelve
+        # a sincronizar en esa instalacion hasta reiniciar la app). Mejor
+        # que un ciclo falle y se reintente solo en el proximo, sin
+        # necesidad de reiniciar nada.
+        db.rollback()
         return False
     finally:
         db.close()
