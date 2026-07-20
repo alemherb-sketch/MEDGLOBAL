@@ -6,6 +6,7 @@ from datetime import datetime
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import func
 from typing import List, Optional
 
@@ -111,15 +112,32 @@ SYNCABLE_MODELS = {
     "kardex": models.Kardex,
 }
 
-# Columnas que un dispositivo nunca puede sobreescribir via sync, aunque las
-# mande en su payload: folio y stock_actual son calculados por el servidor
-# (folio al crear una atencion nueva; stock_actual solo cambia via
-# movimientos de kardex, nunca de forma directa).
-_SYNC_SKIP_COLUMNS = {"id", "folio"}
-_SYNC_SKIP_COLUMNS_POR_TABLA = {
+# id nunca se sobreescribe via setattr, venga de donde venga.
+_SYNC_ALWAYS_SKIP = {"id"}
+# folio, stock_actual y server_updated_at son calculados por el servidor.
+# Un dispositivo empujando cambios (push) nunca puede pisarlos directo,
+# aunque los mande en su payload — por eso se saltan cuando
+# trusted_source=False. Pero cuando el cliente de escritorio (Fase 3)
+# APLICA lo que bajo del servidor (pull), sí necesita quedarse con esos
+# valores tal cual, porque son la verdad autoritativa — por eso ahi se
+# llama con trusted_source=True.
+#
+# server_updated_at existe SEPARADO de updated_at a proposito (ver el
+# comentario junto a la columna en models.py): updated_at sigue siendo la
+# fecha de edicion del usuario, tal cual la manda el cliente, porque de eso
+# depende decidir quien gana un conflicto. server_updated_at es cuando el
+# SERVIDOR escribio la fila, y es lo que se usa para el filtro "que cambio
+# desde since" — si se usara updated_at para ambas cosas, aplicar la
+# version ganadora de un conflicto con la fecha de edicion original
+# (posiblemente antigua) dejaria la fila "vieja" para el filtro de sync
+# aunque el servidor la acabe de tocar, y un tercer dispositivo se la
+# perderia. Se excluye del copiado directo para que dispare el
+# onupdate/default de la columna (hora real del servidor).
+_SYNC_SERVER_COMPUTED_COLUMNS = {"folio", "server_updated_at"}
+_SYNC_SERVER_COMPUTED_COLUMNS_POR_TABLA = {
     "medicamentos": {"stock_actual"},
 }
-_SYNC_DATETIME_COLUMNS = {"fecha", "fecha_hora", "created_at", "updated_at", "creado_en"}
+_SYNC_DATETIME_COLUMNS = {"fecha", "fecha_hora", "created_at", "updated_at", "server_updated_at", "creado_en"}
 
 
 def _parse_sync_dt(value):
@@ -138,8 +156,21 @@ def _row_to_sync_dict(row):
     return d
 
 
-def _apply_sync_fields(row, data, tabla=None):
-    skip = _SYNC_SKIP_COLUMNS | _SYNC_SKIP_COLUMNS_POR_TABLA.get(tabla, set())
+def _apply_sync_fields(row, data, tabla=None, trusted_source=False):
+    """Copia los campos de 'data' a 'row' via setattr. Usa flag_modified en
+    cada columna tocada porque SQLAlchemy solo incluye una columna en el
+    UPDATE si la detecta 'dirty' — y su deteccion de cambios es por
+    igualdad de valor. Cuando un dispositivo recibe de vuelta (pull) su
+    propio cambio recien empujado, el valor entrante es identico al que ya
+    tiene en memoria, SQLAlchemy no lo marca dirty, la columna queda fuera
+    del SET del UPDATE, y entonces el onupdate=utcnow() de la columna SI se
+    dispara (porque "no esta en el SET") pisando el valor con la hora
+    actual. flag_modified fuerza que la columna entre al UPDATE tal cual se
+    seteo, sin importar si el valor es igual al anterior."""
+    skip = set(_SYNC_ALWAYS_SKIP)
+    if not trusted_source:
+        skip |= _SYNC_SERVER_COMPUTED_COLUMNS
+        skip |= _SYNC_SERVER_COMPUTED_COLUMNS_POR_TABLA.get(tabla, set())
     for col in row.__table__.columns:
         if col.name in skip or col.name not in data:
             continue
@@ -147,6 +178,7 @@ def _apply_sync_fields(row, data, tabla=None):
         if col.name in _SYNC_DATETIME_COLUMNS:
             value = _parse_sync_dt(value)
         setattr(row, col.name, value)
+        flag_modified(row, col.name)
 
 
 def _procesar_atencion_nueva(db: Session, atencion_row, medicamentos):
@@ -206,7 +238,7 @@ def sync_cambios(since: Optional[str] = None, db: Session = Depends(get_db), cur
     for tabla, model in SYNCABLE_MODELS.items():
         query = db.query(model)
         if since_dt:
-            query = query.filter(model.updated_at > since_dt)
+            query = query.filter(model.server_updated_at > since_dt)
         rows = query.all()
         items = []
         for row in rows:
@@ -267,7 +299,7 @@ def sync_subir(payload: schemas.SyncPushRequest, db: Session = Depends(get_db), 
                 continue
 
             servidor_cambio_despues = since_dt is None or (
-                existing.updated_at is not None and existing.updated_at > since_dt
+                existing.server_updated_at is not None and existing.server_updated_at > since_dt
             )
 
             if not servidor_cambio_despues:

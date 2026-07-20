@@ -28,6 +28,15 @@ class Empresa(Base):
     estado = Column(String(50), default="ACTIVO")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    # Distinto de updated_at a proposito: updated_at es cuando el USUARIO
+    # edito (se usa para decidir quien gana un conflicto de sync), esta
+    # columna es cuando el SERVIDOR escribio la fila por ultima vez (se usa
+    # para el filtro "que cambio desde since" al sincronizar). Si fueran la
+    # misma columna, aplicar la version ganadora de un conflicto con la
+    # fecha de edicion original del usuario podria dejarla "vieja" para el
+    # filtro de sync aunque el servidor la acabe de tocar — un tercer
+    # dispositivo se la perderia. Ver _SYNC_SERVER_COMPUTED_COLUMNS en main.py.
+    server_updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     is_deleted = Column(Boolean, default=False, index=True)
 
     trabajadores = relationship("Trabajador", back_populates="empresa")
@@ -73,6 +82,15 @@ class Trabajador(Base):
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    # Distinto de updated_at a proposito: updated_at es cuando el USUARIO
+    # edito (se usa para decidir quien gana un conflicto de sync), esta
+    # columna es cuando el SERVIDOR escribio la fila por ultima vez (se usa
+    # para el filtro "que cambio desde since" al sincronizar). Si fueran la
+    # misma columna, aplicar la version ganadora de un conflicto con la
+    # fecha de edicion original del usuario podria dejarla "vieja" para el
+    # filtro de sync aunque el servidor la acabe de tocar — un tercer
+    # dispositivo se la perderia. Ver _SYNC_SERVER_COMPUTED_COLUMNS en main.py.
+    server_updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     is_deleted = Column(Boolean, default=False, index=True)
 
 class SistemaAtencion(Base):
@@ -81,6 +99,15 @@ class SistemaAtencion(Base):
     nombre = Column(String(100), unique=True, index=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    # Distinto de updated_at a proposito: updated_at es cuando el USUARIO
+    # edito (se usa para decidir quien gana un conflicto de sync), esta
+    # columna es cuando el SERVIDOR escribio la fila por ultima vez (se usa
+    # para el filtro "que cambio desde since" al sincronizar). Si fueran la
+    # misma columna, aplicar la version ganadora de un conflicto con la
+    # fecha de edicion original del usuario podria dejarla "vieja" para el
+    # filtro de sync aunque el servidor la acabe de tocar — un tercer
+    # dispositivo se la perderia. Ver _SYNC_SERVER_COMPUTED_COLUMNS en main.py.
+    server_updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     is_deleted = Column(Boolean, default=False, index=True)
 
 class ClasificacionAtencion(Base):
@@ -89,6 +116,15 @@ class ClasificacionAtencion(Base):
     nombre = Column(String(100))
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    # Distinto de updated_at a proposito: updated_at es cuando el USUARIO
+    # edito (se usa para decidir quien gana un conflicto de sync), esta
+    # columna es cuando el SERVIDOR escribio la fila por ultima vez (se usa
+    # para el filtro "que cambio desde since" al sincronizar). Si fueran la
+    # misma columna, aplicar la version ganadora de un conflicto con la
+    # fecha de edicion original del usuario podria dejarla "vieja" para el
+    # filtro de sync aunque el servidor la acabe de tocar — un tercer
+    # dispositivo se la perderia. Ver _SYNC_SERVER_COMPUTED_COLUMNS en main.py.
+    server_updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     is_deleted = Column(Boolean, default=False, index=True)
 
 class DiagnosticoCie10(Base):
@@ -99,6 +135,15 @@ class DiagnosticoCie10(Base):
     estado = Column(String(20), default="ACTIVO")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    # Distinto de updated_at a proposito: updated_at es cuando el USUARIO
+    # edito (se usa para decidir quien gana un conflicto de sync), esta
+    # columna es cuando el SERVIDOR escribio la fila por ultima vez (se usa
+    # para el filtro "que cambio desde since" al sincronizar). Si fueran la
+    # misma columna, aplicar la version ganadora de un conflicto con la
+    # fecha de edicion original del usuario podria dejarla "vieja" para el
+    # filtro de sync aunque el servidor la acabe de tocar — un tercer
+    # dispositivo se la perderia. Ver _SYNC_SERVER_COMPUTED_COLUMNS en main.py.
+    server_updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     is_deleted = Column(Boolean, default=False, index=True)
 
 class AtencionMedicamento(Base):
@@ -165,6 +210,15 @@ class Atencion(Base):
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    # Distinto de updated_at a proposito: updated_at es cuando el USUARIO
+    # edito (se usa para decidir quien gana un conflicto de sync), esta
+    # columna es cuando el SERVIDOR escribio la fila por ultima vez (se usa
+    # para el filtro "que cambio desde since" al sincronizar). Si fueran la
+    # misma columna, aplicar la version ganadora de un conflicto con la
+    # fecha de edicion original del usuario podria dejarla "vieja" para el
+    # filtro de sync aunque el servidor la acabe de tocar — un tercer
+    # dispositivo se la perderia. Ver _SYNC_SERVER_COMPUTED_COLUMNS en main.py.
+    server_updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     is_deleted = Column(Boolean, default=False, index=True)
 
 class Medicamento(Base):
@@ -178,6 +232,15 @@ class Medicamento(Base):
     costo_unitario = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    # Distinto de updated_at a proposito: updated_at es cuando el USUARIO
+    # edito (se usa para decidir quien gana un conflicto de sync), esta
+    # columna es cuando el SERVIDOR escribio la fila por ultima vez (se usa
+    # para el filtro "que cambio desde since" al sincronizar). Si fueran la
+    # misma columna, aplicar la version ganadora de un conflicto con la
+    # fecha de edicion original del usuario podria dejarla "vieja" para el
+    # filtro de sync aunque el servidor la acabe de tocar — un tercer
+    # dispositivo se la perderia. Ver _SYNC_SERVER_COMPUTED_COLUMNS en main.py.
+    server_updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     is_deleted = Column(Boolean, default=False, index=True)
 
 class Kardex(Base):
@@ -193,6 +256,15 @@ class Kardex(Base):
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    # Distinto de updated_at a proposito: updated_at es cuando el USUARIO
+    # edito (se usa para decidir quien gana un conflicto de sync), esta
+    # columna es cuando el SERVIDOR escribio la fila por ultima vez (se usa
+    # para el filtro "que cambio desde since" al sincronizar). Si fueran la
+    # misma columna, aplicar la version ganadora de un conflicto con la
+    # fecha de edicion original del usuario podria dejarla "vieja" para el
+    # filtro de sync aunque el servidor la acabe de tocar — un tercer
+    # dispositivo se la perderia. Ver _SYNC_SERVER_COMPUTED_COLUMNS en main.py.
+    server_updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     is_deleted = Column(Boolean, default=False, index=True)
 
 class PersonalSalud(Base):
@@ -207,6 +279,15 @@ class PersonalSalud(Base):
     estado = Column(String(50), default="ACTIVO")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    # Distinto de updated_at a proposito: updated_at es cuando el USUARIO
+    # edito (se usa para decidir quien gana un conflicto de sync), esta
+    # columna es cuando el SERVIDOR escribio la fila por ultima vez (se usa
+    # para el filtro "que cambio desde since" al sincronizar). Si fueran la
+    # misma columna, aplicar la version ganadora de un conflicto con la
+    # fecha de edicion original del usuario podria dejarla "vieja" para el
+    # filtro de sync aunque el servidor la acabe de tocar — un tercer
+    # dispositivo se la perderia. Ver _SYNC_SERVER_COMPUTED_COLUMNS en main.py.
+    server_updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     is_deleted = Column(Boolean, default=False, index=True)
 
 class ConflictoSync(Base):
@@ -237,4 +318,13 @@ class Cita(Base):
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    # Distinto de updated_at a proposito: updated_at es cuando el USUARIO
+    # edito (se usa para decidir quien gana un conflicto de sync), esta
+    # columna es cuando el SERVIDOR escribio la fila por ultima vez (se usa
+    # para el filtro "que cambio desde since" al sincronizar). Si fueran la
+    # misma columna, aplicar la version ganadora de un conflicto con la
+    # fecha de edicion original del usuario podria dejarla "vieja" para el
+    # filtro de sync aunque el servidor la acabe de tocar — un tercer
+    # dispositivo se la perderia. Ver _SYNC_SERVER_COMPUTED_COLUMNS en main.py.
+    server_updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     is_deleted = Column(Boolean, default=False, index=True)
