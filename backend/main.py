@@ -1,5 +1,7 @@
 import os
 import re
+import json
+from datetime import datetime
 
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -87,6 +89,214 @@ def _next_prefixed_code(db: Session, model, field_name: str, prefix: str) -> str
         if m:
             max_n = max(max_n, int(m.group(1)))
     return f"{prefix}-{max_n + 1:04d}"
+
+
+# --- Sincronizacion (Fase 2) ---
+# Tablas que participan del protocolo generico de sync. atencion_medicamentos
+# se sincroniza embebida dentro de cada atencion (igual que ya se expone en
+# la API normal), no como tabla independiente. usuarios se deja fuera a
+# proposito por ahora: sincronizar cuentas/credenciales entre dispositivos
+# es un problema distinto al de sincronizar datos clinicos, y mezclarlos
+# ahora seria un riesgo de seguridad innecesario para esta version.
+SYNCABLE_MODELS = {
+    "empresas": models.Empresa,
+    "sistemas": models.SistemaAtencion,
+    "clasificaciones": models.ClasificacionAtencion,
+    "diagnosticos_cie10": models.DiagnosticoCie10,
+    "medicamentos": models.Medicamento,
+    "personal_salud": models.PersonalSalud,
+    "trabajadores": models.Trabajador,
+    "citas": models.Cita,
+    "atenciones": models.Atencion,
+    "kardex": models.Kardex,
+}
+
+# Columnas que un dispositivo nunca puede sobreescribir via sync, aunque las
+# mande en su payload: folio y stock_actual son calculados por el servidor
+# (folio al crear una atencion nueva; stock_actual solo cambia via
+# movimientos de kardex, nunca de forma directa).
+_SYNC_SKIP_COLUMNS = {"id", "folio"}
+_SYNC_SKIP_COLUMNS_POR_TABLA = {
+    "medicamentos": {"stock_actual"},
+}
+_SYNC_DATETIME_COLUMNS = {"fecha", "fecha_hora", "created_at", "updated_at", "creado_en"}
+
+
+def _parse_sync_dt(value):
+    if value is None or isinstance(value, datetime):
+        return value
+    return datetime.fromisoformat(value)
+
+
+def _row_to_sync_dict(row):
+    d = {}
+    for col in row.__table__.columns:
+        value = getattr(row, col.name)
+        if isinstance(value, datetime):
+            value = value.isoformat()
+        d[col.name] = value
+    return d
+
+
+def _apply_sync_fields(row, data, tabla=None):
+    skip = _SYNC_SKIP_COLUMNS | _SYNC_SKIP_COLUMNS_POR_TABLA.get(tabla, set())
+    for col in row.__table__.columns:
+        if col.name in skip or col.name not in data:
+            continue
+        value = data[col.name]
+        if col.name in _SYNC_DATETIME_COLUMNS:
+            value = _parse_sync_dt(value)
+        setattr(row, col.name, value)
+
+
+def _procesar_atencion_nueva(db: Session, atencion_row, medicamentos):
+    """Igual que create_atencion: asigna folio y descuenta stock/kardex.
+    Solo corre para atenciones que no existian en el servidor todavia —
+    editar los medicamentos de una atencion ya existente via sync no esta
+    soportado, igual que tampoco lo esta en el endpoint normal de edicion."""
+    max_folio = db.query(func.max(models.Atencion.folio)).scalar()
+    atencion_row.folio = (max_folio or 0) + 1
+    for med in medicamentos or []:
+        med_id = med.get("medicamento_id")
+        cantidad = med.get("cantidad", 1)
+        if not med_id:
+            continue
+        db.add(models.AtencionMedicamento(atencion_id=atencion_row.id, medicamento_id=med_id, cantidad=cantidad))
+        db_med = db.query(models.Medicamento).filter(models.Medicamento.id == med_id).first()
+        if db_med:
+            db_med.stock_actual -= cantidad
+            db.add(models.Kardex(
+                medicamento_id=db_med.id, tipo_movimiento="SALIDA",
+                cantidad=cantidad, saldo=db_med.stock_actual,
+            ))
+
+
+def _procesar_kardex_nuevo(db: Session, kardex_row):
+    """El stock y el saldo se recalculan aqui contra el estado actual del
+    servidor — nunca se confia en el stock_actual/saldo que traiga el
+    dispositivo, porque puede estar desactualizado si otro dispositivo
+    sincronizo movimientos de este mismo medicamento mientras tanto."""
+    db_med = db.query(models.Medicamento).filter(models.Medicamento.id == kardex_row.medicamento_id).first()
+    if not db_med:
+        return
+    if kardex_row.tipo_movimiento == "INGRESO":
+        db_med.stock_actual += kardex_row.cantidad
+    elif kardex_row.tipo_movimiento == "SALIDA":
+        db_med.stock_actual -= kardex_row.cantidad
+    kardex_row.saldo = db_med.stock_actual
+
+
+@app.get("/sync/cambios")
+def sync_cambios(since: Optional[str] = None, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    """Pull: todo lo que cambio desde 'since' (ISO 8601), incluyendo
+    borrados (is_deleted=true actua como tombstone). Sin 'since', devuelve
+    todo — es la sincronizacion inicial de un dispositivo nuevo.
+    server_time va en la respuesta a proposito: el cliente debe guardar ESE
+    valor como su proximo cursor, no su propio reloj — evita que un reloj
+    desincronizado en una PC cause huecos o duplicados en la sync."""
+    server_time = datetime.utcnow()
+    since_dt = None
+    if since:
+        try:
+            since_dt = _parse_sync_dt(since)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Parametro 'since' invalido, usa formato ISO 8601")
+
+    cambios = {}
+    for tabla, model in SYNCABLE_MODELS.items():
+        query = db.query(model)
+        if since_dt:
+            query = query.filter(model.updated_at > since_dt)
+        rows = query.all()
+        items = []
+        for row in rows:
+            item = _row_to_sync_dict(row)
+            if tabla == "atenciones":
+                item["medicamentos"] = [
+                    {"medicamento_id": am.medicamento_id, "cantidad": am.cantidad}
+                    for am in row.medicamentos
+                ]
+            items.append(item)
+        cambios[tabla] = items
+
+    return {"server_time": server_time.isoformat(), "cambios": cambios}
+
+
+@app.post("/sync/subir")
+def sync_subir(payload: schemas.SyncPushRequest, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    """Push: aplica los cambios locales de un dispositivo.
+
+    Deteccion de conflicto real (no cada sync normal es un 'conflicto'):
+    el payload trae el 'since' que el dispositivo uso en su ULTIMO pull
+    exitoso. Para cada fila que ya existe en el servidor:
+      - si el servidor NO cambio desde ese 'since' -> es una actualizacion
+        limpia, un solo dispositivo la toco, se aplica sin mas.
+      - si el servidor SI cambio desde ese 'since' -> otro dispositivo
+        edito lo mismo mientras este estaba desconectado. Eso es un
+        conflicto real: gana el updated_at mas reciente entre las dos
+        versiones, y la version que pierde se guarda completa en
+        conflictos_sync en vez de perderse en silencio.
+    """
+    since_dt = _parse_sync_dt(payload.since) if payload.since else None
+
+    resultado = {}
+    for tabla, filas in payload.cambios.items():
+        model = SYNCABLE_MODELS.get(tabla)
+        if model is None:
+            raise HTTPException(status_code=400, detail=f"Tabla no sincronizable: {tabla}")
+
+        aplicados = 0
+        conflictos = 0
+        for fila in filas:
+            row_id = fila.get("id")
+            if not row_id:
+                continue
+            incoming_updated_at = _parse_sync_dt(fila.get("updated_at")) or datetime.utcnow()
+            existing = db.query(model).filter(model.id == row_id).first()
+
+            if existing is None:
+                nuevo = model(id=row_id)
+                _apply_sync_fields(nuevo, fila, tabla)
+                db.add(nuevo)
+                db.flush()
+                if tabla == "atenciones":
+                    _procesar_atencion_nueva(db, nuevo, fila.get("medicamentos", []))
+                elif tabla == "kardex":
+                    _procesar_kardex_nuevo(db, nuevo)
+                aplicados += 1
+                continue
+
+            servidor_cambio_despues = since_dt is None or (
+                existing.updated_at is not None and existing.updated_at > since_dt
+            )
+
+            if not servidor_cambio_despues:
+                _apply_sync_fields(existing, fila, tabla)
+                aplicados += 1
+                continue
+
+            # Conflicto real
+            conflictos += 1
+            if existing.updated_at is None or incoming_updated_at >= existing.updated_at:
+                perdedora = _row_to_sync_dict(existing)
+                db.add(models.ConflictoSync(
+                    tabla=tabla, registro_id=row_id,
+                    version_perdedora=json.dumps(perdedora, default=str),
+                    version_ganadora_id=row_id,
+                ))
+                _apply_sync_fields(existing, fila, tabla)
+            else:
+                db.add(models.ConflictoSync(
+                    tabla=tabla, registro_id=row_id,
+                    version_perdedora=json.dumps(fila, default=str),
+                    version_ganadora_id=row_id,
+                ))
+                # el servidor conserva su version, no se aplica la entrante
+
+        db.commit()
+        resultado[tabla] = {"aplicados": aplicados, "conflictos": conflictos}
+
+    return {"server_time": datetime.utcnow().isoformat(), "resultado": resultado}
 
 
 # --- Autenticacion ---

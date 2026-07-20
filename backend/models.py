@@ -209,6 +209,19 @@ class PersonalSalud(Base):
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     is_deleted = Column(Boolean, default=False, index=True)
 
+class ConflictoSync(Base):
+    """Auditoria de sincronizacion: cuando dos dispositivos editan el mismo
+    registro sin haberse visto entre si, gana el mas reciente y la version
+    que pierde se guarda aqui completa, en vez de perderse en silencio."""
+    __tablename__ = "conflictos_sync"
+    id = Column(String(36), primary_key=True, default=gen_uuid, index=True)
+    tabla = Column(String(50), index=True)
+    registro_id = Column(String(36), index=True)
+    version_perdedora = Column(Text)  # JSON con todos los campos de la version descartada
+    version_ganadora_id = Column(String(36), nullable=True)
+    dispositivo_origen = Column(String(100), nullable=True)  # se completa desde la Fase 5 (identidad por instalacion)
+    resuelto_en = Column(DateTime, default=datetime.datetime.utcnow)
+
 class Cita(Base):
     __tablename__ = "citas"
     id = Column(String(36), primary_key=True, default=gen_uuid, index=True)

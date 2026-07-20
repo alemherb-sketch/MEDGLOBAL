@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from datetime import datetime
 
 # --- Autenticacion ---
@@ -276,3 +276,8 @@ class Cita(CitaBase):
     class Config:
         orm_mode = True
         from_attributes = True
+
+# --- Sincronizacion ---
+class SyncPushRequest(BaseModel):
+    since: Optional[str] = None
+    cambios: Dict[str, List[Dict[str, Any]]] = {}
