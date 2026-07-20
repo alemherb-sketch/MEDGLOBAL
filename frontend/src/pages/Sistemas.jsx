@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API_URL } from '../config';
+import { apiFetch, apiJson } from '../api';
 import { Search, Plus, Trash2, Edit2, X } from 'lucide-react';
 
 const Sistemas = () => {
@@ -11,12 +11,10 @@ const Sistemas = () => {
   const [filters, setFilters] = useState({ searchSistemas: '', searchContingencias: '' });
 
   const fetchData = () => {
-    fetch(API_URL + '/sistemas/')
-      .then(res => res.json())
+    apiJson('/sistemas/')
       .then(data => setSistemas(data));
-    
-    fetch(API_URL + '/clasificaciones/')
-      .then(res => res.json())
+
+    apiJson('/clasificaciones/')
       .then(data => setContingencias(data));
   };
 
@@ -27,12 +25,11 @@ const Sistemas = () => {
   const handleAddSistema = (e) => {
     e.preventDefault();
     const isEditing = newSistema.id !== null;
-    const url = isEditing ? `${API_URL}/sistemas/${newSistema.id}` : API_URL + '/sistemas/';
+    const url = isEditing ? `/sistemas/${newSistema.id}` : '/sistemas/';
     const method = isEditing ? 'PUT' : 'POST';
 
-    fetch(url, {
+    apiFetch(url, {
       method,
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nombre: newSistema.nombre })
     }).then(() => {
       fetchData();
@@ -42,7 +39,7 @@ const Sistemas = () => {
 
   const handleDeleteSistema = (id) => {
     if (window.confirm('¿Eliminar este sistema?')) {
-      fetch(`${API_URL}/sistemas/${id}`, { method: 'DELETE' })
+      apiFetch(`/sistemas/${id}`, { method: 'DELETE' })
         .then(() => fetchData());
     }
   };
@@ -50,14 +47,13 @@ const Sistemas = () => {
   const handleAddClasificacion = (e) => {
     e.preventDefault();
     const isEditing = newClasificacion.id !== null;
-    const url = isEditing ? `${API_URL}/clasificaciones/${newClasificacion.id}` : API_URL + '/clasificaciones/';
+    const url = isEditing ? `/clasificaciones/${newClasificacion.id}` : '/clasificaciones/';
     const method = isEditing ? 'PUT' : 'POST';
 
     const dataToSend = { nombre: newClasificacion.nombre };
 
-    fetch(url, {
+    apiFetch(url, {
       method,
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dataToSend)
     }).then(() => {
       fetchData();
@@ -67,7 +63,7 @@ const Sistemas = () => {
 
   const handleDeleteClasificacion = (id) => {
     if (window.confirm('¿Eliminar esta contingencia?')) {
-      fetch(`${API_URL}/clasificaciones/${id}`, { method: 'DELETE' })
+      apiFetch(`/clasificaciones/${id}`, { method: 'DELETE' })
         .then(() => fetchData());
     }
   };

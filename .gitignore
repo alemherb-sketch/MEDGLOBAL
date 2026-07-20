@@ -8,7 +8,10 @@ dist-ssr/
 .env.production.local
 
 backend/venv/
+backend/venv_fresh/
 backend/__pycache__/
 backend/.pytest_cache/
 backend/medglobal.db
+backend/*.db.bak
+backend/*.db.*.bak
 .DS_Store

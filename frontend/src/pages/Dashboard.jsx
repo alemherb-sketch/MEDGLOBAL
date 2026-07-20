@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API_URL } from '../config';
+import { apiJson } from '../api';
 import { Users, Stethoscope, Pill, AlertTriangle, Printer, CalendarRange, FileText } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import DatePicker from 'react-datepicker';
@@ -210,48 +210,42 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    fetch(API_URL + '/dashboard/kpis')
-      .then(res => res.json())
+    apiJson('/dashboard/kpis')
       .then(data => setKpis(data))
       .catch(err => console.error(err));
-      
-    fetch(API_URL + '/empresas/')
-      .then(res => res.json())
+
+    apiJson('/empresas/')
       .then(data => setAllEmpresas(data))
       .catch(err => console.error(err));
 
-    fetch(API_URL + '/sistemas/')
-      .then(res => res.json())
+    apiJson('/sistemas/')
       .then(data => setAllSistemas(data))
       .catch(err => console.error(err));
 
-    fetch(API_URL + '/trabajadores/obras')
-      .then(res => res.json())
+    apiJson('/trabajadores/obras')
       .then(data => setAllObras(data))
       .catch(err => console.error(err));
   }, []);
 
   useEffect(() => {
-    let url = API_URL + '/dashboard/stats?';
+    let url = '/dashboard/stats?';
     if (startDate) url += `fecha_inicio=${format(startDate, 'yyyy-MM-dd')}&`;
     if (endDate) url += `fecha_fin=${format(endDate, 'yyyy-MM-dd')}`;
-      
-    fetch(url)
-      .then(res => res.json())
+
+    apiJson(url)
       .then(data => setStats(data))
       .catch(err => console.error(err));
   }, [startDate, endDate]);
 
   useEffect(() => {
-    let url = API_URL + '/dashboard/reporte-sistemas?';
+    let url = '/dashboard/reporte-sistemas?';
     if (repSisFiltros.fecha_inicio) url += `fecha_inicio=${format(repSisFiltros.fecha_inicio, 'yyyy-MM-dd')}&`;
     if (repSisFiltros.fecha_fin) url += `fecha_fin=${format(repSisFiltros.fecha_fin, 'yyyy-MM-dd')}&`;
     if (repSisFiltros.sistema_id) url += `sistema_id=${repSisFiltros.sistema_id}&`;
     if (repSisFiltros.empresa_id) url += `empresa_id=${repSisFiltros.empresa_id}&`;
     if (repSisFiltros.obra) url += `obra=${encodeURIComponent(repSisFiltros.obra)}`;
-    
-    fetch(url)
-      .then(res => res.json())
+
+    apiJson(url)
       .then(data => setRepSistemas(data))
       .catch(err => console.error(err));
   }, [repSisFiltros]);
@@ -314,14 +308,13 @@ const Dashboard = () => {
     if (!reportType) return;
 
     // Fetch detailed data
-    let url = `${API_URL}/dashboard/report/${reportType}?`;
+    let url = `/dashboard/report/${reportType}?`;
     if (startDate) url += `fecha_inicio=${format(startDate, 'yyyy-MM-dd')}&`;
     if (endDate) url += `fecha_fin=${format(endDate, 'yyyy-MM-dd')}`;
 
     let detailData = [];
     try {
-      const res = await fetch(url);
-      detailData = await res.json();
+      detailData = await apiJson(url);
     } catch (err) {
       console.error(err);
     }

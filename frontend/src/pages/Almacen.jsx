@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API_URL } from '../config';
+import { apiFetch, apiJson } from '../api';
 import { Search, RefreshCw, X, ClipboardList, TrendingUp, TrendingDown } from 'lucide-react';
 
 const Almacen = () => {
@@ -13,8 +13,7 @@ const Almacen = () => {
   const [kardexData, setKardexData] = useState([]);
 
   const fetchMedicamentos = () => {
-    fetch(API_URL + '/medicamentos/')
-      .then(res => res.json())
+    apiJson('/medicamentos/')
       .then(data => setMedicamentos(data));
   };
 
@@ -24,9 +23,8 @@ const Almacen = () => {
 
   const handleKardex = (e) => {
     e.preventDefault();
-    fetch(API_URL + '/kardex/', {
+    apiFetch('/kardex/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...kardexForm, cantidad: parseInt(kardexForm.cantidad) })
     }).then(async res => {
       if (!res.ok) {
@@ -49,8 +47,7 @@ const Almacen = () => {
 
   const openKardexView = (m) => {
     setViewKardexMed(m);
-    fetch(`${API_URL}/kardex/${m.id}`)
-      .then(res => res.json())
+    apiJson(`/kardex/${m.id}`)
       .then(data => setKardexData(data));
   };
 

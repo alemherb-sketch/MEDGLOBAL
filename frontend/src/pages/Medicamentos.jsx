@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API_URL } from '../config';
+import { apiFetch, apiJson } from '../api';
 import { Search, Plus, Trash2, Edit2, X, ClipboardList, TrendingUp, TrendingDown } from 'lucide-react';
 
 const Medicamentos = () => {
@@ -12,8 +12,7 @@ const Medicamentos = () => {
   const [kardexData, setKardexData] = useState([]);
 
   const fetchMedicamentos = () => {
-    fetch(API_URL + '/medicamentos/')
-      .then(res => res.json())
+    apiJson('/medicamentos/')
       .then(data => setMedicamentos(data));
   };
 
@@ -24,16 +23,15 @@ const Medicamentos = () => {
   const handleAddMed = (e) => {
     e.preventDefault();
     const isEditing = newMed.id !== null;
-    const url = isEditing ? `${API_URL}/medicamentos/${newMed.id}` : API_URL + '/medicamentos/';
+    const url = isEditing ? `/medicamentos/${newMed.id}` : '/medicamentos/';
     const method = isEditing ? 'PUT' : 'POST';
 
     const dataToSend = { ...newMed };
     delete dataToSend.id;
     delete dataToSend.stock_actual; // shouldn't update stock via this endpoint
 
-    fetch(url, {
+    apiFetch(url, {
       method,
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dataToSend)
     }).then(async res => {
       if (!res.ok) {
@@ -49,7 +47,7 @@ const Medicamentos = () => {
 
   const handleDeleteMed = (id) => {
     if (window.confirm('¿Eliminar medicamento del catálogo?')) {
-      fetch(`${API_URL}/medicamentos/${id}`, { method: 'DELETE' })
+      apiFetch(`/medicamentos/${id}`, { method: 'DELETE' })
         .then(() => fetchMedicamentos());
     }
   };
@@ -62,8 +60,7 @@ const Medicamentos = () => {
       setNewMed(data);
     } else if (type === 'kardex') {
       setSelectedKardexMed(data);
-      fetch(`${API_URL}/kardex/${data.id}`)
-        .then(res => res.json())
+      apiJson(`/kardex/${data.id}`)
         .then(kData => setKardexData(kData));
     }
   };

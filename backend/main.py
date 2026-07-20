@@ -1,4 +1,5 @@
 import os
+import re
 
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +8,7 @@ from sqlalchemy import func
 from typing import List, Optional
 
 import models, schemas
+import auth
 from database import engine, get_db
 
 # Create DB tables
@@ -31,7 +33,7 @@ with engine.connect() as conn:
                 conn.execute(text(f"ALTER TABLE trabajadores ADD COLUMN {col}"))
         except Exception:
             pass
-            
+
     columnas_atencion = [
         "edad VARCHAR(10)", "residencia VARCHAR(200)", "empresa_id INTEGER", "cargo VARCHAR(100)",
         "funciones_biologicas TEXT", "signos_vitales TEXT", "examen_fisico TEXT", "examenes_auxiliares TEXT",
@@ -43,7 +45,7 @@ with engine.connect() as conn:
                 conn.execute(text(f"ALTER TABLE atenciones ADD COLUMN {col}"))
         except Exception:
             pass
-            
+
     try:
         with conn.begin():
             conn.execute(text("ALTER TABLE medicamentos ADD COLUMN costo_unitario FLOAT DEFAULT 0.0"))
@@ -66,8 +68,42 @@ app.add_middleware(
 
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
 import pandas as pd
 import io
+
+
+def _next_prefixed_code(db: Session, model, field_name: str, prefix: str) -> str:
+    """Siguiente código secuencial tipo PREFIX-0001, buscando el máximo existente
+    (no se puede usar el id para esto desde que los ids son UUID)."""
+    col = getattr(model, field_name)
+    rows = db.query(col).filter(col.like(f"{prefix}-%")).all()
+    max_n = 0
+    pattern = re.compile(rf"^{re.escape(prefix)}-(\d+)$")
+    for (val,) in rows:
+        if not val:
+            continue
+        m = pattern.match(val)
+        if m:
+            max_n = max(max_n, int(m.group(1)))
+    return f"{prefix}-{max_n + 1:04d}"
+
+
+# --- Autenticacion ---
+@app.post("/auth/login", response_model=schemas.Token)
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = auth.authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Usuario o contraseña incorrectos",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return {"access_token": auth.create_access_token(user.username), "token_type": "bearer"}
+
+@app.get("/auth/me", response_model=schemas.Usuario)
+def read_current_user(current_user: models.Usuario = Depends(auth.get_current_user)):
+    return current_user
 
 # --- Diagnosticos CIE10 ---
 @app.get("/diagnosticos/", response_model=schemas.PaginatedDiagnosticos)
@@ -75,24 +111,24 @@ def read_diagnosticos(
     search: Optional[str] = None,
     skip: int = 0,
     limit: int = 50,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)
 ):
-    query = db.query(models.DiagnosticoCie10)
-    
+    query = db.query(models.DiagnosticoCie10).filter(models.DiagnosticoCie10.is_deleted == False)
+
     if search:
         search_term = f"%{search}%"
         query = query.filter(
-            (models.DiagnosticoCie10.codigo.ilike(search_term)) | 
+            (models.DiagnosticoCie10.codigo.ilike(search_term)) |
             (models.DiagnosticoCie10.descripcion.ilike(search_term))
         )
-        
+
     total = query.count()
     items = query.order_by(models.DiagnosticoCie10.codigo.asc()).offset(skip).limit(limit).all()
-    
+
     return {"total": total, "items": items}
 
 @app.post("/diagnosticos/", response_model=schemas.DiagnosticoCie10)
-def create_diagnostico(diag: schemas.DiagnosticoCie10Create, db: Session = Depends(get_db)):
+def create_diagnostico(diag: schemas.DiagnosticoCie10Create, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_diag = models.DiagnosticoCie10(**diag.dict())
     db.add(db_diag)
     db.commit()
@@ -100,17 +136,17 @@ def create_diagnostico(diag: schemas.DiagnosticoCie10Create, db: Session = Depen
     return db_diag
 
 @app.put("/diagnosticos/{id}", response_model=schemas.DiagnosticoCie10)
-def update_diagnostico(id: int, diag: schemas.DiagnosticoCie10Create, db: Session = Depends(get_db)):
+def update_diagnostico(id: str, diag: schemas.DiagnosticoCie10Create, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_diag = db.query(models.DiagnosticoCie10).filter(models.DiagnosticoCie10.id == id).first()
     if not db_diag:
         raise HTTPException(status_code=404, detail="Diagnóstico no encontrado")
-    
+
     # Check if new code already exists in another record
     if diag.codigo != db_diag.codigo:
         exist = db.query(models.DiagnosticoCie10).filter(models.DiagnosticoCie10.codigo == diag.codigo).first()
         if exist:
             raise HTTPException(status_code=400, detail="El código CIE-10 ya existe")
-            
+
     for key, value in diag.dict().items():
         setattr(db_diag, key, value)
     db.commit()
@@ -118,35 +154,35 @@ def update_diagnostico(id: int, diag: schemas.DiagnosticoCie10Create, db: Sessio
     return db_diag
 
 @app.delete("/diagnosticos/{id}")
-def delete_diagnostico(id: int, db: Session = Depends(get_db)):
+def delete_diagnostico(id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_diag = db.query(models.DiagnosticoCie10).filter(models.DiagnosticoCie10.id == id).first()
     if not db_diag:
         raise HTTPException(status_code=404, detail="Diagnóstico no encontrado")
-    db.delete(db_diag)
+    db_diag.is_deleted = True
     db.commit()
     return {"detail": "Eliminado"}
 
 @app.post("/diagnosticos/importar/")
-async def import_diagnosticos(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def import_diagnosticos(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     if not file.filename.endswith(('.xlsx', '.xls')):
         raise HTTPException(status_code=400, detail="Formato de archivo inválido. Usa Excel (.xlsx)")
-    
+
     contents = await file.read()
     try:
         df = pd.read_excel(io.BytesIO(contents), header=None)
-        
+
         count = 0
         import re
-        
+
         for index, row in df.iterrows():
             if pd.isna(row.iloc[0]):
                 continue
-                
+
             celda = str(row.iloc[0]).strip()
-            
+
             # Buscar el patron "CODIGO - DESCRIPCION" (ej. "A00 - COLERA")
             match = re.match(r"^([A-Z0-9.]{3,8})\s*-\s*(.+)$", celda)
-            
+
             if match:
                 codigo = match.group(1).strip()
                 descripcion = match.group(2).strip()
@@ -157,7 +193,7 @@ async def import_diagnosticos(file: UploadFile = File(...), db: Session = Depend
                     descripcion = str(row.iloc[1]).strip()
                 else:
                     continue
-            
+
             if codigo and codigo != 'nan' and descripcion and descripcion != 'nan':
                 # Evitar duplicados por código
                 exist = db.query(models.DiagnosticoCie10).filter(models.DiagnosticoCie10.codigo == codigo).first()
@@ -165,7 +201,7 @@ async def import_diagnosticos(file: UploadFile = File(...), db: Session = Depend
                     new_diag = models.DiagnosticoCie10(codigo=codigo, descripcion=descripcion)
                     db.add(new_diag)
                     count += 1
-        
+
         db.commit()
         return {"message": f"Se importaron {count} diagnósticos nuevos."}
     except Exception as e:
@@ -173,11 +209,11 @@ async def import_diagnosticos(file: UploadFile = File(...), db: Session = Depend
 
 # --- Empresas ---
 @app.get("/empresas/", response_model=List[schemas.Empresa])
-def read_empresas(db: Session = Depends(get_db)):
-    return db.query(models.Empresa).all()
+def read_empresas(db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    return db.query(models.Empresa).filter(models.Empresa.is_deleted == False).all()
 
 @app.post("/empresas/", response_model=schemas.Empresa)
-def create_empresa(empresa: schemas.EmpresaCreate, db: Session = Depends(get_db)):
+def create_empresa(empresa: schemas.EmpresaCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_emp = models.Empresa(**empresa.dict())
     db.add(db_emp)
     db.commit()
@@ -185,7 +221,7 @@ def create_empresa(empresa: schemas.EmpresaCreate, db: Session = Depends(get_db)
     return db_emp
 
 @app.put("/empresas/{id}", response_model=schemas.Empresa)
-def update_empresa(id: int, empresa: schemas.EmpresaCreate, db: Session = Depends(get_db)):
+def update_empresa(id: str, empresa: schemas.EmpresaCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_emp = db.query(models.Empresa).filter(models.Empresa.id == id).first()
     if not db_emp:
         raise HTTPException(status_code=404, detail="Empresa no encontrada")
@@ -196,26 +232,24 @@ def update_empresa(id: int, empresa: schemas.EmpresaCreate, db: Session = Depend
     return db_emp
 
 @app.delete("/empresas/{id}")
-def delete_empresa(id: int, db: Session = Depends(get_db)):
+def delete_empresa(id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_emp = db.query(models.Empresa).filter(models.Empresa.id == id).first()
     if not db_emp:
         raise HTTPException(status_code=404, detail="Empresa no encontrada")
-    db.delete(db_emp)
+    db_emp.is_deleted = True
     db.commit()
     return {"detail": "Eliminada"}
 
 # --- Trabajadores ---
 @app.get("/trabajadores/", response_model=List[schemas.Trabajador])
-def read_trabajadores(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return db.query(models.Trabajador).offset(skip).limit(limit).all()
+def read_trabajadores(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    return db.query(models.Trabajador).filter(models.Trabajador.is_deleted == False).offset(skip).limit(limit).all()
 
 @app.post("/trabajadores/", response_model=schemas.Trabajador)
-def create_trabajador(trabajador: schemas.TrabajadorCreate, db: Session = Depends(get_db)):
+def create_trabajador(trabajador: schemas.TrabajadorCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     if not trabajador.codigo_trabajador:
-        last_t = db.query(models.Trabajador).order_by(models.Trabajador.id.desc()).first()
-        next_id = (last_t.id + 1) if last_t else 1
-        trabajador.codigo_trabajador = f"TRB-{next_id:04d}"
-        
+        trabajador.codigo_trabajador = _next_prefixed_code(db, models.Trabajador, "codigo_trabajador", "TRB")
+
     db_trabajador = models.Trabajador(**trabajador.dict())
     db.add(db_trabajador)
     db.commit()
@@ -223,15 +257,16 @@ def create_trabajador(trabajador: schemas.TrabajadorCreate, db: Session = Depend
     return db_trabajador
 
 @app.get("/trabajadores/obras")
-def get_obras(db: Session = Depends(get_db)):
+def get_obras(db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     obras = db.query(models.Trabajador.obra).filter(
+        models.Trabajador.is_deleted == False,
         models.Trabajador.obra.isnot(None),
         models.Trabajador.obra != ""
     ).distinct().order_by(models.Trabajador.obra).all()
     return [o[0] for o in obras if o[0]]
 
 @app.put("/trabajadores/{id}", response_model=schemas.Trabajador)
-def update_trabajador(id: int, trabajador: schemas.TrabajadorCreate, db: Session = Depends(get_db)):
+def update_trabajador(id: str, trabajador: schemas.TrabajadorCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_trabajador = db.query(models.Trabajador).filter(models.Trabajador.id == id).first()
     if not db_trabajador:
         raise HTTPException(status_code=404, detail="Trabajador no encontrado")
@@ -242,21 +277,21 @@ def update_trabajador(id: int, trabajador: schemas.TrabajadorCreate, db: Session
     return db_trabajador
 
 @app.delete("/trabajadores/{id}")
-def delete_trabajador(id: int, db: Session = Depends(get_db)):
+def delete_trabajador(id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_trabajador = db.query(models.Trabajador).filter(models.Trabajador.id == id).first()
     if not db_trabajador:
         raise HTTPException(status_code=404, detail="Trabajador no encontrado")
-    db.delete(db_trabajador)
+    db_trabajador.is_deleted = True
     db.commit()
     return {"detail": "Eliminado"}
 
 # --- Sistemas y Clasificaciones ---
 @app.get("/sistemas/", response_model=List[schemas.Sistema])
-def read_sistemas(db: Session = Depends(get_db)):
-    return db.query(models.SistemaAtencion).all()
+def read_sistemas(db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    return db.query(models.SistemaAtencion).filter(models.SistemaAtencion.is_deleted == False).all()
 
 @app.post("/sistemas/", response_model=schemas.Sistema)
-def create_sistema(sistema: schemas.SistemaCreate, db: Session = Depends(get_db)):
+def create_sistema(sistema: schemas.SistemaCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_sistema = models.SistemaAtencion(**sistema.dict())
     db.add(db_sistema)
     db.commit()
@@ -264,7 +299,7 @@ def create_sistema(sistema: schemas.SistemaCreate, db: Session = Depends(get_db)
     return db_sistema
 
 @app.put("/sistemas/{id}", response_model=schemas.Sistema)
-def update_sistema(id: int, sistema: schemas.SistemaCreate, db: Session = Depends(get_db)):
+def update_sistema(id: str, sistema: schemas.SistemaCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_sistema = db.query(models.SistemaAtencion).filter(models.SistemaAtencion.id == id).first()
     if not db_sistema:
         raise HTTPException(status_code=404, detail="Sistema no encontrado")
@@ -275,20 +310,20 @@ def update_sistema(id: int, sistema: schemas.SistemaCreate, db: Session = Depend
     return db_sistema
 
 @app.delete("/sistemas/{id}")
-def delete_sistema(id: int, db: Session = Depends(get_db)):
+def delete_sistema(id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_sistema = db.query(models.SistemaAtencion).filter(models.SistemaAtencion.id == id).first()
     if not db_sistema:
         raise HTTPException(status_code=404, detail="Sistema no encontrado")
-    db.delete(db_sistema)
+    db_sistema.is_deleted = True
     db.commit()
     return {"detail": "Eliminado"}
 
 @app.get("/clasificaciones/", response_model=List[schemas.Clasificacion])
-def read_clasificaciones(db: Session = Depends(get_db)):
-    return db.query(models.ClasificacionAtencion).all()
+def read_clasificaciones(db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    return db.query(models.ClasificacionAtencion).filter(models.ClasificacionAtencion.is_deleted == False).all()
 
 @app.post("/clasificaciones/", response_model=schemas.Clasificacion)
-def create_clasificacion(clasificacion: schemas.ClasificacionCreate, db: Session = Depends(get_db)):
+def create_clasificacion(clasificacion: schemas.ClasificacionCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_clas = models.ClasificacionAtencion(**clasificacion.dict())
     db.add(db_clas)
     db.commit()
@@ -296,7 +331,7 @@ def create_clasificacion(clasificacion: schemas.ClasificacionCreate, db: Session
     return db_clas
 
 @app.put("/clasificaciones/{id}", response_model=schemas.Clasificacion)
-def update_clasificacion(id: int, clasificacion: schemas.ClasificacionCreate, db: Session = Depends(get_db)):
+def update_clasificacion(id: str, clasificacion: schemas.ClasificacionCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_clas = db.query(models.ClasificacionAtencion).filter(models.ClasificacionAtencion.id == id).first()
     if not db_clas:
         raise HTTPException(status_code=404, detail="Clasificación no encontrada")
@@ -307,28 +342,33 @@ def update_clasificacion(id: int, clasificacion: schemas.ClasificacionCreate, db
     return db_clas
 
 @app.delete("/clasificaciones/{id}")
-def delete_clasificacion(id: int, db: Session = Depends(get_db)):
+def delete_clasificacion(id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_clas = db.query(models.ClasificacionAtencion).filter(models.ClasificacionAtencion.id == id).first()
     if not db_clas:
         raise HTTPException(status_code=404, detail="Clasificación no encontrada")
-    db.delete(db_clas)
+    db_clas.is_deleted = True
     db.commit()
     return {"detail": "Eliminado"}
 
 # --- Atenciones ---
 @app.get("/atenciones/", response_model=List[schemas.Atencion])
-def read_atenciones(db: Session = Depends(get_db)):
-    return db.query(models.Atencion).order_by(models.Atencion.fecha.desc()).all()
+def read_atenciones(db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    return db.query(models.Atencion).filter(models.Atencion.is_deleted == False).order_by(models.Atencion.fecha.desc()).all()
 
 @app.post("/atenciones/", response_model=schemas.Atencion)
-def create_atencion(atencion: schemas.AtencionCreate, db: Session = Depends(get_db)):
+def create_atencion(atencion: schemas.AtencionCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     # Separar la data base de medicamentos
     atencion_data = atencion.dict(exclude={'medicamentos'})
     db_atencion = models.Atencion(**atencion_data)
+
+    # Folio correlativo humano (Ficha N°), asignado solo por el servidor
+    max_folio = db.query(func.max(models.Atencion.folio)).scalar()
+    db_atencion.folio = (max_folio or 0) + 1
+
     db.add(db_atencion)
     db.commit()
     db.refresh(db_atencion)
-    
+
     # Procesar medicamentos si hay
     if atencion.medicamentos:
         for med_req in atencion.medicamentos:
@@ -339,7 +379,7 @@ def create_atencion(atencion: schemas.AtencionCreate, db: Session = Depends(get_
                 cantidad=med_req.cantidad
             )
             db.add(db_am)
-            
+
             # Descontar de stock
             db_med = db.query(models.Medicamento).filter(models.Medicamento.id == med_req.medicamento_id).first()
             if db_med:
@@ -352,51 +392,49 @@ def create_atencion(atencion: schemas.AtencionCreate, db: Session = Depends(get_
                     saldo=db_med.stock_actual
                 )
                 db.add(db_kardex)
-    
+
     # Si viene con una cita programada, marcarla como ATENDIDA
     if atencion.cita_id:
         db_cita = db.query(models.Cita).filter(models.Cita.id == atencion.cita_id).first()
         if db_cita:
             db_cita.estado = "ATENDIDA"
-            
+
     db.commit()
     db.refresh(db_atencion)
     return db_atencion
 
 @app.put("/atenciones/{id}", response_model=schemas.Atencion)
-def update_atencion(id: int, atencion: schemas.AtencionCreate, db: Session = Depends(get_db)):
+def update_atencion(id: str, atencion: schemas.AtencionCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_atencion = db.query(models.Atencion).filter(models.Atencion.id == id).first()
     if not db_atencion:
         raise HTTPException(status_code=404, detail="Atención no encontrada")
-    
+
     atencion_data = atencion.dict(exclude={'medicamentos'})
     for key, value in atencion_data.items():
         setattr(db_atencion, key, value)
-        
+
     db.commit()
     db.refresh(db_atencion)
     return db_atencion
 
 @app.delete("/atenciones/{id}")
-def delete_atencion(id: int, db: Session = Depends(get_db)):
+def delete_atencion(id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_atencion = db.query(models.Atencion).filter(models.Atencion.id == id).first()
     if not db_atencion:
         raise HTTPException(status_code=404, detail="Atención no encontrada")
-    db.delete(db_atencion)
+    db_atencion.is_deleted = True
     db.commit()
     return {"detail": "Eliminada"}
 
 # --- Medicamentos y Kardex ---
 @app.get("/medicamentos/", response_model=List[schemas.Medicamento])
-def read_medicamentos(db: Session = Depends(get_db)):
-    return db.query(models.Medicamento).all()
+def read_medicamentos(db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    return db.query(models.Medicamento).filter(models.Medicamento.is_deleted == False).all()
 
 @app.post("/medicamentos/", response_model=schemas.Medicamento)
-def create_medicamento(medicamento: schemas.MedicamentoCreate, db: Session = Depends(get_db)):
+def create_medicamento(medicamento: schemas.MedicamentoCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     if not medicamento.codigo:
-        last_med = db.query(models.Medicamento).order_by(models.Medicamento.id.desc()).first()
-        next_id = (last_med.id + 1) if last_med else 1
-        medicamento.codigo = f"MED-{next_id:04d}"
+        medicamento.codigo = _next_prefixed_code(db, models.Medicamento, "codigo", "MED")
     db_med = models.Medicamento(**medicamento.dict())
     db.add(db_med)
     db.commit()
@@ -404,7 +442,7 @@ def create_medicamento(medicamento: schemas.MedicamentoCreate, db: Session = Dep
     return db_med
 
 @app.put("/medicamentos/{id}", response_model=schemas.Medicamento)
-def update_medicamento(id: int, medicamento: schemas.MedicamentoCreate, db: Session = Depends(get_db)):
+def update_medicamento(id: str, medicamento: schemas.MedicamentoCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_med = db.query(models.Medicamento).filter(models.Medicamento.id == id).first()
     if not db_med:
         raise HTTPException(status_code=404, detail="Medicamento no encontrado")
@@ -415,24 +453,30 @@ def update_medicamento(id: int, medicamento: schemas.MedicamentoCreate, db: Sess
     return db_med
 
 @app.delete("/medicamentos/{id}")
-def delete_medicamento(id: int, db: Session = Depends(get_db)):
+def delete_medicamento(id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_med = db.query(models.Medicamento).filter(models.Medicamento.id == id).first()
     if not db_med:
         raise HTTPException(status_code=404, detail="Medicamento no encontrado")
-    db.delete(db_med)
+    db_med.is_deleted = True
     db.commit()
     return {"detail": "Eliminado"}
 
 @app.get("/kardex/{medicamento_id}", response_model=List[schemas.Kardex])
-def read_kardex(medicamento_id: int, db: Session = Depends(get_db)):
-    return db.query(models.Kardex).filter(models.Kardex.medicamento_id == medicamento_id).order_by(models.Kardex.fecha.desc()).all()
+def read_kardex(medicamento_id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    return db.query(models.Kardex).filter(
+        models.Kardex.medicamento_id == medicamento_id,
+        models.Kardex.is_deleted == False
+    ).order_by(models.Kardex.fecha.desc()).all()
 
 @app.post("/kardex/", response_model=schemas.Kardex)
-def create_kardex(kardex: schemas.KardexCreate, db: Session = Depends(get_db)):
-    db_med = db.query(models.Medicamento).filter(models.Medicamento.id == kardex.medicamento_id).first()
+def create_kardex(kardex: schemas.KardexCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    db_med = db.query(models.Medicamento).filter(
+        models.Medicamento.id == kardex.medicamento_id,
+        models.Medicamento.is_deleted == False
+    ).first()
     if not db_med:
         raise HTTPException(status_code=404, detail="Medicamento no encontrado")
-    
+
     # Update stock
     if kardex.tipo_movimiento == "INGRESO":
         db_med.stock_actual += kardex.cantidad
@@ -440,7 +484,7 @@ def create_kardex(kardex: schemas.KardexCreate, db: Session = Depends(get_db)):
         if db_med.stock_actual < kardex.cantidad:
             raise HTTPException(status_code=400, detail="Stock insuficiente")
         db_med.stock_actual -= kardex.cantidad
-        
+
     db_kardex = models.Kardex(
         medicamento_id=kardex.medicamento_id,
         tipo_movimiento=kardex.tipo_movimiento,
@@ -454,11 +498,11 @@ def create_kardex(kardex: schemas.KardexCreate, db: Session = Depends(get_db)):
 
 # --- Personal de Salud ---
 @app.get("/personal_salud/", response_model=List[schemas.PersonalSalud])
-def read_personal_salud(db: Session = Depends(get_db)):
-    return db.query(models.PersonalSalud).all()
+def read_personal_salud(db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    return db.query(models.PersonalSalud).filter(models.PersonalSalud.is_deleted == False).all()
 
 @app.post("/personal_salud/", response_model=schemas.PersonalSalud)
-def create_personal_salud(personal: schemas.PersonalSaludCreate, db: Session = Depends(get_db)):
+def create_personal_salud(personal: schemas.PersonalSaludCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_personal = models.PersonalSalud(**personal.dict())
     db.add(db_personal)
     db.commit()
@@ -466,7 +510,7 @@ def create_personal_salud(personal: schemas.PersonalSaludCreate, db: Session = D
     return db_personal
 
 @app.put("/personal_salud/{id}", response_model=schemas.PersonalSalud)
-def update_personal_salud(id: int, personal: schemas.PersonalSaludCreate, db: Session = Depends(get_db)):
+def update_personal_salud(id: str, personal: schemas.PersonalSaludCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_personal = db.query(models.PersonalSalud).filter(models.PersonalSalud.id == id).first()
     if not db_personal:
         raise HTTPException(status_code=404, detail="Personal no encontrado")
@@ -477,21 +521,21 @@ def update_personal_salud(id: int, personal: schemas.PersonalSaludCreate, db: Se
     return db_personal
 
 @app.delete("/personal_salud/{id}")
-def delete_personal_salud(id: int, db: Session = Depends(get_db)):
+def delete_personal_salud(id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_personal = db.query(models.PersonalSalud).filter(models.PersonalSalud.id == id).first()
     if not db_personal:
         raise HTTPException(status_code=404, detail="Personal no encontrado")
-    db.delete(db_personal)
+    db_personal.is_deleted = True
     db.commit()
     return {"detail": "Eliminado"}
 
 # --- Citas ---
 @app.get("/citas/", response_model=List[schemas.Cita])
-def read_citas(db: Session = Depends(get_db)):
-    return db.query(models.Cita).order_by(models.Cita.fecha_hora.desc()).all()
+def read_citas(db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    return db.query(models.Cita).filter(models.Cita.is_deleted == False).order_by(models.Cita.fecha_hora.desc()).all()
 
 @app.post("/citas/", response_model=schemas.Cita)
-def create_cita(cita: schemas.CitaCreate, db: Session = Depends(get_db)):
+def create_cita(cita: schemas.CitaCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_cita = models.Cita(**cita.dict())
     db.add(db_cita)
     db.commit()
@@ -499,7 +543,7 @@ def create_cita(cita: schemas.CitaCreate, db: Session = Depends(get_db)):
     return db_cita
 
 @app.put("/citas/{id}", response_model=schemas.Cita)
-def update_cita(id: int, cita: schemas.CitaCreate, db: Session = Depends(get_db)):
+def update_cita(id: str, cita: schemas.CitaCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_cita = db.query(models.Cita).filter(models.Cita.id == id).first()
     if not db_cita:
         raise HTTPException(status_code=404, detail="Cita no encontrada")
@@ -510,22 +554,22 @@ def update_cita(id: int, cita: schemas.CitaCreate, db: Session = Depends(get_db)
     return db_cita
 
 @app.delete("/citas/{id}")
-def delete_cita(id: int, db: Session = Depends(get_db)):
+def delete_cita(id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_cita = db.query(models.Cita).filter(models.Cita.id == id).first()
     if not db_cita:
         raise HTTPException(status_code=404, detail="Cita no encontrada")
-    db.delete(db_cita)
+    db_cita.is_deleted = True
     db.commit()
     return {"detail": "Eliminada"}
 
 # --- Dashboard ---
 @app.get("/dashboard/kpis")
-def get_dashboard_kpis(db: Session = Depends(get_db)):
-    atenciones_count = db.query(models.Atencion).count()
-    trabajadores_count = db.query(models.Trabajador).count()
-    medicamentos_count = db.query(models.Medicamento).count()
-    stock_bajo = db.query(models.Medicamento).filter(models.Medicamento.stock_actual < 10).count()
-    
+def get_dashboard_kpis(db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    atenciones_count = db.query(models.Atencion).filter(models.Atencion.is_deleted == False).count()
+    trabajadores_count = db.query(models.Trabajador).filter(models.Trabajador.is_deleted == False).count()
+    medicamentos_count = db.query(models.Medicamento).filter(models.Medicamento.is_deleted == False).count()
+    stock_bajo = db.query(models.Medicamento).filter(models.Medicamento.is_deleted == False, models.Medicamento.stock_actual < 10).count()
+
     return {
         "total_atenciones": atenciones_count,
         "total_trabajadores": trabajadores_count,
@@ -534,7 +578,7 @@ def get_dashboard_kpis(db: Session = Depends(get_db)):
     }
 
 @app.get("/dashboard/stats")
-def get_dashboard_stats(fecha_inicio: str = None, fecha_fin: str = None, db: Session = Depends(get_db)):
+def get_dashboard_stats(fecha_inicio: str = None, fecha_fin: str = None, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     # Helper to apply date filters
     def apply_date_filter(query):
         if fecha_inicio:
@@ -545,70 +589,76 @@ def get_dashboard_stats(fecha_inicio: str = None, fecha_fin: str = None, db: Ses
 
     # 1. Enfermedades más frecuentes
     q_enf = db.query(models.Atencion.diagnostico, func.count(models.Atencion.id).label('total')) \
-        .filter(models.Atencion.diagnostico != None, models.Atencion.diagnostico != '')
+        .filter(models.Atencion.is_deleted == False, models.Atencion.diagnostico != None, models.Atencion.diagnostico != '')
     q_enf = apply_date_filter(q_enf)
     top_enfermedades = q_enf.group_by(models.Atencion.diagnostico) \
         .order_by(func.count(models.Atencion.id).desc()) \
         .limit(5).all()
-        
+
     enfermedades = [{"name": str(e.diagnostico), "value": int(e.total)} for e in top_enfermedades]
 
     # 2. Pacientes más atendidos
     q_pac = db.query(models.Trabajador.nombre, models.Trabajador.apellidos, func.count(models.Atencion.id).label('total')) \
-        .join(models.Atencion, models.Trabajador.id == models.Atencion.trabajador_id)
+        .join(models.Atencion, models.Trabajador.id == models.Atencion.trabajador_id) \
+        .filter(models.Atencion.is_deleted == False)
     q_pac = apply_date_filter(q_pac)
     top_pacientes = q_pac.group_by(models.Trabajador.id) \
         .order_by(func.count(models.Atencion.id).desc()) \
         .limit(5).all()
-        
+
     pacientes = [{"name": f"{p.nombre} {p.apellidos}", "value": int(p.total)} for p in top_pacientes]
 
     # 3. Empresas más atendidas
     q_emp = db.query(models.Empresa.nombre, func.count(models.Atencion.id).label('total')) \
-        .join(models.Atencion, models.Empresa.id == models.Atencion.empresa_id)
+        .join(models.Atencion, models.Empresa.id == models.Atencion.empresa_id) \
+        .filter(models.Atencion.is_deleted == False)
     q_emp = apply_date_filter(q_emp)
     top_empresas = q_emp.group_by(models.Empresa.id) \
         .order_by(func.count(models.Atencion.id).desc()) \
         .limit(5).all()
-        
+
     empresas = [{"name": str(e.nombre), "value": int(e.total)} for e in top_empresas]
 
     # 4. Medicamentos más usados
     q_med = db.query(models.Medicamento.nombre, func.sum(models.AtencionMedicamento.cantidad).label('total')) \
         .join(models.AtencionMedicamento, models.Medicamento.id == models.AtencionMedicamento.medicamento_id) \
-        .join(models.Atencion, models.Atencion.id == models.AtencionMedicamento.atencion_id)
+        .join(models.Atencion, models.Atencion.id == models.AtencionMedicamento.atencion_id) \
+        .filter(models.Atencion.is_deleted == False)
     q_med = apply_date_filter(q_med)
     top_medicamentos = q_med.group_by(models.Medicamento.id) \
         .order_by(func.sum(models.AtencionMedicamento.cantidad).desc()) \
         .limit(5).all()
-        
+
     medicamentos = [{"name": str(m.nombre), "value": int(m.total or 0)} for m in top_medicamentos]
 
     # 5. Costos por Empresa
     q_costos = db.query(models.Empresa.nombre, func.sum(models.AtencionMedicamento.cantidad * models.Medicamento.costo_unitario).label('total_costo')) \
         .join(models.Atencion, models.Empresa.id == models.Atencion.empresa_id) \
         .join(models.AtencionMedicamento, models.Atencion.id == models.AtencionMedicamento.atencion_id) \
-        .join(models.Medicamento, models.AtencionMedicamento.medicamento_id == models.Medicamento.id)
+        .join(models.Medicamento, models.AtencionMedicamento.medicamento_id == models.Medicamento.id) \
+        .filter(models.Atencion.is_deleted == False)
     q_costos = apply_date_filter(q_costos)
     costos_empresa_query = q_costos.group_by(models.Empresa.id) \
         .order_by(func.sum(models.AtencionMedicamento.cantidad * models.Medicamento.costo_unitario).desc()) \
         .limit(10).all()
-        
+
     costos = [{"name": str(c.nombre), "value": float(c.total_costo or 0)} for c in costos_empresa_query]
 
     # 6. Estado de Empresas (Activas vs Inactivas)
     q_estado = db.query(models.Empresa.estado, func.count(models.Empresa.id).label('total')) \
+        .filter(models.Empresa.is_deleted == False) \
         .group_by(models.Empresa.estado).all()
     estado_empresas = [{"name": str(e.estado or 'Desconocido'), "value": int(e.total)} for e in q_estado]
 
     # 7. Atenciones por Día (Últimas Atenciones Gráfico)
-    q_dias = db.query(func.date(models.Atencion.fecha).label('dia'), func.count(models.Atencion.id).label('total'))
+    q_dias = db.query(func.date(models.Atencion.fecha).label('dia'), func.count(models.Atencion.id).label('total')) \
+        .filter(models.Atencion.is_deleted == False)
     q_dias = apply_date_filter(q_dias)
     dias_query = q_dias.group_by(func.date(models.Atencion.fecha)).order_by(func.date(models.Atencion.fecha).asc()).limit(14).all()
     atenciones_por_dia = [{"name": str(d.dia), "value": int(d.total)} for d in dias_query]
 
     # 8. Últimas Atenciones Realizadas (Lista)
-    q_ultimas = db.query(models.Atencion)
+    q_ultimas = db.query(models.Atencion).filter(models.Atencion.is_deleted == False)
     q_ultimas = apply_date_filter(q_ultimas)
     ultimas = q_ultimas.order_by(models.Atencion.fecha.desc()).limit(10).all()
     ultimas_atenciones = []
@@ -623,7 +673,8 @@ def get_dashboard_stats(fecha_inicio: str = None, fecha_fin: str = None, db: Ses
 
     # 9. Sistemas Afectados (Ranking)
     q_sist = db.query(models.SistemaAtencion.nombre, func.count(models.Atencion.id).label('total')) \
-        .join(models.Atencion, models.SistemaAtencion.id == models.Atencion.sistema_id)
+        .join(models.Atencion, models.SistemaAtencion.id == models.Atencion.sistema_id) \
+        .filter(models.Atencion.is_deleted == False)
     q_sist = apply_date_filter(q_sist)
     top_sistemas = q_sist.group_by(models.SistemaAtencion.id).order_by(func.count(models.Atencion.id).desc()).limit(10).all()
     sistemas_afectados = [{"name": str(s.nombre), "value": int(s.total)} for s in top_sistemas]
@@ -642,16 +693,17 @@ def get_dashboard_stats(fecha_inicio: str = None, fecha_fin: str = None, db: Ses
 
 @app.get("/dashboard/reporte-sistemas")
 def get_reporte_sistemas(
-    fecha_inicio: str = None, 
-    fecha_fin: str = None, 
-    sistema_id: int = None, 
-    empresa_id: int = None,
+    fecha_inicio: str = None,
+    fecha_fin: str = None,
+    sistema_id: Optional[str] = None,
+    empresa_id: Optional[str] = None,
     obra: str = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)
 ):
     query = db.query(models.SistemaAtencion.nombre, func.count(models.Atencion.id).label('total')) \
-        .join(models.Atencion, models.SistemaAtencion.id == models.Atencion.sistema_id)
-        
+        .join(models.Atencion, models.SistemaAtencion.id == models.Atencion.sistema_id) \
+        .filter(models.Atencion.is_deleted == False)
+
     if fecha_inicio:
         query = query.filter(func.date(models.Atencion.fecha) >= fecha_inicio)
     if fecha_fin:
@@ -663,10 +715,10 @@ def get_reporte_sistemas(
     if obra:
         query = query.join(models.Trabajador, models.Atencion.trabajador_id == models.Trabajador.id) \
             .filter(models.Trabajador.obra == obra)
-        
+
     resultados = query.group_by(models.SistemaAtencion.id).order_by(func.count(models.Atencion.id).desc()).all()
     total_general = sum([r.total for r in resultados])
-    
+
     return {
         "total_general": total_general,
         "sistemas": [{"name": str(r.nombre), "value": int(r.total)} for r in resultados]
@@ -674,7 +726,7 @@ def get_reporte_sistemas(
 
 # ── Detailed Report Data ──
 @app.get("/dashboard/report/{report_type}")
-def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str = None, db: Session = Depends(get_db)):
+def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str = None, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     def apply_date_filter(query):
         if fecha_inicio:
             query = query.filter(func.date(models.Atencion.fecha) >= fecha_inicio)
@@ -684,11 +736,11 @@ def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str
 
     if report_type == "enfermedades":
         q = db.query(models.Atencion).filter(
-            models.Atencion.diagnostico != None, models.Atencion.diagnostico != ''
+            models.Atencion.is_deleted == False, models.Atencion.diagnostico != None, models.Atencion.diagnostico != ''
         )
         q = apply_date_filter(q)
         atenciones = q.all()
-        
+
         # Group by diagnostico
         from collections import defaultdict
         grouped = defaultdict(list)
@@ -702,14 +754,14 @@ def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str
                 "empresa": emp.nombre if emp else "—",
                 "area": trab.area or "—" if trab else "—",
             })
-        
+
         result = []
         for diag, items in sorted(grouped.items(), key=lambda x: len(x[1]), reverse=True):
             result.append({"name": diag, "total": len(items), "details": items})
         return result[:10]
 
     elif report_type == "pacientes":
-        q = db.query(models.Atencion)
+        q = db.query(models.Atencion).filter(models.Atencion.is_deleted == False)
         q = apply_date_filter(q)
         atenciones = q.all()
 
@@ -746,7 +798,7 @@ def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str
         return result[:10]
 
     elif report_type == "empresas":
-        q = db.query(models.Atencion).filter(models.Atencion.empresa_id != None)
+        q = db.query(models.Atencion).filter(models.Atencion.is_deleted == False, models.Atencion.empresa_id != None)
         q = apply_date_filter(q)
         atenciones = q.all()
 
@@ -785,10 +837,11 @@ def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str
             models.Medicamento.stock_actual,
             func.sum(models.AtencionMedicamento.cantidad).label('total')
         ).join(models.AtencionMedicamento, models.Medicamento.id == models.AtencionMedicamento.medicamento_id) \
-         .join(models.Atencion, models.Atencion.id == models.AtencionMedicamento.atencion_id)
+         .join(models.Atencion, models.Atencion.id == models.AtencionMedicamento.atencion_id) \
+         .filter(models.Atencion.is_deleted == False)
         q = apply_date_filter(q)
         rows = q.group_by(models.Medicamento.id).order_by(func.sum(models.AtencionMedicamento.cantidad).desc()).limit(10).all()
-        
+
         result = []
         for r in rows:
             result.append({
@@ -802,13 +855,13 @@ def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str
         return result
 
     elif report_type == "costos":
-        q = db.query(models.Atencion).filter(models.Atencion.empresa_id != None)
+        q = db.query(models.Atencion).filter(models.Atencion.is_deleted == False, models.Atencion.empresa_id != None)
         q = apply_date_filter(q)
         atenciones = q.all()
 
         from collections import defaultdict
         empresas_data = defaultdict(lambda: {"nombre": "", "ruc": "", "meds": defaultdict(lambda: {"nombre": "", "presentacion": "", "cantidad": 0, "costo_unitario": 0.0})})
-        
+
         for a in atenciones:
             emp = a.empresa
             if not emp:
@@ -845,7 +898,7 @@ def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str
                 "total": round(total_cost, 2),
                 "details": sorted(details, key=lambda x: x["subtotal"], reverse=True)
             })
-        
+
         result.sort(key=lambda x: x["total"], reverse=True)
         return result[:10]
 
@@ -855,14 +908,15 @@ def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str
 def get_reporte_consumo_medicamentos(
     fecha_inicio: str = None,
     fecha_fin: str = None,
-    empresa_id: int = None,
+    empresa_id: Optional[str] = None,
     obra: str = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)
 ):
     query = db.query(models.AtencionMedicamento, models.Atencion, models.Medicamento) \
         .join(models.Atencion, models.Atencion.id == models.AtencionMedicamento.atencion_id) \
-        .join(models.Medicamento, models.Medicamento.id == models.AtencionMedicamento.medicamento_id)
-        
+        .join(models.Medicamento, models.Medicamento.id == models.AtencionMedicamento.medicamento_id) \
+        .filter(models.Atencion.is_deleted == False)
+
     if fecha_inicio:
         query = query.filter(func.date(models.Atencion.fecha) >= fecha_inicio)
     if fecha_fin:
@@ -872,18 +926,18 @@ def get_reporte_consumo_medicamentos(
     if obra:
         query = query.join(models.Trabajador, models.Atencion.trabajador_id == models.Trabajador.id) \
             .filter(models.Trabajador.obra == obra)
-        
+
     resultados = query.all()
-    
+
     from collections import defaultdict
     medicamentos_dict = {}
     fechas_set = set()
-    
+
     for am, atencion, med in resultados:
         if not atencion.fecha: continue
         fecha_str = atencion.fecha.strftime("%Y-%m-%d")
         fechas_set.add(fecha_str)
-        
+
         med = am.medicamento
         if med.id not in medicamentos_dict:
             medicamentos_dict[med.id] = {
@@ -896,25 +950,25 @@ def get_reporte_consumo_medicamentos(
                 "sub_total_cantidad": 0,
                 "total_soles": 0.0
             }
-        
+
         medicamentos_dict[med.id]["consumos"][fecha_str] += am.cantidad
         medicamentos_dict[med.id]["sub_total_cantidad"] += am.cantidad
-        
+
     lista_medicamentos = []
     total_general = 0.0
-    
+
     for med_id, m in medicamentos_dict.items():
         m["total_soles"] = round(m["sub_total_cantidad"] * m["precio_und"], 2)
         total_general += m["total_soles"]
         m["consumos"] = dict(m["consumos"])
         lista_medicamentos.append(m)
-        
+
     total_general = round(total_general, 2)
     sub_total = round(total_general / 1.18, 2)
     igv = round(total_general - sub_total, 2)
-    
+
     rango_fechas = sorted(list(fechas_set))
-    
+
     return {
         "rango_fechas": rango_fechas,
         "medicamentos": lista_medicamentos,
@@ -933,4 +987,3 @@ app.mount('/', StaticFiles(directory='static', html=True), name='static')
 async def custom_404_handler(request, exc):
     if request.url.path.startswith('/api'): return exc
     return FileResponse('static/index.html')
-

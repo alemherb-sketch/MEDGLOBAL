@@ -1,5 +1,6 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Home, Users, Settings, Pill, Stethoscope, Package, CalendarDays, UserRoundPlus, Building2, BookOpen } from 'lucide-react';
+import { Home, Users, Settings, Pill, Stethoscope, Package, CalendarDays, UserRoundPlus, Building2, BookOpen, LogOut } from 'lucide-react';
+import { logout } from '../api';
 
 const Layout = () => {
   const location = useLocation();
@@ -37,6 +38,15 @@ const Layout = () => {
             </Link>
           ))}
         </nav>
+        <button
+          type="button"
+          className="nav-link"
+          style={{ marginTop: 'auto', width: '100%', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}
+          onClick={logout}
+        >
+          <span style={{ marginRight: '12px', display: 'flex' }}><LogOut size={20} /></span>
+          Cerrar sesión
+        </button>
       </aside>
       
       <main className="main-content">

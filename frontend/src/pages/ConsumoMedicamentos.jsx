@@ -3,7 +3,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { Download, Printer, Search } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { API_URL } from '../config';
+import { apiJson } from '../api';
 
 const ConsumoMedicamentos = () => {
   const [empresas, setEmpresas] = useState([]);
@@ -24,13 +24,11 @@ const ConsumoMedicamentos = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_URL}/empresas/`)
-      .then(res => res.json())
+    apiJson('/empresas/')
       .then(data => setEmpresas(data))
       .catch(err => console.error("Error fetching empresas:", err));
 
-    fetch(`${API_URL}/trabajadores/obras`)
-      .then(res => res.json())
+    apiJson('/trabajadores/obras')
       .then(data => setObras(data))
       .catch(err => console.error("Error fetching obras:", err));
   }, []);
@@ -44,8 +42,7 @@ const ConsumoMedicamentos = () => {
       if (filtros.fecha_inicio) params.append('fecha_inicio', filtros.fecha_inicio.toISOString().split('T')[0]);
       if (filtros.fecha_fin) params.append('fecha_fin', filtros.fecha_fin.toISOString().split('T')[0]);
       
-      const res = await fetch(`${API_URL}/reportes/consumo-medicamentos?${params.toString()}`);
-      const data = await res.json();
+      const data = await apiJson(`/reportes/consumo-medicamentos?${params.toString()}`);
       setReporte(data);
     } catch (err) {
       console.error("Error fetching report:", err);

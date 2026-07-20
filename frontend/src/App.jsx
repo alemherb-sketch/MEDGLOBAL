@@ -1,5 +1,7 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
+import RequireAuth from './components/RequireAuth';
+import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Atenciones from './pages/Atenciones';
 import Medicamentos from './pages/Medicamentos';
@@ -13,9 +15,10 @@ import ConsumoMedicamentos from './pages/ConsumoMedicamentos';
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
-        <Route path="/" element={<Layout />}>
+        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index element={<Dashboard />} />
           <Route path="atenciones" element={<Atenciones />} />
           <Route path="medicamentos" element={<Medicamentos />} />
@@ -28,7 +31,7 @@ function App() {
           <Route path="consumo-medicamentos" element={<ConsumoMedicamentos />} />
         </Route>
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 

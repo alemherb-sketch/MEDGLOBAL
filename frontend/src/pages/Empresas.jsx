@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API_URL } from '../config';
+import { apiFetch, apiJson } from '../api';
 import { Search, Plus, Edit2, Trash2, X } from 'lucide-react';
 
 const Empresas = () => {
@@ -11,8 +11,7 @@ const Empresas = () => {
   const [filters, setFilters] = useState({ search: '' });
 
   const fetchEmpresas = () => {
-    fetch(API_URL + '/empresas/')
-      .then(res => res.json())
+    apiJson('/empresas/')
       .then(data => setEmpresas(data));
   };
 
@@ -23,15 +22,14 @@ const Empresas = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     const isEditing = formData.id !== null;
-    const url = isEditing ? `${API_URL}/empresas/${formData.id}` : API_URL + '/empresas/';
+    const url = isEditing ? `/empresas/${formData.id}` : '/empresas/';
     const method = isEditing ? 'PUT' : 'POST';
 
     const dataToSend = { ...formData };
     delete dataToSend.id;
 
-    fetch(url, {
+    apiFetch(url, {
       method,
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dataToSend)
     }).then(async res => {
       if (!res.ok) {
@@ -47,7 +45,7 @@ const Empresas = () => {
 
   const handleDelete = (id) => {
     if (window.confirm('¿Está seguro de eliminar esta empresa?')) {
-      fetch(`${API_URL}/empresas/${id}`, { method: 'DELETE' })
+      apiFetch(`/empresas/${id}`, { method: 'DELETE' })
         .then(() => fetchEmpresas());
     }
   };

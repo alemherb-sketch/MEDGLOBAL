@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { API_URL } from '../config';
+import { apiFetch, apiJson } from '../api';
 import { Search, Plus, Trash2, Edit2, Upload, FileSpreadsheet, X } from 'lucide-react';
 
 const DiagnosticosCie10 = () => {
@@ -20,8 +20,7 @@ const DiagnosticosCie10 = () => {
   const fileInputRef = useRef(null);
 
   const fetchDiagnosticos = () => {
-    fetch(`${API_URL}/diagnosticos/?skip=${page * limit}&limit=${limit}${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ''}`)
-      .then(res => res.json())
+    apiJson(`/diagnosticos/?skip=${page * limit}&limit=${limit}${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ''}`)
       .then(data => {
         setDiagnosticos(data.items || []);
         setTotal(data.total || 0);
@@ -40,14 +39,13 @@ const DiagnosticosCie10 = () => {
     e.preventDefault();
     
     const isEdit = !!newDiag.id;
-    const url = isEdit ? `${API_URL}/diagnosticos/${newDiag.id}` : `${API_URL}/diagnosticos/`;
+    const url = isEdit ? `/diagnosticos/${newDiag.id}` : `/diagnosticos/`;
     const method = isEdit ? 'PUT' : 'POST';
-    
+
     const payload = { codigo: newDiag.codigo, descripcion: newDiag.descripcion };
 
-    fetch(url, {
+    apiFetch(url, {
       method: method,
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
     .then(res => {
@@ -72,7 +70,7 @@ const DiagnosticosCie10 = () => {
 
   const handleDelete = (id) => {
     if (window.confirm('¿Eliminar este diagnóstico del catálogo?')) {
-      fetch(`${API_URL}/diagnosticos/${id}`, { method: 'DELETE' })
+      apiFetch(`/diagnosticos/${id}`, { method: 'DELETE' })
         .then(() => fetchDiagnosticos())
         .catch(err => console.error("Error eliminando", err));
     }
@@ -86,7 +84,7 @@ const DiagnosticosCie10 = () => {
     const formData = new FormData();
     formData.append('file', file);
     
-    fetch(API_URL + '/diagnosticos/importar/', {
+    apiFetch('/diagnosticos/importar/', {
       method: 'POST',
       body: formData
     })

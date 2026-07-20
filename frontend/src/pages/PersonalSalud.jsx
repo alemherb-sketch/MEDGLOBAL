@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API_URL } from '../config';
+import { apiFetch, apiJson } from '../api';
 import { Search, Plus, Trash2, Edit2, X } from 'lucide-react';
 
 const PersonalSalud = () => {
@@ -11,8 +11,7 @@ const PersonalSalud = () => {
   const [filters, setFilters] = useState({ search: '' });
 
   const fetchPersonal = () => {
-    fetch(API_URL + '/personal_salud/')
-      .then(res => res.json())
+    apiJson('/personal_salud/')
       .then(data => setPersonal(data));
   };
 
@@ -23,15 +22,14 @@ const PersonalSalud = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     const isEditing = formData.id !== null;
-    const url = isEditing ? `${API_URL}/personal_salud/${formData.id}` : API_URL + '/personal_salud/';
+    const url = isEditing ? `/personal_salud/${formData.id}` : '/personal_salud/';
     const method = isEditing ? 'PUT' : 'POST';
 
     const dataToSend = { ...formData };
     delete dataToSend.id;
 
-    fetch(url, {
+    apiFetch(url, {
       method,
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dataToSend)
     }).then(async res => {
       if (!res.ok) {
@@ -47,7 +45,7 @@ const PersonalSalud = () => {
 
   const handleDelete = (id) => {
     if (window.confirm('¿Está seguro de eliminar a este personal de salud?')) {
-      fetch(`${API_URL}/personal_salud/${id}`, { method: 'DELETE' })
+      apiFetch(`/personal_salud/${id}`, { method: 'DELETE' })
         .then(() => fetchPersonal());
     }
   };

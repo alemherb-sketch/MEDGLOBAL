@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API_URL } from '../config';
+import { apiFetch, apiJson } from '../api';
 import { Search, Plus, Edit2, Trash2, X, Eye } from 'lucide-react';
 
 const Planilla = () => {
@@ -18,13 +18,11 @@ const Planilla = () => {
   const [filters, setFilters] = useState({ search: '' });
 
   const fetchTrabajadores = () => {
-    fetch(API_URL + '/trabajadores/')
-      .then(res => res.json())
+    apiJson('/trabajadores/')
       .then(data => setTrabajadores(data));
   };
   const fetchEmpresas = () => {
-    fetch(API_URL + '/empresas/')
-      .then(res => res.json())
+    apiJson('/empresas/')
       .then(data => setEmpresas(data.filter(e => e.estado === 'ACTIVO')));
   };
 
@@ -36,16 +34,15 @@ const Planilla = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     const isEditing = formData.id !== null;
-    const url = isEditing ? `${API_URL}/trabajadores/${formData.id}` : API_URL + '/trabajadores/';
+    const url = isEditing ? `/trabajadores/${formData.id}` : '/trabajadores/';
     const method = isEditing ? 'PUT' : 'POST';
 
     const dataToSend = { ...formData };
     delete dataToSend.id;
-    if (dataToSend.empresa_id) dataToSend.empresa_id = parseInt(dataToSend.empresa_id); else delete dataToSend.empresa_id;
+    if (!dataToSend.empresa_id) delete dataToSend.empresa_id;
 
-    fetch(url, {
+    apiFetch(url, {
       method,
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dataToSend)
     }).then(async res => {
       if (!res.ok) {
@@ -61,7 +58,7 @@ const Planilla = () => {
 
   const handleDelete = (id) => {
     if (window.confirm('¿Está seguro de eliminar este trabajador?')) {
-      fetch(`${API_URL}/trabajadores/${id}`, { method: 'DELETE' })
+      apiFetch(`/trabajadores/${id}`, { method: 'DELETE' })
         .then(() => fetchTrabajadores());
     }
   };

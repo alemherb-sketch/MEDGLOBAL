@@ -2,6 +2,26 @@ from pydantic import BaseModel
 from typing import List, Optional, Any
 from datetime import datetime
 
+# --- Autenticacion ---
+class UsuarioBase(BaseModel):
+    username: str
+    nombre: str
+    rol: Optional[str] = "ESTANDAR"
+
+class UsuarioCreate(UsuarioBase):
+    password: str
+
+class Usuario(UsuarioBase):
+    id: str
+    estado: str
+
+    class Config:
+        from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
 # --- Empresa ---
 class EmpresaBase(BaseModel):
     nombre: str
@@ -15,7 +35,9 @@ class EmpresaCreate(EmpresaBase):
     pass
 
 class Empresa(EmpresaBase):
-    id: int
+    id: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     class Config:
         from_attributes = True
         orm_mode = True
@@ -27,7 +49,7 @@ class TrabajadorBase(BaseModel):
     tipo_contrato: Optional[str] = None
     afp_onp: Optional[str] = None
     rol: str
-    
+
     codigo_trabajador: Optional[str] = None
     cargo: Optional[str] = None
     fecha_ingreso: Optional[str] = None
@@ -38,7 +60,7 @@ class TrabajadorBase(BaseModel):
     tipo_calculo_nomina: Optional[str] = None
     area: Optional[str] = None
     obra: Optional[str] = None
-    empresa_id: Optional[int] = None
+    empresa_id: Optional[str] = None
     area_personal: Optional[str] = None
     grupo_personal: Optional[str] = None
     nivel_org_1: Optional[str] = None
@@ -56,8 +78,10 @@ class TrabajadorCreate(TrabajadorBase):
     pass
 
 class Trabajador(TrabajadorBase):
-    id: int
+    id: str
     empresa: Optional[Empresa] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True
@@ -71,7 +95,7 @@ class ClasificacionCreate(ClasificacionBase):
     pass
 
 class Clasificacion(ClasificacionBase):
-    id: int
+    id: str
 
     class Config:
         orm_mode = True
@@ -87,7 +111,7 @@ class DiagnosticoCie10Create(DiagnosticoCie10Base):
     pass
 
 class DiagnosticoCie10(DiagnosticoCie10Base):
-    id: int
+    id: str
     class Config:
         orm_mode = True
         from_attributes = True
@@ -103,7 +127,7 @@ class SistemaCreate(SistemaBase):
     pass
 
 class Sistema(SistemaBase):
-    id: int
+    id: str
 
     class Config:
         orm_mode = True
@@ -121,7 +145,7 @@ class MedicamentoCreate(MedicamentoBase):
     pass
 
 class Medicamento(MedicamentoBase):
-    id: int
+    id: str
     stock_actual: int
 
     class Config:
@@ -130,7 +154,7 @@ class Medicamento(MedicamentoBase):
 
 # --- Kardex ---
 class KardexBase(BaseModel):
-    medicamento_id: int
+    medicamento_id: str
     tipo_movimiento: str
     cantidad: int
 
@@ -138,7 +162,7 @@ class KardexCreate(KardexBase):
     pass
 
 class Kardex(KardexBase):
-    id: int
+    id: str
     fecha: datetime
     saldo: int
     medicamento: Optional[Medicamento] = None
@@ -161,22 +185,22 @@ class PersonalSaludCreate(PersonalSaludBase):
     pass
 
 class PersonalSalud(PersonalSaludBase):
-    id: int
-    
+    id: str
+
     class Config:
         orm_mode = True
         from_attributes = True
 
 # --- Atencion ---
 class AtencionMedicamentoBase(BaseModel):
-    medicamento_id: int
+    medicamento_id: str
     cantidad: int = 1
 
 class AtencionMedicamentoCreate(AtencionMedicamentoBase):
     pass
 
 class AtencionMedicamento(AtencionMedicamentoBase):
-    id: int
+    id: str
     medicamento: Medicamento
     class Config:
         from_attributes = True
@@ -185,10 +209,10 @@ class AtencionBase(BaseModel):
     hora_ingreso: Optional[str] = None
     hora_salida: Optional[str] = None
     tiempo_topico: Optional[str] = None
-    
+
     edad: Optional[str] = None
     residencia: Optional[str] = None
-    empresa_id: Optional[int] = None
+    empresa_id: Optional[str] = None
     cargo: Optional[str] = None
 
     descripcion: str
@@ -208,17 +232,18 @@ class AtencionBase(BaseModel):
     jefe_inmediato: Optional[str] = None
     observaciones: Optional[str] = None
 
-    trabajador_id: int
-    sistema_id: int
-    clasificacion_id: int
-    cita_id: Optional[int] = None
-    personal_salud_id: Optional[int] = None
+    trabajador_id: str
+    sistema_id: str
+    clasificacion_id: str
+    cita_id: Optional[str] = None
+    personal_salud_id: Optional[str] = None
 
 class AtencionCreate(AtencionBase):
     medicamentos: List[AtencionMedicamentoCreate] = []
 
 class Atencion(AtencionBase):
-    id: int
+    id: str
+    folio: Optional[int] = None
     fecha: datetime
     trabajador: Trabajador
     empresa: Optional[Empresa] = None
@@ -226,7 +251,9 @@ class Atencion(AtencionBase):
     clasificacion: Clasificacion
     personal_salud: Optional[PersonalSalud] = None
     medicamentos: List[AtencionMedicamento] = []
-    
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
     class Config:
         from_attributes = True
 
@@ -235,17 +262,17 @@ class CitaBase(BaseModel):
     fecha_hora: datetime
     motivo: Optional[str] = None
     estado: Optional[str] = "PENDIENTE"
-    paciente_id: int
-    personal_salud_id: int
+    paciente_id: str
+    personal_salud_id: str
 
 class CitaCreate(CitaBase):
     pass
 
 class Cita(CitaBase):
-    id: int
+    id: str
     paciente: Trabajador
     personal_salud: PersonalSalud
-    
+
     class Config:
         orm_mode = True
         from_attributes = True

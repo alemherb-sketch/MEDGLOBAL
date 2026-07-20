@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API_URL } from '../config';
+import { apiFetch, apiJson } from '../api';
 import { Search, Plus, Trash2, Edit2, X, Link, Clock, Eye } from 'lucide-react';
 import Select from 'react-select';
 import AsyncSelect from 'react-select/async';
@@ -21,6 +21,7 @@ const Atenciones = () => {
   
   const [newAtencion, setNewAtencion] = useState({
     id: null,
+    folio: null,
     trabajador_id: '',
     sistema_id: '',
     clasificacion_id: '',
@@ -47,14 +48,14 @@ const Atenciones = () => {
   });
 
   const fetchData = () => {
-    fetch(API_URL + '/atenciones/').then(res => res.json()).then(setAtenciones);
-    fetch(API_URL + '/trabajadores/').then(res => res.json()).then(setTrabajadores);
-    fetch(API_URL + '/sistemas/').then(res => res.json()).then(setSistemas);
-    fetch(API_URL + '/clasificaciones/').then(res => res.json()).then(setContingencias);
-    fetch(API_URL + '/citas/').then(res => res.json()).then(setCitas);
-    fetch(API_URL + '/personal_salud/').then(res => res.json()).then(setPersonalSalud);
-    fetch(API_URL + '/medicamentos/').then(res => res.json()).then(setMedicamentos);
-    fetch(API_URL + '/empresas/').then(res => res.json()).then(setEmpresas);
+    apiJson('/atenciones/').then(setAtenciones);
+    apiJson('/trabajadores/').then(setTrabajadores);
+    apiJson('/sistemas/').then(setSistemas);
+    apiJson('/clasificaciones/').then(setContingencias);
+    apiJson('/citas/').then(setCitas);
+    apiJson('/personal_salud/').then(setPersonalSalud);
+    apiJson('/medicamentos/').then(setMedicamentos);
+    apiJson('/empresas/').then(setEmpresas);
   };
 
   const loadDiagnosticos = (inputValue, callback) => {
@@ -62,8 +63,7 @@ const Atenciones = () => {
       callback([]);
       return;
     }
-    fetch(`${API_URL}/diagnosticos/?search=${encodeURIComponent(inputValue)}&limit=50`)
-      .then(res => res.json())
+    apiJson(`/diagnosticos/?search=${encodeURIComponent(inputValue)}&limit=50`)
       .then(data => {
         const options = (data.items || []).map(d => ({
           value: `${d.codigo} - ${d.descripcion}`,
@@ -116,32 +116,28 @@ const Atenciones = () => {
   const handleAddAtencion = (e) => {
     e.preventDefault();
     const isEditing = newAtencion.id !== null;
-    const url = isEditing ? `${API_URL}/atenciones/${newAtencion.id}` : API_URL + '/atenciones/';
+    const url = isEditing ? `/atenciones/${newAtencion.id}` : '/atenciones/';
     const method = isEditing ? 'PUT' : 'POST';
 
     const dataToSend = { ...newAtencion };
     delete dataToSend.id;
-    
-    // Parse ints
-    dataToSend.trabajador_id = parseInt(dataToSend.trabajador_id);
-    dataToSend.sistema_id = parseInt(dataToSend.sistema_id);
-    dataToSend.clasificacion_id = parseInt(dataToSend.clasificacion_id);
-    if (dataToSend.cita_id) dataToSend.cita_id = parseInt(dataToSend.cita_id); else delete dataToSend.cita_id;
-    if (dataToSend.personal_salud_id) dataToSend.personal_salud_id = parseInt(dataToSend.personal_salud_id); else delete dataToSend.personal_salud_id;
-    if (dataToSend.empresa_id) dataToSend.empresa_id = parseInt(dataToSend.empresa_id); else delete dataToSend.empresa_id;
+    delete dataToSend.folio;
+
+    // Los FKs ya vienen como string (UUID) desde los <select>
+    if (!dataToSend.cita_id) delete dataToSend.cita_id;
+    if (!dataToSend.personal_salud_id) delete dataToSend.personal_salud_id;
+    if (!dataToSend.empresa_id) delete dataToSend.empresa_id;
 
     dataToSend.funciones_biologicas = JSON.stringify(dataToSend.funciones_biologicas);
     dataToSend.signos_vitales = JSON.stringify(dataToSend.signos_vitales);
 
-    // Convert string array to proper integer array
     dataToSend.medicamentos = dataToSend.medicamentos.map(m => ({
-      medicamento_id: parseInt(m.medicamento_id),
+      medicamento_id: m.medicamento_id,
       cantidad: parseInt(m.cantidad)
     }));
 
-    fetch(url, {
+    apiFetch(url, {
       method,
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dataToSend)
     }).then(() => {
       fetchData();
@@ -154,7 +150,7 @@ const Atenciones = () => {
 
   const handleDelete = (id) => {
     if (window.confirm('¿Está seguro de eliminar este registro de atención?')) {
-      fetch(`${API_URL}/atenciones/${id}`, { method: 'DELETE' })
+      apiFetch(`/atenciones/${id}`, { method: 'DELETE' })
         .then(() => fetchData());
     }
   };
@@ -163,6 +159,7 @@ const Atenciones = () => {
     if (atencion) {
       setNewAtencion({
         id: atencion.id,
+        folio: atencion.folio ?? null,
         trabajador_id: atencion.trabajador?.id || '',
         sistema_id: atencion.sistema?.id || '',
         clasificacion_id: atencion.clasificacion?.id || '',
@@ -189,7 +186,7 @@ const Atenciones = () => {
       });
     } else {
       setNewAtencion({
-        id: null, trabajador_id: '', sistema_id: '', clasificacion_id: '', personal_salud_id: '',
+        id: null, folio: null, trabajador_id: '', sistema_id: '', clasificacion_id: '', personal_salud_id: '',
         hora_ingreso: new Date().toTimeString().substring(0,5), edad: '', residencia: '', empresa_id: '', cargo: '',
         descripcion: '', funciones_biologicas: { apetito: '', sed: '', sueno: '', estado_animo: '', orina: '', deposiciones: '' },
         signos_vitales: { presion_arterial: '', frec_cardiaca: '', frec_respiratoria: '', temperatura: '', spo2: '', peso: '', talla: '' },
@@ -206,7 +203,7 @@ const Atenciones = () => {
   // Auto-fill worker details when worker changes
   const handleTrabajadorChange = (e) => {
     const t_id = e.target.value;
-    const trabajador = trabajadores.find(t => t.id === parseInt(t_id));
+    const trabajador = trabajadores.find(t => t.id === t_id);
     
     // Auto-calculate age if fecha_nacimiento exists, else leave empty for manual
     let ageCalc = '';
@@ -325,7 +322,7 @@ const Atenciones = () => {
             <tbody>
               {filteredAtenciones.map(a => (
                 <tr key={a.id}>
-                  <td style={{fontWeight: 'bold', color: 'var(--primary-color)'}}>#{a.id.toString().padStart(4, '0')}</td>
+                  <td style={{fontWeight: 'bold', color: 'var(--primary-color)'}}>{a.folio ? `#${a.folio.toString().padStart(4, '0')}` : '—'}</td>
                   <td>
                     <div style={{fontWeight: '500'}}>{new Date(a.fecha).toLocaleDateString()}</div>
                     <div className="text-muted" style={{fontSize: '0.8rem'}}>
@@ -374,7 +371,7 @@ const Atenciones = () => {
                 <div className="grid grid-cols-2">
                   <div className="form-group">
                     <label className="form-label">Código de Atención</label>
-                    <input className="form-control" value={newAtencion.id ? `#${newAtencion.id.toString().padStart(4, '0')}` : '(Autogenerado)'} disabled style={{background: 'rgba(0,0,0,0.05)', fontWeight: 'bold'}} />
+                    <input className="form-control" value={newAtencion.folio ? `#${newAtencion.folio.toString().padStart(4, '0')}` : '(Autogenerado)'} disabled style={{background: 'rgba(0,0,0,0.05)', fontWeight: 'bold'}} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Fecha y Hora</label>
@@ -393,7 +390,7 @@ const Atenciones = () => {
                   </div>
                   <div className="form-group">
                     <label className="form-label">DNI</label>
-                    <input className="form-control" value={trabajadores.find(t => t.id === parseInt(newAtencion.trabajador_id))?.dni || ''} disabled />
+                    <input className="form-control" value={trabajadores.find(t => t.id === newAtencion.trabajador_id)?.dni || ''} disabled />
                   </div>
 
                   <div className="form-group">
@@ -632,7 +629,7 @@ const Atenciones = () => {
         <div className="modal-overlay atencion-print-modal" style={{padding: '20px 0'}}>
           <div className="modal-content" style={{maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto'}}>
             <div className="modal-header hide-on-print" style={{position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-color)', borderBottom: '1px solid var(--border-color)'}}>
-              <h3>Ficha de Atención #{viewAtencion.id.toString().padStart(4, '0')}</h3>
+              <h3>Ficha de Atención {viewAtencion.folio ? `#${viewAtencion.folio.toString().padStart(4, '0')}` : ''}</h3>
               <div style={{display: 'flex', gap: '10px'}}>
                 <button className="btn btn-secondary" style={{background: 'rgba(255,255,255,0.1)'}} onClick={() => handlePrint('receta')}>🖨️ Imprimir Receta</button>
                 <button className="btn btn-primary" onClick={() => handlePrint('ficha')}>🖨️ Imprimir Ficha</button>
@@ -649,7 +646,7 @@ const Atenciones = () => {
               </div>
 
               <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '25px', fontSize: '14px'}}>
-                <div><strong>N° de Ficha:</strong> #{viewAtencion.id.toString().padStart(4, '0')}</div>
+                <div><strong>N° de Ficha:</strong> {viewAtencion.folio ? `#${viewAtencion.folio.toString().padStart(4, '0')}` : '—'}</div>
                 <div><strong>Fecha:</strong> {new Date(viewAtencion.fecha).toLocaleDateString()}</div>
                 <div><strong>Hora de Atención:</strong> {viewAtencion.hora_ingreso || '--'}</div>
               </div>
@@ -783,7 +780,7 @@ const Atenciones = () => {
                 </div>
 
                 <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '25px', fontSize: '14px'}}>
-                  <div><strong>N° de Atención:</strong> #{viewAtencion.id.toString().padStart(4, '0')}</div>
+                  <div><strong>N° de Atención:</strong> {viewAtencion.folio ? `#${viewAtencion.folio.toString().padStart(4, '0')}` : '—'}</div>
                   <div><strong>Fecha y Hora:</strong> {new Date(viewAtencion.fecha).toLocaleDateString()} {viewAtencion.hora_ingreso || ''}</div>
                 </div>
 
