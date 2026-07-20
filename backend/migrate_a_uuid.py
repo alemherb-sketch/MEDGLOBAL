@@ -47,7 +47,7 @@ import sys
 import uuid
 from datetime import datetime
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, inspect as sa_inspect
 from sqlalchemy.orm import sessionmaker
 
 import models  # esquema NUEVO (UUID) — se usa solo para escribir en el destino
@@ -89,8 +89,12 @@ def main():
     id_maps = {}
 
     with source_engine.connect() as src:
+        source_inspector = sa_inspect(src)
 
         def fetch_all(table, order_by=None):
+            if not source_inspector.has_table(table):
+                print(f"  (tabla '{table}' no existe en el origen — se omite, 0 filas)")
+                return []
             sql = f"SELECT * FROM {table}"
             if order_by:
                 sql += f" ORDER BY {order_by} ASC"
