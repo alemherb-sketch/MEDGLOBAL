@@ -56,6 +56,16 @@ with engine.connect() as conn:
     except Exception:
         pass
 
+    columnas_medicamento = [
+        "tipo VARCHAR(20) DEFAULT 'MEDICAMENTO'", "lote VARCHAR(50)", "fecha_vencimiento VARCHAR(20)"
+    ]
+    for col in columnas_medicamento:
+        try:
+            with conn.begin():
+                conn.execute(text(f"ALTER TABLE medicamentos ADD COLUMN {col}"))
+        except Exception:
+            pass
+
 app = FastAPI(title="MEDGLOBAL API")
 
 # Configure CORS
@@ -753,6 +763,133 @@ def delete_medicamento(id: str, db: Session = Depends(get_db), current_user: mod
     db_med.is_deleted = True
     db.commit()
     return {"detail": "Eliminado"}
+
+def _norm_header(h) -> str:
+    h = str(h).strip().lower()
+    for a, b in [("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u"), ("ñ", "n")]:
+        h = h.replace(a, b)
+    return re.sub(r"[\s_\-\.]+", "", h)
+
+_MED_HEADER_ALIASES = {
+    "codigo": "codigo",
+    "nombre": "nombre",
+    "presentacion": "presentacion",
+    "tipo": "tipo",
+    "descripcion": "descripcion",
+    "costounitario": "costo_unitario",
+    "costo": "costo_unitario",
+    "lote": "lote",
+    "fechavencimiento": "fecha_vencimiento",
+    "vencimiento": "fecha_vencimiento",
+    "stock": "stock_inicial",
+    "stockactual": "stock_inicial",
+    "stockinicial": "stock_inicial",
+}
+_MED_TIPOS_VALIDOS = {"MEDICAMENTO", "INSUMO", "OTROS"}
+
+@app.post("/medicamentos/importar/")
+async def import_medicamentos(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    """Importa/actualiza el catalogo desde un Excel. Columnas reconocidas
+    (encabezados en la primera fila, sin importar mayusculas/acentos):
+    Codigo, Nombre, Presentacion, Tipo, Descripcion, Costo Unitario, Lote,
+    Fecha Vencimiento, Stock Inicial. Solo Nombre y Presentacion son
+    obligatorias. Si el Codigo ya existe en el catalogo, actualiza esa fila
+    en vez de crear una nueva; si no trae Codigo, se genera uno (MED-000X)."""
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="Formato de archivo inválido. Usa Excel (.xlsx)")
+
+    contents = await file.read()
+    try:
+        df = pd.read_excel(io.BytesIO(contents), header=0)
+        df.columns = [_MED_HEADER_ALIASES.get(_norm_header(c)) for c in df.columns]
+
+        creados = 0
+        actualizados = 0
+        omitidos = 0
+
+        def get(row, col):
+            if col not in df.columns:
+                return None
+            val = row[col]
+            if isinstance(val, pd.Series):
+                val = val.iloc[0]
+            return None if pd.isna(val) else val
+
+        for _, row in df.iterrows():
+            nombre = get(row, "nombre")
+            presentacion = get(row, "presentacion")
+            if not nombre or not presentacion:
+                omitidos += 1
+                continue
+
+            codigo = get(row, "codigo")
+            codigo = str(codigo).strip() if codigo else None
+
+            tipo = get(row, "tipo")
+            tipo = str(tipo).strip().upper() if tipo else "MEDICAMENTO"
+            if tipo not in _MED_TIPOS_VALIDOS:
+                tipo = "MEDICAMENTO"
+
+            descripcion = get(row, "descripcion")
+            descripcion = str(descripcion).strip() if descripcion else None
+
+            lote = get(row, "lote")
+            lote = str(lote).strip() if lote else None
+
+            fecha_venc = get(row, "fecha_vencimiento")
+            if fecha_venc is not None:
+                if isinstance(fecha_venc, (pd.Timestamp, datetime)):
+                    fecha_venc = fecha_venc.strftime("%Y-%m-%d")
+                else:
+                    fecha_venc = str(fecha_venc).strip()
+
+            try:
+                costo = float(get(row, "costo_unitario") or 0.0)
+            except (ValueError, TypeError):
+                costo = 0.0
+
+            try:
+                stock_inicial = int(get(row, "stock_inicial") or 0)
+            except (ValueError, TypeError):
+                stock_inicial = 0
+
+            existente = None
+            if codigo:
+                existente = db.query(models.Medicamento).filter(models.Medicamento.codigo == codigo).first()
+
+            if existente:
+                existente.nombre = str(nombre).strip()
+                existente.presentacion = str(presentacion).strip()
+                existente.tipo = tipo
+                existente.descripcion = descripcion
+                existente.lote = lote
+                existente.fecha_vencimiento = fecha_venc
+                existente.costo_unitario = costo
+                actualizados += 1
+            else:
+                if not codigo:
+                    codigo = _next_prefixed_code(db, models.Medicamento, "codigo", "MED")
+                nuevo = models.Medicamento(
+                    codigo=codigo, nombre=str(nombre).strip(), presentacion=str(presentacion).strip(),
+                    tipo=tipo, descripcion=descripcion, lote=lote, fecha_vencimiento=fecha_venc,
+                    costo_unitario=costo, stock_actual=0,
+                )
+                db.add(nuevo)
+                db.flush()
+                if stock_inicial > 0:
+                    nuevo.stock_actual = stock_inicial
+                    db.add(models.Kardex(
+                        medicamento_id=nuevo.id, tipo_movimiento="INGRESO",
+                        cantidad=stock_inicial, saldo=stock_inicial,
+                    ))
+                creados += 1
+
+        db.commit()
+        return {"message": f"Importación completa: {creados} nuevos, {actualizados} actualizados, {omitidos} fila(s) omitida(s) (sin nombre o presentación)."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/kardex/{medicamento_id}", response_model=List[schemas.Kardex])
 def read_kardex(medicamento_id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):

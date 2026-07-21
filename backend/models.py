@@ -235,6 +235,9 @@ class Medicamento(Base):
     nombre = Column(String(150), index=True)
     presentacion = Column(String(100))
     descripcion = Column(Text)
+    tipo = Column(String(20), default="MEDICAMENTO")  # MEDICAMENTO, INSUMO, OTROS
+    lote = Column(String(50), nullable=True)
+    fecha_vencimiento = Column(String(20), nullable=True)
     stock_actual = Column(Integer, default=0)
     costo_unitario = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)

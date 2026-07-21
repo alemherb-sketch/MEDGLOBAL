@@ -1,13 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiFetch, apiJson } from '../api';
-import { Search, Plus, Trash2, Edit2, X, ClipboardList, TrendingUp, TrendingDown } from 'lucide-react';
+import { Search, Plus, Trash2, Edit2, X, ClipboardList, TrendingUp, TrendingDown, FileSpreadsheet } from 'lucide-react';
+
+const TIPOS_MEDICAMENTO = ['MEDICAMENTO', 'INSUMO', 'OTROS'];
 
 const Medicamentos = () => {
   const [medicamentos, setMedicamentos] = useState([]);
   const [modalType, setModalType] = useState(null); // 'med', 'edit_med', 'kardex'
-  const [newMed, setNewMed] = useState({ id: null, codigo: '', nombre: '', presentacion: '', descripcion: '', costo_unitario: 0.0 });
+  const [newMed, setNewMed] = useState({ id: null, codigo: '', nombre: '', presentacion: '', descripcion: '', tipo: 'MEDICAMENTO', lote: '', fecha_vencimiento: '', costo_unitario: 0.0 });
   const [filters, setFilters] = useState({ search: '' });
-  
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef(null);
+
   const [selectedKardexMed, setSelectedKardexMed] = useState(null);
   const [kardexData, setKardexData] = useState([]);
 
@@ -55,7 +59,7 @@ const Medicamentos = () => {
   const openModal = (type, data = null) => {
     setModalType(type);
     if (type === 'med') {
-      setNewMed({ id: null, codigo: '', nombre: '', presentacion: '', descripcion: '', costo_unitario: 0.0 });
+      setNewMed({ id: null, codigo: '', nombre: '', presentacion: '', descripcion: '', tipo: 'MEDICAMENTO', lote: '', fecha_vencimiento: '', costo_unitario: 0.0 });
     } else if (type === 'edit_med') {
       setNewMed(data);
     } else if (type === 'kardex') {
@@ -71,17 +75,62 @@ const Medicamentos = () => {
     setKardexData([]);
   };
 
-  const filteredMedicamentos = medicamentos.filter(m => 
-    ((m.codigo || '') + ' ' + m.nombre + ' ' + m.presentacion).toLowerCase().includes(filters.search.toLowerCase())
+  const handleImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    apiFetch('/medicamentos/importar/', {
+      method: 'POST',
+      body: formData
+    })
+    .then(async res => {
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Error desconocido del servidor");
+      }
+      return data;
+    })
+    .then(data => {
+      setIsImporting(false);
+      alert(data.message || "Importación completada");
+      fetchMedicamentos();
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    })
+    .catch(err => {
+      setIsImporting(false);
+      alert("Error en la importación: " + err.message);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    });
+  };
+
+  const filteredMedicamentos = medicamentos.filter(m =>
+    ((m.codigo || '') + ' ' + m.nombre + ' ' + m.presentacion + ' ' + (m.tipo || '') + ' ' + (m.lote || '')).toLowerCase().includes(filters.search.toLowerCase())
   );
 
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
         <h1>Catálogo de Medicamentos y Almacén</h1>
-        <button className="btn btn-primary" onClick={() => openModal('med')}>
-          <Plus size={18} style={{marginRight: '8px'}} /> Nuevo Medicamento
-        </button>
+        <div style={{display: 'flex', gap: '10px'}}>
+          <input
+            type="file"
+            accept=".xlsx, .xls"
+            style={{display: 'none'}}
+            ref={fileInputRef}
+            onChange={handleImport}
+          />
+          <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
+            {isImporting ? <span className="spinner"></span> : <FileSpreadsheet size={18} style={{marginRight: '8px'}} />}
+            Importar Excel
+          </button>
+          <button className="btn btn-primary" onClick={() => openModal('med')}>
+            <Plus size={18} style={{marginRight: '8px'}} /> Nuevo Medicamento
+          </button>
+        </div>
       </div>
       
       <div className="glass-panel">
@@ -106,7 +155,9 @@ const Medicamentos = () => {
               <tr>
                 <th>Código</th>
                 <th>Nombre</th>
+                <th>Tipo</th>
                 <th>Presentación</th>
+                <th>Lote / Vencimiento</th>
                 <th>Costo Unit.</th>
                 <th>Stock Actual</th>
                 <th style={{textAlign: 'right'}}>Acciones</th>
@@ -117,7 +168,12 @@ const Medicamentos = () => {
                 <tr key={m.id}>
                   <td><span style={{fontWeight: 'bold', color: 'var(--primary-color)'}}>{m.codigo}</span></td>
                   <td>{m.nombre} <br/><span className="text-muted" style={{fontSize: '0.8rem'}}>{m.descripcion}</span></td>
+                  <td>{m.tipo || 'MEDICAMENTO'}</td>
                   <td>{m.presentacion}</td>
+                  <td style={{fontSize: '0.85rem'}}>
+                    {m.lote ? <>Lote: {m.lote}<br/></> : null}
+                    {m.fecha_vencimiento ? <span className="text-muted">Vence: {m.fecha_vencimiento}</span> : (!m.lote ? <span className="text-muted">—</span> : null)}
+                  </td>
                   <td>S/ {Number(m.costo_unitario || 0).toFixed(2)}</td>
                   <td>
                     <span style={{
@@ -141,7 +197,7 @@ const Medicamentos = () => {
               ))}
               {filteredMedicamentos.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="text-center text-muted py-4">No se encontraron medicamentos</td>
+                  <td colSpan="8" className="text-center text-muted py-4">No se encontraron medicamentos</td>
                 </tr>
               )}
             </tbody>
@@ -171,19 +227,37 @@ const Medicamentos = () => {
                     <input required className="form-control" value={newMed.nombre} onChange={e => setNewMed({...newMed, nombre: e.target.value})} />
                   </div>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Presentación</label>
-                  <select required className="form-control" value={newMed.presentacion} onChange={e => setNewMed({...newMed, presentacion: e.target.value})}>
-                    <option value="">Seleccione...</option>
-                    <option value="FRASCO">FRASCO</option>
-                    <option value="ROLLO">ROLLO</option>
-                    <option value="TABLETA">TABLETA</option>
-                    <option value="UNIDAD">UNIDAD</option>
-                    <option value="AMPOLLA">AMPOLLA</option>
-                    <option value="TUBO">TUBO</option>
-                    <option value="SOBRE">SOBRE</option>
-                    <option value="CAJA">CAJA</option>
-                  </select>
+                <div className="grid grid-cols-2">
+                  <div className="form-group">
+                    <label className="form-label">Presentación</label>
+                    <select required className="form-control" value={newMed.presentacion} onChange={e => setNewMed({...newMed, presentacion: e.target.value})}>
+                      <option value="">Seleccione...</option>
+                      <option value="FRASCO">FRASCO</option>
+                      <option value="ROLLO">ROLLO</option>
+                      <option value="TABLETA">TABLETA</option>
+                      <option value="UNIDAD">UNIDAD</option>
+                      <option value="AMPOLLA">AMPOLLA</option>
+                      <option value="TUBO">TUBO</option>
+                      <option value="SOBRE">SOBRE</option>
+                      <option value="CAJA">CAJA</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Tipo</label>
+                    <select required className="form-control" value={newMed.tipo || 'MEDICAMENTO'} onChange={e => setNewMed({...newMed, tipo: e.target.value})}>
+                      {TIPOS_MEDICAMENTO.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2">
+                  <div className="form-group">
+                    <label className="form-label">Lote</label>
+                    <input className="form-control" value={newMed.lote || ''} onChange={e => setNewMed({...newMed, lote: e.target.value})} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Fecha de Vencimiento</label>
+                    <input type="date" className="form-control" value={newMed.fecha_vencimiento || ''} onChange={e => setNewMed({...newMed, fecha_vencimiento: e.target.value})} />
+                  </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Costo Unitario (S/)</label>

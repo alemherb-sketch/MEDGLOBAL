@@ -139,6 +139,9 @@ class MedicamentoBase(BaseModel):
     nombre: str
     presentacion: str
     descripcion: Optional[str] = None
+    tipo: Optional[str] = "MEDICAMENTO"
+    lote: Optional[str] = None
+    fecha_vencimiento: Optional[str] = None
     costo_unitario: Optional[float] = 0.0
 
 class MedicamentoCreate(MedicamentoBase):
