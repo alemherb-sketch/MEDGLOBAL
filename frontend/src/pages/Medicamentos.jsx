@@ -150,48 +150,60 @@ const Medicamentos = () => {
         </div>
 
         <div className="table-container">
-          <table className="table">
+          <table className="table table-compact" style={{tableLayout: 'fixed'}}>
             <thead>
               <tr>
-                <th>Código</th>
+                <th style={{width: '85px'}}>Código</th>
                 <th>Nombre</th>
-                <th>Tipo</th>
-                <th>Presentación</th>
-                <th>Lote / Vencimiento</th>
-                <th>Costo Unit.</th>
-                <th>Stock Actual</th>
-                <th style={{textAlign: 'right'}}>Acciones</th>
+                <th style={{width: '115px'}}>Tipo</th>
+                <th style={{width: '95px'}}>Presentación</th>
+                <th style={{width: '125px'}}>Lote / Vencimiento</th>
+                <th style={{width: '85px', textAlign: 'right'}}>Costo Unit.</th>
+                <th style={{width: '65px', textAlign: 'right'}}>Stock</th>
+                <th style={{width: '95px', textAlign: 'right'}}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {filteredMedicamentos.map(m => (
                 <tr key={m.id}>
-                  <td><span style={{fontWeight: 'bold', color: 'var(--primary-color)'}}>{m.codigo}</span></td>
-                  <td>{m.nombre} <br/><span className="text-muted" style={{fontSize: '0.8rem'}}>{m.descripcion}</span></td>
-                  <td>{m.tipo || 'MEDICAMENTO'}</td>
-                  <td>{m.presentacion}</td>
-                  <td style={{fontSize: '0.85rem'}}>
-                    {m.lote ? <>Lote: {m.lote}<br/></> : null}
-                    {m.fecha_vencimiento ? <span className="text-muted">Vence: {m.fecha_vencimiento}</span> : (!m.lote ? <span className="text-muted">—</span> : null)}
+                  <td style={{whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}} title={m.codigo}><span style={{fontWeight: 'bold', color: 'var(--primary-color)'}}>{m.codigo}</span></td>
+                  <td style={{overflow: 'hidden'}}>
+                    <div style={{overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}} title={m.nombre}>{m.nombre}</div>
+                    {m.descripcion && (
+                      <div className="text-muted" title={m.descripcion} style={{fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+                        {m.descripcion}
+                      </div>
+                    )}
                   </td>
-                  <td>S/ {Number(m.costo_unitario || 0).toFixed(2)}</td>
-                  <td>
+                  <td style={{whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}} title={m.tipo || 'MEDICAMENTO'}>{m.tipo || 'MEDICAMENTO'}</td>
+                  <td style={{whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}} title={m.presentacion}>{m.presentacion}</td>
+                  <td style={{fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
+                    {m.lote && <div>Lote: {m.lote}</div>}
+                    {m.fecha_vencimiento ? (
+                      <div className="text-muted">Vence: {m.fecha_vencimiento}</div>
+                    ) : (!m.lote && <span className="text-muted">—</span>)}
+                  </td>
+                  <td style={{whiteSpace: 'nowrap', textAlign: 'right'}}>S/ {Number(m.costo_unitario || 0).toFixed(2)}</td>
+                  <td style={{textAlign: 'right'}}>
                     <span style={{
-                      padding: '4px 8px', 
-                      borderRadius: '12px', 
+                      display: 'inline-block',
+                      padding: '3px 8px',
+                      borderRadius: '12px',
+                      whiteSpace: 'nowrap',
                       background: m.stock_actual <= 10 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)',
                       color: m.stock_actual <= 10 ? 'var(--danger-color)' : '#16a34a',
-                      fontWeight: 'bold'
+                      fontWeight: 'bold',
+                      fontSize: '0.85rem'
                     }}>
-                      {m.stock_actual} unid.
+                      {m.stock_actual}
                     </span>
                   </td>
                   <td style={{textAlign: 'right', whiteSpace: 'nowrap'}}>
                     <button className="action-btn view" style={{color: '#3b82f6', marginRight: '5px'}} onClick={() => openModal('kardex', m)} title="Ver Movimientos (Kardex)">
-                      <ClipboardList size={18} />
+                      <ClipboardList size={16} />
                     </button>
-                    <button className="action-btn edit" onClick={() => openModal('edit_med', m)} title="Editar"><Edit2 size={18} /></button>
-                    <button className="action-btn delete" onClick={() => handleDeleteMed(m.id)} title="Eliminar"><Trash2 size={18} /></button>
+                    <button className="action-btn edit" onClick={() => openModal('edit_med', m)} title="Editar"><Edit2 size={16} /></button>
+                    <button className="action-btn delete" onClick={() => handleDeleteMed(m.id)} title="Eliminar"><Trash2 size={16} /></button>
                   </td>
                 </tr>
               ))}
