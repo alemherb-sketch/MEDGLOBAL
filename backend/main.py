@@ -773,19 +773,71 @@ def _norm_header(h) -> str:
 _MED_HEADER_ALIASES = {
     "codigo": "codigo",
     "nombre": "nombre",
+    "medicamento": "nombre",
+    "producto": "nombre",
     "presentacion": "presentacion",
     "tipo": "tipo",
     "descripcion": "descripcion",
     "costounitario": "costo_unitario",
     "costo": "costo_unitario",
+    "precio": "costo_unitario",
+    "preciounitario": "costo_unitario",
     "lote": "lote",
     "fechavencimiento": "fecha_vencimiento",
     "vencimiento": "fecha_vencimiento",
+    "fecvenc": "fecha_vencimiento",
+    "fecvencimiento": "fecha_vencimiento",
     "stock": "stock_inicial",
     "stockactual": "stock_inicial",
     "stockinicial": "stock_inicial",
 }
 _MED_TIPOS_VALIDOS = {"MEDICAMENTO", "INSUMO", "OTROS"}
+_MED_MESES_ES = {
+    "ene": 1, "feb": 2, "mar": 3, "abr": 4, "may": 5, "jun": 6,
+    "jul": 7, "ago": 8, "sep": 9, "set": 9, "oct": 10, "nov": 11, "dic": 12,
+}
+
+
+def _parse_med_costo(val) -> float:
+    """Acepta numeros tal cual o texto con simbolo de moneda ('S/ 37.20'),
+    porque los excels reales de la clinica traen la columna de precio
+    formateada como moneda, no como numero plano."""
+    if val is None:
+        return 0.0
+    if isinstance(val, (int, float)):
+        return float(val)
+    s = re.sub(r"[^\d.,\-]", "", str(val))
+    if not s:
+        return 0.0
+    if ',' in s and '.' in s:
+        s = s.replace(',', '')
+    elif ',' in s:
+        s = s.replace(',', '.')
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
+
+def _parse_med_fecha_vencimiento(val):
+    """Ademas de fechas reales de Excel, acepta el formato abreviado en
+    español que usa el excel real de la clinica para la columna de
+    vencimiento (ej. 'sep.-28', 'ene.-28') -- no trae dia, se asume el 01
+    del mes."""
+    if val is None:
+        return None
+    if isinstance(val, (pd.Timestamp, datetime)):
+        return val.strftime("%Y-%m-%d")
+    s = str(val).strip()
+    m = re.match(r"^([a-zA-Z]{3})\.?-?(\d{2,4})$", s)
+    if m:
+        mes = _MED_MESES_ES.get(m.group(1).lower())
+        anio = int(m.group(2))
+        if anio < 100:
+            anio += 2000
+        if mes:
+            return f"{anio:04d}-{mes:02d}-01"
+    return s
 
 @app.post("/medicamentos/importar/")
 async def import_medicamentos(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
@@ -836,30 +888,33 @@ async def import_medicamentos(file: UploadFile = File(...), db: Session = Depend
             lote = get(row, "lote")
             lote = str(lote).strip() if lote else None
 
-            fecha_venc = get(row, "fecha_vencimiento")
-            if fecha_venc is not None:
-                if isinstance(fecha_venc, (pd.Timestamp, datetime)):
-                    fecha_venc = fecha_venc.strftime("%Y-%m-%d")
-                else:
-                    fecha_venc = str(fecha_venc).strip()
+            fecha_venc = _parse_med_fecha_vencimiento(get(row, "fecha_vencimiento"))
 
-            try:
-                costo = float(get(row, "costo_unitario") or 0.0)
-            except (ValueError, TypeError):
-                costo = 0.0
+            costo = _parse_med_costo(get(row, "costo_unitario"))
 
             try:
                 stock_inicial = int(get(row, "stock_inicial") or 0)
             except (ValueError, TypeError):
                 stock_inicial = 0
 
+            nombre = str(nombre).strip()
+            presentacion = str(presentacion).strip().upper()
+
             existente = None
             if codigo:
                 existente = db.query(models.Medicamento).filter(models.Medicamento.codigo == codigo).first()
+            if not existente:
+                # Muchos excels de la clinica no traen Codigo -- sin esto,
+                # cada reimportacion del mismo listado duplicaria todo el
+                # catalogo en vez de actualizar precios/stock/vencimiento.
+                existente = db.query(models.Medicamento).filter(
+                    func.lower(models.Medicamento.nombre) == nombre.lower(),
+                    models.Medicamento.is_deleted == False,
+                ).first()
 
             if existente:
-                existente.nombre = str(nombre).strip()
-                existente.presentacion = str(presentacion).strip()
+                existente.nombre = nombre
+                existente.presentacion = presentacion
                 existente.tipo = tipo
                 existente.descripcion = descripcion
                 existente.lote = lote
@@ -870,7 +925,7 @@ async def import_medicamentos(file: UploadFile = File(...), db: Session = Depend
                 if not codigo:
                     codigo = _next_prefixed_code(db, models.Medicamento, "codigo", "MED")
                 nuevo = models.Medicamento(
-                    codigo=codigo, nombre=str(nombre).strip(), presentacion=str(presentacion).strip(),
+                    codigo=codigo, nombre=nombre, presentacion=presentacion,
                     tipo=tipo, descripcion=descripcion, lote=lote, fecha_vencimiento=fecha_venc,
                     costo_unitario=costo, stock_actual=0,
                 )
