@@ -1,8 +1,43 @@
 import { useState, useEffect } from 'react';
 import { apiFetch, apiJson } from '../api';
 import { Search, RefreshCw, X, ClipboardList, TrendingUp, TrendingDown } from 'lucide-react';
+import Select from 'react-select';
 
 const PAGE_SIZE = 20;
+
+const medicamentoLabel = (m) => `${m.codigo ? `[${m.codigo}] ` : ''}${m.nombre} - ${m.presentacion}`;
+
+const selectStyles = {
+  control: (base) => ({
+    ...base,
+    background: 'rgba(0,0,0,0.2)',
+    borderColor: 'var(--border-color)',
+    color: '#fff'
+  }),
+  menu: (base) => ({
+    ...base,
+    background: '#1e293b',
+    border: '1px solid var(--border-color)'
+  }),
+  option: (base, state) => ({
+    ...base,
+    background: state.isFocused ? 'var(--primary-color)' : 'transparent',
+    color: '#fff',
+    cursor: 'pointer'
+  }),
+  singleValue: (base) => ({
+    ...base,
+    color: '#fff'
+  }),
+  input: (base) => ({
+    ...base,
+    color: '#fff'
+  }),
+  placeholder: (base) => ({
+    ...base,
+    color: 'var(--text-muted)'
+  })
+};
 
 const Almacen = () => {
   const [medicamentos, setMedicamentos] = useState([]);
@@ -33,6 +68,10 @@ const Almacen = () => {
 
   const handleKardex = (e) => {
     e.preventDefault();
+    if (!kardexForm.medicamento_id) {
+      alert('Seleccione un medicamento');
+      return;
+    }
     apiFetch('/kardex/', {
       method: 'POST',
       body: JSON.stringify({ ...kardexForm, cantidad: parseInt(kardexForm.cantidad) })
@@ -195,10 +234,18 @@ const Almacen = () => {
               <form onSubmit={handleKardex}>
                 <div className="form-group">
                   <label className="form-label">Medicamento</label>
-                  <select required className="form-control" value={kardexForm.medicamento_id} onChange={e => setKardexForm({...kardexForm, medicamento_id: e.target.value})}>
-                    <option value="">Seleccione...</option>
-                    {medicamentos.map(m => <option key={m.id} value={m.id}>{m.codigo ? `[${m.codigo}] ` : ''}{m.nombre} - {m.presentacion}</option>)}
-                  </select>
+                  <Select
+                    options={medicamentos.map(m => ({ value: String(m.id), label: medicamentoLabel(m) }))}
+                    value={(() => {
+                      const m = medicamentos.find(m => String(m.id) === String(kardexForm.medicamento_id));
+                      return m ? { value: String(m.id), label: medicamentoLabel(m) } : null;
+                    })()}
+                    onChange={opt => setKardexForm({...kardexForm, medicamento_id: opt ? opt.value : ''})}
+                    styles={selectStyles}
+                    isClearable
+                    placeholder="Busque por código o nombre..."
+                    noOptionsMessage={() => "Sin resultados"}
+                  />
                 </div>
                 <div className="flex gap-4">
                   <div className="form-group" style={{flex: 1}}>
