@@ -20,3 +20,4 @@ backend/build/
 backend/MEDGLOBAL.egg-info/
 MEDGLOBAL_Instalador_Offline.zip
 .DS_Store
+.deploy_last_commit
