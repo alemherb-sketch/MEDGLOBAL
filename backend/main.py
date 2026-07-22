@@ -842,17 +842,32 @@ def _parse_med_fecha_vencimiento(val):
 @app.post("/medicamentos/importar/")
 async def import_medicamentos(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     """Importa/actualiza el catalogo desde un Excel. Columnas reconocidas
-    (encabezados en la primera fila, sin importar mayusculas/acentos):
-    Codigo, Nombre, Presentacion, Tipo, Descripcion, Costo Unitario, Lote,
-    Fecha Vencimiento, Stock Inicial. Solo Nombre y Presentacion son
-    obligatorias. Si el Codigo ya existe en el catalogo, actualiza esa fila
-    en vez de crear una nueva; si no trae Codigo, se genera uno (MED-000X)."""
+    (encabezados en cualquiera de las primeras 10 filas -- por si hay una
+    fila de titulo o una fila vacia arriba de la tabla -- sin importar
+    mayusculas/acentos): Codigo, Nombre, Presentacion, Tipo, Descripcion,
+    Costo Unitario, Lote, Fecha Vencimiento, Stock Inicial. Solo Nombre y
+    Presentacion son obligatorias. Si el Codigo ya existe en el catalogo
+    (o si no hay Codigo, si el Nombre ya existe), actualiza esa fila en vez
+    de crear una nueva; si no trae Codigo, se genera uno (MED-000X)."""
     if not file.filename.endswith(('.xlsx', '.xls')):
         raise HTTPException(status_code=400, detail="Formato de archivo inválido. Usa Excel (.xlsx)")
 
     contents = await file.read()
     try:
-        df = pd.read_excel(io.BytesIO(contents), header=0)
+        # La fila de encabezados no siempre es la primera -- varios excels
+        # reales traen una fila de titulo o una fila vacia arriba de la
+        # tabla. Se buscan encabezados reconocibles en las primeras filas
+        # en vez de asumir siempre header=0.
+        muestra = pd.read_excel(io.BytesIO(contents), header=None, nrows=10)
+        header_row_idx, mejor_cantidad = 0, -1
+        for i in range(len(muestra)):
+            cantidad = sum(1 for v in muestra.iloc[i].tolist() if _MED_HEADER_ALIASES.get(_norm_header(v)))
+            if cantidad > mejor_cantidad:
+                header_row_idx, mejor_cantidad = i, cantidad
+        if mejor_cantidad <= 0:
+            raise HTTPException(status_code=400, detail="No se encontraron encabezados reconocibles (Nombre/Medicamento, Presentación, etc.) en las primeras filas del archivo.")
+
+        df = pd.read_excel(io.BytesIO(contents), header=header_row_idx)
         encabezados_originales = [str(c) for c in df.columns]
         df.columns = [_MED_HEADER_ALIASES.get(_norm_header(c)) for c in df.columns]
 
