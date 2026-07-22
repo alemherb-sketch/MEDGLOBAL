@@ -153,14 +153,14 @@ const Medicamentos = () => {
           <table className="table table-compact" style={{tableLayout: 'fixed'}}>
             <thead>
               <tr>
-                <th style={{width: '85px'}}>Código</th>
+                <th style={{width: '75px'}} title="Código">Cód.</th>
                 <th>Nombre</th>
-                <th style={{width: '115px'}}>Tipo</th>
-                <th style={{width: '95px'}}>Presentación</th>
-                <th style={{width: '125px'}}>Lote / Vencimiento</th>
-                <th style={{width: '85px', textAlign: 'right'}}>Costo Unit.</th>
+                <th style={{width: '110px'}}>Tipo</th>
+                <th style={{width: '85px'}} title="Presentación">Present.</th>
+                <th style={{width: '150px'}} title="Lote / Vencimiento">Lote / Venc.</th>
+                <th style={{width: '80px', textAlign: 'right'}} title="Costo Unitario">P. Unit.</th>
                 <th style={{width: '65px', textAlign: 'right'}}>Stock</th>
-                <th style={{width: '95px', textAlign: 'right'}}>Acciones</th>
+                <th style={{width: '90px', textAlign: 'right'}} title="Acciones">Acc.</th>
               </tr>
             </thead>
             <tbody>
