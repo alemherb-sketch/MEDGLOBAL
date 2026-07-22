@@ -970,6 +970,15 @@ async def import_medicamentos(file: UploadFile = File(...), db: Session = Depend
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/kardex/todos/", response_model=List[schemas.Kardex])
+def read_kardex_todos(db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    """Historial global de movimientos (todos los productos), para la
+    pantalla de Control de Almacen -- a diferencia de /kardex/{id}, que es
+    el historial de un solo medicamento (usado en el modal de detalle)."""
+    return db.query(models.Kardex).filter(
+        models.Kardex.is_deleted == False
+    ).order_by(models.Kardex.fecha.desc()).limit(1000).all()
+
 @app.get("/kardex/{medicamento_id}", response_model=List[schemas.Kardex])
 def read_kardex(medicamento_id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     return db.query(models.Kardex).filter(
