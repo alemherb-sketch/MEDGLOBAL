@@ -853,6 +853,7 @@ async def import_medicamentos(file: UploadFile = File(...), db: Session = Depend
     contents = await file.read()
     try:
         df = pd.read_excel(io.BytesIO(contents), header=0)
+        encabezados_originales = [str(c) for c in df.columns]
         df.columns = [_MED_HEADER_ALIASES.get(_norm_header(c)) for c in df.columns]
 
         creados = 0
@@ -940,7 +941,10 @@ async def import_medicamentos(file: UploadFile = File(...), db: Session = Depend
                 creados += 1
 
         db.commit()
-        return {"message": f"Importación completa: {creados} nuevos, {actualizados} actualizados, {omitidos} fila(s) omitida(s) (sin nombre o presentación)."}
+        msg = f"Importación completa: {creados} nuevos, {actualizados} actualizados, {omitidos} fila(s) omitida(s) (sin nombre o presentación)."
+        if creados == 0 and actualizados == 0 and omitidos > 0:
+            msg += f" Encabezados detectados en el archivo: {', '.join(encabezados_originales)}."
+        return {"message": msg}
     except HTTPException:
         raise
     except Exception as e:
