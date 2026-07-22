@@ -11,6 +11,8 @@ const Medicamentos = () => {
   const [filters, setFilters] = useState({ search: '' });
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef(null);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 20;
 
   const [selectedKardexMed, setSelectedKardexMed] = useState(null);
   const [kardexData, setKardexData] = useState([]);
@@ -111,6 +113,10 @@ const Medicamentos = () => {
     ((m.codigo || '') + ' ' + m.nombre + ' ' + m.presentacion + ' ' + (m.tipo || '') + ' ' + (m.lote || '')).toLowerCase().includes(filters.search.toLowerCase())
   );
 
+  const totalPages = Math.max(1, Math.ceil(filteredMedicamentos.length / PAGE_SIZE));
+  const pageSafe = Math.min(page, totalPages - 1);
+  const paginatedMedicamentos = filteredMedicamentos.slice(pageSafe * PAGE_SIZE, (pageSafe + 1) * PAGE_SIZE);
+
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
@@ -138,14 +144,17 @@ const Medicamentos = () => {
           <div className="form-group mb-0" style={{flex: 1}}>
             <div style={{position: 'relative'}}>
               <Search size={18} style={{position: 'absolute', top: '14px', left: '14px', color: 'var(--text-muted)'}} />
-              <input 
-                className="form-control search-input" 
+              <input
+                className="form-control search-input"
                 style={{paddingLeft: '40px'}}
-                placeholder="Buscar por código, nombre o presentación..." 
-                value={filters.search} 
-                onChange={e => setFilters({...filters, search: e.target.value})} 
+                placeholder="Buscar por código, nombre o presentación..."
+                value={filters.search}
+                onChange={e => { setFilters({...filters, search: e.target.value}); setPage(0); }}
               />
             </div>
+          </div>
+          <div style={{color: 'var(--text-muted)', fontSize: '0.9rem', display: 'flex', alignItems: 'center'}}>
+            Total: {filteredMedicamentos.length} registros
           </div>
         </div>
 
@@ -164,7 +173,7 @@ const Medicamentos = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredMedicamentos.map(m => (
+              {paginatedMedicamentos.map(m => (
                 <tr key={m.id}>
                   <td style={{whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}} title={m.codigo}><span style={{fontWeight: 'bold', color: 'var(--primary-color)'}}>{m.codigo}</span></td>
                   <td style={{overflow: 'hidden'}}>
@@ -214,6 +223,28 @@ const Medicamentos = () => {
               )}
             </tbody>
           </table>
+
+          {filteredMedicamentos.length > PAGE_SIZE && (
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderTop: '1px solid var(--border-color)'}}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={pageSafe === 0}
+              >
+                Anterior
+              </button>
+              <span style={{fontSize: '0.9rem', color: 'var(--text-muted)'}}>
+                Página {pageSafe + 1} de {totalPages}
+              </span>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={pageSafe >= totalPages - 1}
+              >
+                Siguiente
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
