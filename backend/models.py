@@ -261,6 +261,8 @@ class Kardex(Base):
     tipo_movimiento = Column(String(10)) # INGRESO, SALIDA
     cantidad = Column(Integer)
     saldo = Column(Integer)
+    lote = Column(String(50), nullable=True)
+    fecha_vencimiento = Column(String(20), nullable=True)
 
     medicamento = relationship("Medicamento")
 

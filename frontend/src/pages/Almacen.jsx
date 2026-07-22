@@ -8,7 +8,7 @@ const Almacen = () => {
   const [medicamentos, setMedicamentos] = useState([]);
   const [kardexEntries, setKardexEntries] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [kardexForm, setKardexForm] = useState({ medicamento_id: '', tipo_movimiento: 'INGRESO', cantidad: '' });
+  const [kardexForm, setKardexForm] = useState({ medicamento_id: '', tipo_movimiento: 'INGRESO', cantidad: '', lote: '', fecha_vencimiento: '' });
   const [filters, setFilters] = useState({ search: '' });
   const [page, setPage] = useState(0);
 
@@ -50,7 +50,7 @@ const Almacen = () => {
   };
 
   const openModal = () => {
-    setKardexForm({ medicamento_id: '', tipo_movimiento: 'INGRESO', cantidad: '' });
+    setKardexForm({ medicamento_id: '', tipo_movimiento: 'INGRESO', cantidad: '', lote: '', fecha_vencimiento: '' });
     setIsModalOpen(true);
   };
 
@@ -109,13 +109,14 @@ const Almacen = () => {
           <table className="table table-compact" style={{tableLayout: 'fixed'}}>
             <thead>
               <tr>
-                <th style={{width: '120px'}}>Fecha</th>
-                <th style={{width: '85px'}} title="Código">Cód.</th>
+                <th style={{width: '105px'}}>Fecha</th>
+                <th style={{width: '75px'}} title="Código">Cód.</th>
                 <th>Producto</th>
-                <th style={{width: '110px'}}>Tipo</th>
-                <th style={{width: '110px'}} title="Movimiento">Movim.</th>
-                <th style={{width: '80px', textAlign: 'right'}}>Cant.</th>
-                <th style={{width: '80px', textAlign: 'right'}}>Saldo</th>
+                <th style={{width: '90px'}}>Tipo</th>
+                <th style={{width: '95px'}} title="Movimiento">Movim.</th>
+                <th style={{width: '135px'}} title="Lote / Vencimiento">Lote / Venc.</th>
+                <th style={{width: '65px', textAlign: 'right'}}>Cant.</th>
+                <th style={{width: '65px', textAlign: 'right'}}>Saldo</th>
               </tr>
             </thead>
             <tbody>
@@ -138,6 +139,12 @@ const Almacen = () => {
                         <span style={{color: 'var(--danger-color)', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '500', fontSize: '0.85rem'}}><TrendingDown size={14}/> Salida</span>
                       )}
                     </td>
+                    <td style={{fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
+                      {k.lote && <div>Lote: {k.lote}</div>}
+                      {k.fecha_vencimiento ? (
+                        <div className="text-muted">Vence: {k.fecha_vencimiento}</div>
+                      ) : (!k.lote && <span className="text-muted">—</span>)}
+                    </td>
                     <td style={{textAlign: 'right', fontWeight: 'bold', color: k.tipo_movimiento === 'INGRESO' ? '#16a34a' : 'var(--danger-color)'}}>
                       {k.tipo_movimiento === 'INGRESO' ? '+' : '-'}{k.cantidad}
                     </td>
@@ -147,7 +154,7 @@ const Almacen = () => {
               })}
               {filteredEntries.length === 0 && (
                 <tr>
-                  <td colSpan="7" className="text-center text-muted py-4">No hay movimientos registrados en el almacén</td>
+                  <td colSpan="8" className="text-center text-muted py-4">No hay movimientos registrados en el almacén</td>
                 </tr>
               )}
             </tbody>
@@ -206,6 +213,16 @@ const Almacen = () => {
                     <input required type="number" min="1" className="form-control" value={kardexForm.cantidad} onChange={e => setKardexForm({...kardexForm, cantidad: e.target.value})} />
                   </div>
                 </div>
+                <div className="flex gap-4">
+                  <div className="form-group" style={{flex: 1}}>
+                    <label className="form-label">Lote</label>
+                    <input className="form-control" value={kardexForm.lote} onChange={e => setKardexForm({...kardexForm, lote: e.target.value})} />
+                  </div>
+                  <div className="form-group" style={{flex: 1}}>
+                    <label className="form-label">Fecha de Vencimiento</label>
+                    <input type="date" className="form-control" value={kardexForm.fecha_vencimiento} onChange={e => setKardexForm({...kardexForm, fecha_vencimiento: e.target.value})} />
+                  </div>
+                </div>
                 <div style={{display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px'}}>
                   <button type="button" className="btn btn-secondary" onClick={closeModal}>Cancelar</button>
                   <button type="submit" className="btn btn-primary">Registrar Movimiento</button>
@@ -245,6 +262,7 @@ const Almacen = () => {
                     <tr>
                       <th>Fecha de Movimiento</th>
                       <th>Tipo</th>
+                      <th>Lote / Vencimiento</th>
                       <th style={{textAlign: 'right'}}>Cantidad</th>
                       <th style={{textAlign: 'right'}}>Saldo Restante</th>
                     </tr>
@@ -262,6 +280,12 @@ const Almacen = () => {
                             <span style={{color: 'var(--danger-color)', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '500'}}><TrendingDown size={14}/> SALIDA</span>
                           )}
                         </td>
+                        <td style={{fontSize: '0.85rem'}}>
+                          {k.lote && <div>Lote: {k.lote}</div>}
+                          {k.fecha_vencimiento ? (
+                            <div className="text-muted">Vence: {k.fecha_vencimiento}</div>
+                          ) : (!k.lote && <span className="text-muted">—</span>)}
+                        </td>
                         <td style={{textAlign: 'right', fontWeight: 'bold', color: k.tipo_movimiento === 'INGRESO' ? '#16a34a' : 'var(--danger-color)'}}>
                           {k.tipo_movimiento === 'INGRESO' ? '+' : '-'}{k.cantidad}
                         </td>
@@ -270,7 +294,7 @@ const Almacen = () => {
                     ))}
                     {kardexData.length === 0 && (
                       <tr>
-                        <td colSpan="4" className="text-center text-muted py-4">No hay movimientos registrados para este medicamento.</td>
+                        <td colSpan="5" className="text-center text-muted py-4">No hay movimientos registrados para este medicamento.</td>
                       </tr>
                     )}
                   </tbody>

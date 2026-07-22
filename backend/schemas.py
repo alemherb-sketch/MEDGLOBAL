@@ -160,6 +160,8 @@ class KardexBase(BaseModel):
     medicamento_id: str
     tipo_movimiento: str
     cantidad: int
+    lote: Optional[str] = None
+    fecha_vencimiento: Optional[str] = None
 
 class KardexCreate(KardexBase):
     pass

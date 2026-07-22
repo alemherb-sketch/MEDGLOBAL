@@ -66,6 +66,14 @@ with engine.connect() as conn:
         except Exception:
             pass
 
+    columnas_kardex = ["lote VARCHAR(50)", "fecha_vencimiento VARCHAR(20)"]
+    for col in columnas_kardex:
+        try:
+            with conn.begin():
+                conn.execute(text(f"ALTER TABLE kardex ADD COLUMN {col}"))
+        except Exception:
+            pass
+
 app = FastAPI(title="MEDGLOBAL API")
 
 # Configure CORS
@@ -1007,7 +1015,9 @@ def create_kardex(kardex: schemas.KardexCreate, db: Session = Depends(get_db), c
         medicamento_id=kardex.medicamento_id,
         tipo_movimiento=kardex.tipo_movimiento,
         cantidad=kardex.cantidad,
-        saldo=db_med.stock_actual
+        saldo=db_med.stock_actual,
+        lote=kardex.lote,
+        fecha_vencimiento=kardex.fecha_vencimiento,
     )
     db.add(db_kardex)
     db.commit()
