@@ -883,6 +883,9 @@ async def import_medicamentos(file: UploadFile = File(...), db: Session = Depend
                 val = val.iloc[0]
             return None if pd.isna(val) else val
 
+        def trunc(s, n):
+            return s if s is None else str(s).strip()[:n]
+
         for _, row in df.iterrows():
             nombre = get(row, "nombre")
             presentacion = get(row, "presentacion")
@@ -890,8 +893,11 @@ async def import_medicamentos(file: UploadFile = File(...), db: Session = Depend
                 omitidos += 1
                 continue
 
-            codigo = get(row, "codigo")
-            codigo = str(codigo).strip() if codigo else None
+            # Se recorta cada campo a su limite de columna: una celda con
+            # texto mas largo de lo esperado (ej. una nota en vez de una
+            # fecha) no debe tumbar el INSERT de las 200+ filas restantes,
+            # que van todas en la misma transaccion.
+            codigo = trunc(get(row, "codigo"), 50)
 
             tipo = get(row, "tipo")
             tipo = str(tipo).strip().upper() if tipo else "MEDICAMENTO"
@@ -901,10 +907,9 @@ async def import_medicamentos(file: UploadFile = File(...), db: Session = Depend
             descripcion = get(row, "descripcion")
             descripcion = str(descripcion).strip() if descripcion else None
 
-            lote = get(row, "lote")
-            lote = str(lote).strip() if lote else None
+            lote = trunc(get(row, "lote"), 50)
 
-            fecha_venc = _parse_med_fecha_vencimiento(get(row, "fecha_vencimiento"))
+            fecha_venc = trunc(_parse_med_fecha_vencimiento(get(row, "fecha_vencimiento")), 20)
 
             costo = _parse_med_costo(get(row, "costo_unitario"))
 
@@ -913,8 +918,8 @@ async def import_medicamentos(file: UploadFile = File(...), db: Session = Depend
             except (ValueError, TypeError):
                 stock_inicial = 0
 
-            nombre = str(nombre).strip()
-            presentacion = str(presentacion).strip().upper()
+            nombre = trunc(nombre, 150)
+            presentacion = trunc(presentacion, 100).upper()
 
             existente = None
             if codigo:
