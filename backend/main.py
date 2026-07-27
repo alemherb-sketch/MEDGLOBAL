@@ -553,8 +553,15 @@ def delete_empresa(id: str, db: Session = Depends(get_db), current_user: models.
 
 # --- Trabajadores ---
 @app.get("/trabajadores/", response_model=List[schemas.Trabajador])
-def read_trabajadores(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
-    return db.query(models.Trabajador).filter(models.Trabajador.is_deleted == False).offset(skip).limit(limit).all()
+def read_trabajadores(skip: int = 0, limit: int = 1000, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    return (
+        db.query(models.Trabajador)
+        .filter(models.Trabajador.is_deleted == False)
+        .order_by(models.Trabajador.codigo_trabajador.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 @app.post("/trabajadores/", response_model=schemas.Trabajador)
 def create_trabajador(trabajador: schemas.TrabajadorCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):

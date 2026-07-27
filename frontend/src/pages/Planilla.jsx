@@ -95,10 +95,12 @@ const Planilla = () => {
 
   const closeModal = () => setIsModalOpen(false);
 
-  const filteredTrabajadores = trabajadores.filter(t => {
-    const searchMatch = ((t.codigo_trabajador||'') + ' ' + t.nombre + ' ' + t.apellidos + ' ' + t.dni + ' ' + (t.obra||'')).toLowerCase().includes(filters.search.toLowerCase());
-    return searchMatch;
-  });
+  const filteredTrabajadores = trabajadores
+    .filter(t => {
+      const searchMatch = ((t.codigo_trabajador||'') + ' ' + t.nombre + ' ' + t.apellidos + ' ' + t.dni + ' ' + (t.obra||'')).toLowerCase().includes(filters.search.toLowerCase());
+      return searchMatch;
+    })
+    .sort((a, b) => (b.codigo_trabajador || '').localeCompare(a.codigo_trabajador || '', undefined, { numeric: true }));
 
   return (
     <div>
