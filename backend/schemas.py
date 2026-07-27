@@ -251,10 +251,25 @@ class Atencion(AtencionBase):
     id: str
     folio: Optional[int] = None
     fecha: datetime
-    trabajador: Trabajador
+
+    # Al CREAR una atencion estos campos son obligatorios (asi quedan en
+    # AtencionBase, que es lo que valida la entrada), pero al DEVOLVERLOS son
+    # opcionales a proposito.
+    #
+    # Antes eran obligatorios tambien en la respuesta, y como FastAPI valida la
+    # lista entera, una sola fila con el trabajador o el sistema en NULL hacia
+    # fallar GET /atenciones/ con un 500: la pantalla de Atenciones quedaba
+    # completamente vacia, sin mostrar ninguna de las demas atenciones y sin
+    # ningun mensaje de error. Filas asi aparecen por registros viejos
+    # anteriores a una migracion o por datos que llegaron incompletos.
+    # La interfaz ya sabe mostrar "N/A" cuando falta alguno.
+    trabajador_id: Optional[str] = None
+    sistema_id: Optional[str] = None
+    clasificacion_id: Optional[str] = None
+    trabajador: Optional[Trabajador] = None
     empresa: Optional[Empresa] = None
-    sistema: Sistema
-    clasificacion: Clasificacion
+    sistema: Optional[Sistema] = None
+    clasificacion: Optional[Clasificacion] = None
     personal_salud: Optional[PersonalSalud] = None
     medicamentos: List[AtencionMedicamento] = []
     created_at: Optional[datetime] = None

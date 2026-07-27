@@ -4,8 +4,13 @@ import { Search, Plus, Trash2, Edit2, X, Link, Clock, Eye } from 'lucide-react';
 import Select from 'react-select';
 import AsyncSelect from 'react-select/async';
 
+// Mismo tamaño de pagina que el catalogo de medicamentos y el kardex, para
+// que las tablas del sistema se comporten igual en todas las pantallas.
+const PAGE_SIZE = 20;
+
 const Atenciones = () => {
   const [atenciones, setAtenciones] = useState([]);
+  const [page, setPage] = useState(0);
   const [trabajadores, setTrabajadores] = useState([]);
   const [sistemas, setSistemas] = useState([]);
   const [contingencias, setContingencias] = useState([]);
@@ -304,6 +309,12 @@ const Atenciones = () => {
     return matchesSearch && matchesDate;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredAtenciones.length / PAGE_SIZE));
+  // pageSafe y no page: al filtrar, la pagina en la que estaba el usuario
+  // puede dejar de existir y la tabla quedaria vacia sin explicacion.
+  const pageSafe = Math.min(page, totalPages - 1);
+  const paginatedAtenciones = filteredAtenciones.slice(pageSafe * PAGE_SIZE, (pageSafe + 1) * PAGE_SIZE);
+
   const handlePrint = (mode) => {
     setPrintMode(mode);
     document.body.classList.remove('printing-ficha', 'printing-receta');
@@ -337,17 +348,20 @@ const Atenciones = () => {
                 className="form-control search-input" 
                 style={{paddingLeft: '40px'}}
                 placeholder="Buscar por paciente, diagnóstico o descripción..." 
-                value={filters.search} 
-                onChange={e => setFilters({...filters, search: e.target.value})} 
+                value={filters.search}
+                onChange={e => { setFilters({...filters, search: e.target.value}); setPage(0); }}
               />
             </div>
           </div>
           <div className="form-group mb-0" style={{flex: 1}}>
-            <input type="date" className="form-control" value={filters.date} onChange={e => setFilters({...filters, date: e.target.value})} />
+            <input type="date" className="form-control" value={filters.date} onChange={e => { setFilters({...filters, date: e.target.value}); setPage(0); }} />
           </div>
           {(filters.search || filters.date) && (
-            <button className="btn btn-secondary" onClick={() => setFilters({search: '', date: ''})}>Limpiar</button>
+            <button className="btn btn-secondary" onClick={() => { setFilters({search: '', date: ''}); setPage(0); }}>Limpiar</button>
           )}
+          <div style={{color: 'var(--text-muted)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap'}}>
+            Total: {filteredAtenciones.length} atenciones
+          </div>
         </div>
 
         <div className="table-container">
@@ -363,7 +377,7 @@ const Atenciones = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredAtenciones.map(a => (
+              {paginatedAtenciones.map(a => (
                 <tr key={a.id}>
                   <td style={{fontWeight: 'bold', color: 'var(--primary-color)'}}>{a.folio ? `#${a.folio.toString().padStart(4, '0')}` : '—'}</td>
                   <td>
@@ -396,6 +410,28 @@ const Atenciones = () => {
               )}
             </tbody>
           </table>
+
+          {filteredAtenciones.length > PAGE_SIZE && (
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderTop: '1px solid var(--border-color)'}}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={pageSafe === 0}
+              >
+                Anterior
+              </button>
+              <span style={{fontSize: '0.9rem', color: 'var(--text-muted)'}}>
+                Página {pageSafe + 1} de {totalPages}
+              </span>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={pageSafe >= totalPages - 1}
+              >
+                Siguiente
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

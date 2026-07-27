@@ -22,11 +22,17 @@ const Layout = () => {
   return (
     <div className="app-layout">
       <aside className="sidebar">
-        <div className="brand" style={{marginBottom: '2.5rem', padding: '10px 0'}}>
+        <div className="brand" style={{marginBottom: '1rem', padding: '10px 0'}}>
           <div className="logo-container" style={{width: '100%'}}>
             <img src="/logo.png" alt="MEDGLOBAL" style={{maxHeight: '45px', objectFit: 'contain', display: 'block', margin: '0 auto'}} />
           </div>
         </div>
+
+        {/* Arriba y no al pie de la barra: el estado de conexion y el boton de
+            sincronizar tienen que verse al entrar, sin depender de cuantas
+            opciones de menu haya ni de hacer scroll para encontrarlos. */}
+        <SyncStatus />
+
         <nav>
           {navItems.map((item) => (
             <Link
@@ -39,9 +45,7 @@ const Layout = () => {
             </Link>
           ))}
         </nav>
-        <div style={{ marginTop: 'auto' }}>
-          <SyncStatus />
-        </div>
+        <div style={{ marginTop: 'auto' }} />
         <button
           type="button"
           className="nav-link"
