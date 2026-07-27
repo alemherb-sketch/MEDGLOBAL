@@ -87,7 +87,12 @@ const Atenciones = () => {
     menu: (base) => ({
       ...base,
       background: '#1e293b',
-      border: '1px solid var(--border-color)'
+      border: '1px solid var(--border-color)',
+      zIndex: 9999
+    }),
+    menuPortal: (base) => ({
+      ...base,
+      zIndex: 9999
     }),
     option: (base, state) => ({
       ...base,
@@ -113,7 +118,7 @@ const Atenciones = () => {
     fetchData();
   }, []);
 
-  const handleAddAtencion = (e) => {
+  const handleAddAtencion = async (e) => {
     e.preventDefault();
     const isEditing = newAtencion.id !== null;
     const url = isEditing ? `/atenciones/${newAtencion.id}` : '/atenciones/';
@@ -123,29 +128,36 @@ const Atenciones = () => {
     delete dataToSend.id;
     delete dataToSend.folio;
 
-    // Los FKs ya vienen como string (UUID) desde los <select>
-    if (!dataToSend.cita_id) delete dataToSend.cita_id;
-    if (!dataToSend.personal_salud_id) delete dataToSend.personal_salud_id;
-    if (!dataToSend.empresa_id) delete dataToSend.empresa_id;
+    // Los FKs opcionales no deben ir como string vacío (rompe el PUT)
+    ['cita_id', 'personal_salud_id', 'empresa_id'].forEach((field) => {
+      if (!dataToSend[field]) delete dataToSend[field];
+    });
 
-    dataToSend.funciones_biologicas = JSON.stringify(dataToSend.funciones_biologicas);
-    dataToSend.signos_vitales = JSON.stringify(dataToSend.signos_vitales);
+    dataToSend.funciones_biologicas = typeof dataToSend.funciones_biologicas === 'string'
+      ? dataToSend.funciones_biologicas
+      : JSON.stringify(dataToSend.funciones_biologicas || {});
+    dataToSend.signos_vitales = typeof dataToSend.signos_vitales === 'string'
+      ? dataToSend.signos_vitales
+      : JSON.stringify(dataToSend.signos_vitales || {});
 
-    dataToSend.medicamentos = dataToSend.medicamentos.map(m => ({
-      medicamento_id: m.medicamento_id,
-      cantidad: parseInt(m.cantidad)
-    }));
+    dataToSend.medicamentos = (dataToSend.medicamentos || [])
+      .filter(m => m.medicamento_id)
+      .map(m => ({
+        medicamento_id: m.medicamento_id,
+        cantidad: parseInt(m.cantidad, 10) || 1
+      }));
 
-    apiFetch(url, {
-      method,
-      body: JSON.stringify(dataToSend)
-    }).then(() => {
+    try {
+      await apiJson(url, {
+        method,
+        body: JSON.stringify(dataToSend)
+      });
       fetchData();
       closeModal();
-    }).catch(err => {
-      alert("Error al guardar la atención.");
+    } catch (err) {
+      alert("Error al guardar la atención: " + (err.message || "intente nuevamente"));
       console.error(err);
-    });
+    }
   };
 
   const handleDelete = (id) => {
@@ -155,23 +167,30 @@ const Atenciones = () => {
     }
   };
 
+  const parseJsonField = (value, fallback) => {
+    if (!value) return fallback;
+    if (typeof value === 'object') return value;
+    try { return JSON.parse(value); } catch (_) { return fallback; }
+  };
+
   const openModal = (atencion = null) => {
     if (atencion) {
       setNewAtencion({
         id: atencion.id,
         folio: atencion.folio ?? null,
-        trabajador_id: atencion.trabajador?.id || '',
-        sistema_id: atencion.sistema?.id || '',
-        clasificacion_id: atencion.clasificacion?.id || '',
-        personal_salud_id: atencion.personal_salud_id || '',
+        trabajador_id: atencion.trabajador_id || atencion.trabajador?.id || '',
+        sistema_id: atencion.sistema_id || atencion.sistema?.id || '',
+        clasificacion_id: atencion.clasificacion_id || atencion.clasificacion?.id || '',
+        personal_salud_id: atencion.personal_salud_id || atencion.personal_salud?.id || '',
+        cita_id: atencion.cita_id || '',
         hora_ingreso: atencion.hora_ingreso || '',
         edad: atencion.edad || '',
         residencia: atencion.residencia || '',
-        empresa_id: atencion.empresa_id || '',
+        empresa_id: atencion.empresa_id || atencion.empresa?.id || '',
         cargo: atencion.cargo || '',
         descripcion: atencion.descripcion || '',
-        funciones_biologicas: atencion.funciones_biologicas ? JSON.parse(atencion.funciones_biologicas) : { apetito: '', sed: '', sueno: '', estado_animo: '', orina: '', deposiciones: '' },
-        signos_vitales: atencion.signos_vitales ? JSON.parse(atencion.signos_vitales) : { presion_arterial: '', frec_cardiaca: '', frec_respiratoria: '', temperatura: '', spo2: '', peso: '', talla: '' },
+        funciones_biologicas: parseJsonField(atencion.funciones_biologicas, { apetito: '', sed: '', sueno: '', estado_animo: '', orina: '', deposiciones: '' }),
+        signos_vitales: parseJsonField(atencion.signos_vitales, { presion_arterial: '', frec_cardiaca: '', frec_respiratoria: '', temperatura: '', spo2: '', peso: '', talla: '' }),
         examen_fisico: atencion.examen_fisico || '',
         examenes_auxiliares: atencion.examenes_auxiliares || '',
         codigo_diagnostico: atencion.codigo_diagnostico || '',
@@ -187,6 +206,7 @@ const Atenciones = () => {
     } else {
       setNewAtencion({
         id: null, folio: null, trabajador_id: '', sistema_id: '', clasificacion_id: '', personal_salud_id: '',
+        cita_id: '',
         hora_ingreso: new Date().toTimeString().substring(0,5), edad: '', residencia: '', empresa_id: '', cargo: '',
         descripcion: '', funciones_biologicas: { apetito: '', sed: '', sueno: '', estado_animo: '', orina: '', deposiciones: '' },
         signos_vitales: { presion_arterial: '', frec_cardiaca: '', frec_respiratoria: '', temperatura: '', spo2: '', peso: '', talla: '' },
@@ -569,10 +589,35 @@ const Atenciones = () => {
                       {newAtencion.medicamentos.map((med, index) => (
                         <div key={index} className="flex gap-3 items-center" style={{background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)'}}>
                           <div style={{flex: 1}}>
-                            <select required className="form-control mb-0" value={med.medicamento_id} onChange={(e) => updateMedicamento(index, 'medicamento_id', e.target.value)}>
-                              <option value="">Seleccione medicamento...</option>
-                              {medicamentos.map(m => <option key={m.id} value={m.id}>{m.nombre} - {m.presentacion} (Stock: {m.stock_actual})</option>)}
-                            </select>
+                            <Select
+                              styles={selectStyles}
+                              menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                              menuPosition="fixed"
+                              placeholder="Buscar medicamento..."
+                              isClearable
+                              isSearchable
+                              options={medicamentos.map(m => ({
+                                value: m.id,
+                                label: `${m.nombre} - ${m.presentacion || ''} (Stock: ${m.stock_actual})`
+                              }))}
+                              value={
+                                med.medicamento_id
+                                  ? (() => {
+                                      const found = medicamentos.find(m => m.id === med.medicamento_id);
+                                      return found
+                                        ? { value: found.id, label: `${found.nombre} - ${found.presentacion || ''} (Stock: ${found.stock_actual})` }
+                                        : { value: med.medicamento_id, label: 'Medicamento seleccionado' };
+                                    })()
+                                  : null
+                              }
+                              onChange={(opt) => updateMedicamento(index, 'medicamento_id', opt ? opt.value : '')}
+                              noOptionsMessage={() => 'Sin resultados'}
+                              filterOption={(option, input) => {
+                                const q = (input || '').toLowerCase().trim();
+                                if (!q) return true;
+                                return (option.label || '').toLowerCase().includes(q);
+                              }}
+                            />
                           </div>
                           <div style={{width: '130px'}}>
                             <div className="flex items-center">
@@ -580,17 +625,15 @@ const Atenciones = () => {
                               <input type="number" required min="1" className="form-control mb-0" style={{borderTopLeftRadius: 0, borderBottomLeftRadius: 0}} value={med.cantidad} onChange={(e) => updateMedicamento(index, 'cantidad', e.target.value)} />
                             </div>
                           </div>
-                          {!newAtencion.id && (
-                            <button type="button" className="action-btn delete" style={{background: 'rgba(239, 68, 68, 0.1)', padding: '8px', borderRadius: '6px'}} onClick={() => removeMedicamento(index)}>
-                              <Trash2 size={18} color="var(--danger-color)"/>
-                            </button>
-                          )}
+                          <button type="button" className="action-btn delete" style={{background: 'rgba(239, 68, 68, 0.1)', padding: '8px', borderRadius: '6px'}} onClick={() => removeMedicamento(index)}>
+                            <Trash2 size={18} color="var(--danger-color)"/>
+                          </button>
                         </div>
                       ))}
                     </div>
                   )}
-                  {!newAtencion.id && newAtencion.medicamentos.length > 0 && (
-                    <div className="text-muted mt-3" style={{fontSize: '0.8rem', textAlign: 'right'}}>* El stock se descontará automáticamente al guardar.</div>
+                  {newAtencion.medicamentos.length > 0 && (
+                    <div className="text-muted mt-3" style={{fontSize: '0.8rem', textAlign: 'right'}}>* El stock se ajustará automáticamente al guardar.</div>
                   )}
                 </div>
 

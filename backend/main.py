@@ -721,8 +721,49 @@ def update_atencion(id: str, atencion: schemas.AtencionCreate, db: Session = Dep
         raise HTTPException(status_code=404, detail="Atención no encontrada")
 
     atencion_data = atencion.dict(exclude={'medicamentos'})
+    # Evitar FK inválidos por strings vacíos enviados desde el formulario
+    for optional_fk in ("empresa_id", "cita_id", "personal_salud_id"):
+        if atencion_data.get(optional_fk) == "":
+            atencion_data[optional_fk] = None
+
     for key, value in atencion_data.items():
         setattr(db_atencion, key, value)
+
+    # Reemplazar medicamentos: devolver stock anterior y descontar el nuevo
+    previos = db.query(models.AtencionMedicamento).filter(
+        models.AtencionMedicamento.atencion_id == id
+    ).all()
+    for prev in previos:
+        db_med = db.query(models.Medicamento).filter(models.Medicamento.id == prev.medicamento_id).first()
+        if db_med:
+            db_med.stock_actual += prev.cantidad
+            db.add(models.Kardex(
+                medicamento_id=db_med.id,
+                tipo_movimiento="INGRESO",
+                cantidad=prev.cantidad,
+                saldo=db_med.stock_actual
+            ))
+        db.delete(prev)
+    db.flush()
+
+    if atencion.medicamentos:
+        for med_req in atencion.medicamentos:
+            if not med_req.medicamento_id:
+                continue
+            db.add(models.AtencionMedicamento(
+                atencion_id=db_atencion.id,
+                medicamento_id=med_req.medicamento_id,
+                cantidad=med_req.cantidad
+            ))
+            db_med = db.query(models.Medicamento).filter(models.Medicamento.id == med_req.medicamento_id).first()
+            if db_med:
+                db_med.stock_actual -= med_req.cantidad
+                db.add(models.Kardex(
+                    medicamento_id=db_med.id,
+                    tipo_movimiento="SALIDA",
+                    cantidad=med_req.cantidad,
+                    saldo=db_med.stock_actual
+                ))
 
     db.commit()
     db.refresh(db_atencion)
