@@ -297,6 +297,29 @@ def sync_estado(current_user: models.Usuario = Depends(auth.get_current_user)):
     return sync_client.obtener_estado()
 
 
+@app.post("/sync/ahora")
+def sync_ahora(current_user: models.Usuario = Depends(auth.get_current_user)):
+    """Dispara una sincronizacion completa (primero sube lo local, despues baja
+    lo del servidor) y espera a que termine para devolver el resultado.
+
+    Es el boton "Sincronizar ahora" de la aplicacion de escritorio: permite
+    trabajar sin internet todo el dia y subir todo de una vez al reconectarse,
+    sin esperar al ciclo automatico.
+
+    Solo existe en el escritorio. En el servidor central sync_client no esta
+    instalado (no tiene 'requests' ni tiene a quien sincronizarse), asi que ahi
+    responde 400 en vez de fallar.
+    """
+    if sync_client is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta instalacion no tiene la sincronizacion disponible.",
+        )
+    resultado = sync_client.sincronizar_ahora(origen="manual")
+    sync_client._actualizar_estado(resultado)
+    return resultado
+
+
 @app.get("/sync/cambios")
 def sync_cambios(since: Optional[str] = None, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     """Pull: todo lo que cambio desde 'since' (ISO 8601), incluyendo

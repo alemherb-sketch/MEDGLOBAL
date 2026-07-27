@@ -1,24 +1,44 @@
-import sys
+"""Empaqueta la aplicacion de escritorio (MEDGLOBAL.exe) con cx_Freeze.
+
+Antes de correr esto hay que compilar el frontend con la URL del API VACIA y
+copiar el resultado a backend/static, para que el .exe hable con su propio
+servidor local en vez de con el de internet:
+
+    cd frontend && VITE_API_URL='' npm run build
+    rm -rf backend/static && cp -r frontend/dist backend/static
+
+Despues:
+
+    cd backend && python setup.py build
+"""
 from cx_Freeze import setup, Executable
 
-# Dependencies are automatically detected, but it might need fine tuning.
 build_exe_options = {
-    "packages": ["uvicorn", "fastapi", "sqlalchemy", "pydantic", "starlette", "webbrowser", "threading", "sqlite3"],
+    # cx_Freeze detecta la mayoria de las dependencias solo, pero estas hay que
+    # nombrarlas: se cargan de forma indirecta y si faltan el .exe compila bien
+    # y recien falla al usarlo.
+    #   requests -> sync_client (sincronizacion con el servidor)
+    #   bcrypt, jose -> login
+    #   pandas, openpyxl -> importacion de medicamentos y CIE-10 desde Excel
+    "packages": [
+        "uvicorn", "fastapi", "sqlalchemy", "pydantic", "starlette",
+        "webbrowser", "threading", "sqlite3", "logging",
+        "requests", "bcrypt", "jose", "pandas", "openpyxl",
+    ],
+    # medglobal.db es la base inicial que se lleva la instalacion nueva.
+    # .env lleva la configuracion de sincronizacion (SYNC_SERVER_URL, usuario
+    # y contrasena); app_desktop.py lo lee al arrancar.
     "include_files": ["static/", "medglobal.db", ".env"],
-    "excludes": ["tkinter", "test", "unittest"]
+    "excludes": ["tkinter", "test", "unittest"],
 }
 
-base = None
-# if sys.platform == "win32":
-#    base = "Win32GUI" # Use this if you don't want a console window. For a web server we want it visible to close it or hidden. Let's make it console for now to debug, or hidden.
-# Actually, since it opens a browser, a console is fine, but maybe GUI is better.
-# We'll use Win32GUI to hide the console, but the server will run in the background until the PC is shut down, or killed via task manager. 
-# It's better to show a console so the user can close the server by closing the terminal window.
-
+# base=None deja la consola visible a proposito: es la forma que tiene el
+# personal de cerrar el servidor local, y ahi se ven los mensajes de error si
+# algo falla al arrancar.
 setup(
     name="MEDGLOBAL",
-    version="1.0",
+    version="1.1",
     description="Sistema Medglobal Local",
     options={"build_exe": build_exe_options},
-    executables=[Executable("app_desktop.py", base=base, target_name="MEDGLOBAL.exe", icon=None)]
+    executables=[Executable("app_desktop.py", base=None, target_name="MEDGLOBAL.exe", icon=None)],
 )

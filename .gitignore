@@ -19,6 +19,13 @@ backend/secret_key.txt
 backend/static/
 backend/build/
 backend/MEDGLOBAL.egg-info/
-MEDGLOBAL_Instalador_Offline.zip
+# Paquetes del instalable de escritorio: son artefactos de build de ~130 MB
+# que se regeneran con `cd frontend && VITE_API_URL='' npm run build` y
+# `cd backend && python setup.py build`. Ademas la carpeta armada incluye el
+# .env con la contrasena de sincronizacion y una medglobal.db con datos de
+# pacientes: nada de eso va al repositorio.
+MEDGLOBAL_Instalador_Offline/
+MEDGLOBAL_Instalador_Offline*.zip
+MEDGLOBAL_Instalador_Offline*.rar
 .DS_Store
 .deploy_last_commit

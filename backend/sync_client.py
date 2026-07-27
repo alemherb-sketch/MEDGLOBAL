@@ -17,8 +17,11 @@ oportunidad de resolver cualquier conflicto ANTES de traer la version ya
 resuelta — el cliente nunca necesita su propia logica de conflictos, solo
 aplica lo que el servidor ya decidio que es la verdad.
 """
+import glob
+import logging
 import os
 import json
+import sqlite3
 import threading
 import time
 from datetime import datetime
@@ -30,12 +33,32 @@ import models
 from database import engine
 from main import SYNCABLE_MODELS, _row_to_sync_dict, _apply_sync_fields
 
+logger = logging.getLogger(__name__)
+
 SYNC_SERVER_URL = os.getenv("SYNC_SERVER_URL")  # ej. https://api.medglobal.erpgest.com.pe
 SYNC_USERNAME = os.getenv("SYNC_USERNAME")
 SYNC_PASSWORD = os.getenv("SYNC_PASSWORD")
 SYNC_INTERVAL_SEGUNDOS = int(os.getenv("SYNC_INTERVAL_SEGUNDOS", "30"))
 
+# Timeouts generosos: una sincronizacion manual despues de varios dias sin
+# internet puede mover miles de filas de una sola vez, y cortarla a los 30
+# segundos obligaria a reintentar el ciclo entero.
+PUSH_TIMEOUT_SEGUNDOS = int(os.getenv("SYNC_PUSH_TIMEOUT", "300"))
+PULL_TIMEOUT_SEGUNDOS = int(os.getenv("SYNC_PULL_TIMEOUT", "300"))
+
 _CURSOR_FILE = "sync_cursor.json"
+
+# Respaldos de la base local previos a cada sincronizacion. Se conservan los
+# ultimos RESPALDOS_A_CONSERVAR y se van rotando.
+_CARPETA_RESPALDOS = "respaldos"
+RESPALDOS_A_CONSERVAR = int(os.getenv("SYNC_RESPALDOS", "10"))
+
+# Serializa los ciclos de sincronizacion. El hilo de fondo y el boton
+# "Sincronizar ahora" comparten este lock: sin el, dos ciclos simultaneos
+# podrian empujar las mismas filas dos veces y, sobre todo, escribir el
+# archivo de cursores uno encima del otro dejando un punto de sincronizacion
+# incoherente.
+_lock = threading.Lock()
 
 LocalSession = sessionmaker(bind=engine)
 
@@ -105,6 +128,65 @@ def _guardar_cursores(last_pulled_at, last_pushed_at):
         )
 
 
+def _respaldar_base_local():
+    """Copia la base local antes de sincronizar. Devuelve la ruta del respaldo,
+    o None si no aplica (base que no es SQLite) o si no se pudo hacer.
+
+    Existe porque el pull no es puramente aditivo: _limpiar_colisiones_locales
+    borra filas locales que choquen en una columna unique con una fila que
+    llega del servidor. Es lo correcto para que gane la version autoritativa,
+    pero significa que una sincronizacion PUEDE eliminar datos de esta PC. Con
+    el respaldo, ese caso siempre es reversible.
+
+    Usa la API de backup de SQLite en vez de copiar el archivo con shutil: la
+    aplicacion tiene la base abierta y una copia cruda podria capturarla a
+    mitad de una escritura. La API de backup entrega siempre una copia
+    consistente.
+
+    Un fallo al respaldar no aborta la sincronizacion: se registra y se sigue.
+    Quedarse sin sincronizar por no poder escribir un respaldo seria peor que
+    sincronizar sin el.
+    """
+    url = str(engine.url)
+    if not url.startswith("sqlite"):
+        return None
+    ruta_base = engine.url.database
+    if not ruta_base or not os.path.exists(ruta_base):
+        return None
+
+    try:
+        os.makedirs(_CARPETA_RESPALDOS, exist_ok=True)
+        marca = datetime.now().strftime("%Y%m%d-%H%M%S")
+        destino = os.path.join(_CARPETA_RESPALDOS, f"medglobal-{marca}.db")
+
+        origen_conn = sqlite3.connect(ruta_base)
+        try:
+            destino_conn = sqlite3.connect(destino)
+            try:
+                origen_conn.backup(destino_conn)
+            finally:
+                destino_conn.close()
+        finally:
+            origen_conn.close()
+
+        _rotar_respaldos()
+        return destino
+    except (OSError, sqlite3.Error) as e:
+        logger.warning("No se pudo respaldar la base local antes de sincronizar: %s", e)
+        return None
+
+
+def _rotar_respaldos():
+    """Deja solo los RESPALDOS_A_CONSERVAR mas recientes, para que la carpeta
+    no crezca sin limite en una PC de la clinica."""
+    respaldos = sorted(glob.glob(os.path.join(_CARPETA_RESPALDOS, "medglobal-*.db")))
+    for viejo in respaldos[:-RESPALDOS_A_CONSERVAR] if RESPALDOS_A_CONSERVAR > 0 else []:
+        try:
+            os.remove(viejo)
+        except OSError:
+            pass
+
+
 def esta_en_linea():
     if not SYNC_SERVER_URL:
         return False
@@ -116,6 +198,12 @@ def esta_en_linea():
 
 
 def _login():
+    """Devuelve (token, motivo_del_fallo).
+
+    Distingue no poder llegar al servidor de que el servidor rechace el
+    usuario: para quien esta en la clinica son dos problemas completamente
+    distintos ("esperá a tener internet" vs "avisá a sistemas"), y antes los
+    dos casos devolvian None y se reportaban como credenciales invalidas."""
     try:
         r = requests.post(
             f"{SYNC_SERVER_URL}/auth/login",
@@ -123,10 +211,10 @@ def _login():
             timeout=10,
         )
     except requests.RequestException:
-        return None
+        return None, "sin_conexion"
     if r.status_code == 200:
-        return r.json()["access_token"]
-    return None
+        return r.json()["access_token"], None
+    return None, "credenciales"
 
 
 def _empujar_cambios(token, since_local, since_servidor, db):
@@ -134,7 +222,10 @@ def _empujar_cambios(token, since_local, since_servidor, db):
     esta PC). since_servidor es lo que viaja en el payload para que el servidor
     detecte conflictos (se compara alla con server_updated_at, reloj del
     servidor). Son valores de relojes distintos y no se pueden intercambiar:
-    ver la explicacion en _leer_cursores."""
+    ver la explicacion en _leer_cursores.
+
+    Devuelve (subidos, conflictos) para poder mostrarle al usuario cuantos
+    registros salieron de esta PC, en vez de un "listo" sin respaldo."""
     cambios = {}
     for tabla, model in SYNCABLE_MODELS.items():
         query = db.query(model)
@@ -155,13 +246,21 @@ def _empujar_cambios(token, since_local, since_servidor, db):
         cambios[tabla] = items
 
     if not cambios:
-        return
-    requests.post(
+        return 0, 0
+    respuesta = requests.post(
         f"{SYNC_SERVER_URL}/sync/subir",
         headers={"Authorization": f"Bearer {token}"},
         json={"since": since_servidor, "cambios": cambios},
-        timeout=30,
-    ).raise_for_status()
+        timeout=PUSH_TIMEOUT_SEGUNDOS,
+    )
+    respuesta.raise_for_status()
+
+    # El servidor informa por tabla cuantas filas aplico y cuantas quedaron
+    # como conflicto (se guardan enteras en conflictos_sync, no se pierden).
+    resultado = respuesta.json().get("resultado", {})
+    subidos = sum(r.get("aplicados", 0) for r in resultado.values())
+    conflictos = sum(r.get("conflictos", 0) for r in resultado.values())
+    return subidos, conflictos
 
 
 def _limpiar_colisiones_locales(db, model, fila):
@@ -187,16 +286,21 @@ def _limpiar_colisiones_locales(db, model, fila):
 
 
 def _traer_cambios(token, since, db):
+    """Devuelve (server_time, bajados). Todo el pull se aplica en UNA sola
+    transaccion: el commit esta al final, asi que si algo falla a mitad de
+    camino la base local queda exactamente como estaba y el cursor no avanza.
+    El proximo intento vuelve a pedir lo mismo."""
     params = {"since": since} if since else {}
     r = requests.get(
         f"{SYNC_SERVER_URL}/sync/cambios",
         headers={"Authorization": f"Bearer {token}"},
         params=params,
-        timeout=30,
+        timeout=PULL_TIMEOUT_SEGUNDOS,
     )
     r.raise_for_status()
     data = r.json()
 
+    bajados = 0
     for tabla, filas in data["cambios"].items():
         model = SYNCABLE_MODELS.get(tabla)
         if model is None:
@@ -225,47 +329,125 @@ def _traer_cambios(token, since, db):
                         ))
             else:
                 _apply_sync_fields(existing, fila, tabla, trusted_source=True)
+            bajados += 1
 
     db.commit()
-    return data["server_time"]
+    return data["server_time"], bajados
 
 
 def _parse_iso(value):
     return datetime.fromisoformat(value)
 
 
-def sincronizar_una_vez():
-    """Un ciclo completo: push, luego pull. Devuelve True si se completo bien."""
-    if not sync_habilitado():
-        return False
-    token = _login()
-    if not token:
-        return False
+def sincronizar_ahora(origen="manual"):
+    """Un ciclo completo (push y despues pull) con detalle de lo que paso.
 
-    db = LocalSession()
+    Nunca lanza excepciones: siempre devuelve un dict con 'ok' y, cuando
+    ok=False, un 'motivo' estable que la interfaz traduce a un mensaje para el
+    usuario. Que no lance es importante para el hilo de fondo, que no tiene su
+    propio try/except: una excepcion que se escapara de aca mataria el hilo
+    para siempre y esa instalacion no volveria a sincronizar hasta reiniciar
+    la app.
+
+    Garantias para no perder informacion:
+
+      - Un solo ciclo a la vez (_lock). Si el usuario aprieta el boton
+        mientras el ciclo automatico esta corriendo, no se solapan dos push
+        ni se pisa el archivo de cursores a medio escribir.
+      - Antes de tocar nada se hace un respaldo de la base local, porque el
+        pull puede borrar filas locales al resolver colisiones de columnas
+        unique (ver _limpiar_colisiones_locales).
+      - El cursor SOLO avanza si el ciclo entero termino bien. Si falla en
+        cualquier punto, se deshace la transaccion y el cursor queda donde
+        estaba: el proximo intento reenvia y vuelve a pedir exactamente lo
+        mismo. Un fallo retrasa la sincronizacion, nunca la saltea.
+    """
+    if not sync_habilitado():
+        return {"ok": False, "motivo": "no_configurado"}
+
+    # blocking=False: si ya hay un ciclo en curso se avisa en el momento en
+    # vez de dejar la interfaz esperando sin explicacion.
+    if not _lock.acquire(blocking=False):
+        return {"ok": False, "motivo": "en_curso"}
+
     try:
-        since_servidor, since_local = _leer_cursores()
-        # La marca local se toma ANTES de empujar: cualquier fila que un
-        # usuario guarde mientras el push esta en vuelo queda por encima de
-        # este corte y entra en el ciclo siguiente, en vez de caer en el hueco
-        # entre "ya la filtre" y "ya avance el cursor".
-        marca_local = datetime.utcnow().isoformat()
-        _empujar_cambios(token, since_local, since_servidor, db)
-        nuevo_cursor = _traer_cambios(token, since_servidor, db)
-        _guardar_cursores(nuevo_cursor, marca_local)
-        return True
-    except Exception:
-        # Deliberadamente amplio, no solo requests.RequestException: el
-        # hilo de fondo (iniciar_hilo_sincronizacion) no tiene su propio
-        # try/except alrededor de esta llamada, asi que cualquier excepcion
-        # que se escape de aca mata el hilo para siempre (nunca mas vuelve
-        # a sincronizar en esa instalacion hasta reiniciar la app). Mejor
-        # que un ciclo falle y se reintente solo en el proximo, sin
-        # necesidad de reiniciar nada.
-        db.rollback()
-        return False
+        token, motivo_login = _login()
+        if not token:
+            return {"ok": False, "motivo": motivo_login}
+
+        respaldo = _respaldar_base_local()
+
+        db = LocalSession()
+        try:
+            since_servidor, since_local = _leer_cursores()
+            # La marca local se toma ANTES de empujar: cualquier fila que un
+            # usuario guarde mientras el push esta en vuelo queda por encima de
+            # este corte y entra en el ciclo siguiente, en vez de caer en el hueco
+            # entre "ya la filtre" y "ya avance el cursor".
+            marca_local = datetime.utcnow().isoformat()
+            subidos, conflictos = _empujar_cambios(token, since_local, since_servidor, db)
+            nuevo_cursor, bajados = _traer_cambios(token, since_servidor, db)
+            _guardar_cursores(nuevo_cursor, marca_local)
+            return {
+                "ok": True,
+                "subidos": subidos,
+                "bajados": bajados,
+                "conflictos": conflictos,
+                "respaldo": respaldo,
+                "origen": origen,
+            }
+        except requests.RequestException as e:
+            db.rollback()
+            logger.warning("Sincronizacion (%s): fallo de red: %s", origen, e)
+            return {"ok": False, "motivo": "sin_conexion", "detalle": str(e)}
+        except Exception as e:
+            db.rollback()
+            logger.exception("Sincronizacion (%s): error inesperado", origen)
+            return {"ok": False, "motivo": "error", "detalle": str(e)}
+        finally:
+            db.close()
     finally:
-        db.close()
+        _lock.release()
+
+
+def sincronizar_una_vez():
+    """Compatibilidad: la version booleana que usa el hilo de fondo."""
+    return sincronizar_ahora(origen="automatico")["ok"]
+
+
+# Mensajes que ve el usuario en el indicador de la barra lateral. Las claves
+# son los 'motivo' que devuelve sincronizar_ahora.
+_MENSAJE_POR_MOTIVO = {
+    "no_configurado": "Esta instalacion no tiene configurada la sincronizacion",
+    "en_curso": "Ya hay una sincronizacion en curso",
+    "credenciales": "El servidor rechazo el usuario o la contrasena de sincronizacion",
+    "sin_conexion": "Sin conexion con el servidor -- los datos siguen guardados en esta PC",
+    "error": "La sincronizacion fallo -- los datos siguen guardados en esta PC",
+}
+
+
+def _actualizar_estado(resultado):
+    """Refleja el resultado de un ciclo en el indicador que lee /sync/estado.
+    Lo llaman tanto el hilo de fondo como el boton manual, para que apretar el
+    boton actualice el indicador en el acto."""
+    if resultado.get("motivo") == "en_curso":
+        return  # otro ciclo esta corriendo y ya reportara su propio resultado
+
+    if resultado.get("ok"):
+        _estado["estado"] = "en_linea"
+        # +"Z": datetime.utcnow().isoformat() no incluye marca de zona
+        # horaria, y new Date(...) en JS interpreta un ISO sin zona como hora
+        # LOCAL, no UTC -- sin la Z el indicador del frontend mostraba la
+        # ultima sync como si hubiera sido en el futuro.
+        _estado["ultima_sincronizacion"] = datetime.utcnow().isoformat() + "Z"
+        _estado["ultimo_error"] = None
+    elif resultado.get("motivo") == "sin_conexion":
+        _estado["estado"] = "fuera_de_linea"
+    else:
+        _estado["estado"] = "error"
+        _estado["ultimo_error"] = _MENSAJE_POR_MOTIVO.get(
+            resultado.get("motivo"), "La sincronizacion fallo"
+        )
 
 
 def iniciar_hilo_sincronizacion():
@@ -285,18 +467,7 @@ def iniciar_hilo_sincronizacion():
     def loop():
         while True:
             if esta_en_linea():
-                if sincronizar_una_vez():
-                    _estado["estado"] = "en_linea"
-                    # +"Z": datetime.utcnow().isoformat() no incluye marca de
-                    # zona horaria, y new Date(...) en JS interpreta un ISO
-                    # sin zona como hora LOCAL, no UTC -- sin la Z el
-                    # indicador del frontend mostraba la ultima sync como si
-                    # hubiera sido en el futuro.
-                    _estado["ultima_sincronizacion"] = datetime.utcnow().isoformat() + "Z"
-                    _estado["ultimo_error"] = None
-                else:
-                    _estado["estado"] = "error"
-                    _estado["ultimo_error"] = "hay conexion pero la sincronizacion fallo -- revisar usuario/password de sync"
+                _actualizar_estado(sincronizar_ahora(origen="automatico"))
             else:
                 _estado["estado"] = "fuera_de_linea"
             time.sleep(SYNC_INTERVAL_SEGUNDOS)

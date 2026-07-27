@@ -88,6 +88,9 @@ def test_push_filtra_por_reloj_local_no_por_el_del_servidor(db, monkeypatch):
         def raise_for_status(self):
             pass
 
+        def json(self):
+            return {"server_time": "2026-01-01T00:00:00", "resultado": {}}
+
     def post_falso(url, headers=None, json=None, timeout=None):
         enviados.update(json)
         return RespuestaFalsa()
