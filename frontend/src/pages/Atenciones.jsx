@@ -22,6 +22,7 @@ const Atenciones = () => {
   const [newAtencion, setNewAtencion] = useState({
     id: null,
     folio: null,
+    fecha: null,
     trabajador_id: '',
     sistema_id: '',
     clasificacion_id: '',
@@ -147,6 +148,13 @@ const Atenciones = () => {
         cantidad: parseInt(m.cantidad, 10) || 1
       }));
 
+    if (dataToSend.fecha) {
+      const dateOnly = toDateInputValue(dataToSend.fecha);
+      dataToSend.fecha = fromDateInputValue(dateOnly, dataToSend.hora_ingreso || '00:00');
+    } else {
+      delete dataToSend.fecha;
+    }
+
     try {
       await apiJson(url, {
         method,
@@ -173,11 +181,26 @@ const Atenciones = () => {
     try { return JSON.parse(value); } catch (_) { return fallback; }
   };
 
+  const toDateInputValue = (fecha) => {
+    if (!fecha) return new Date().toISOString().substring(0, 10);
+    const d = new Date(fecha);
+    if (Number.isNaN(d.getTime())) return String(fecha).substring(0, 10);
+    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+    return local.toISOString().substring(0, 10);
+  };
+
+  const fromDateInputValue = (dateStr, hora = '00:00') => {
+    const [y, m, day] = dateStr.split('-').map(Number);
+    const [hh, mm] = (hora || '00:00').split(':').map(Number);
+    return new Date(y, m - 1, day, hh || 0, mm || 0, 0).toISOString();
+  };
+
   const openModal = (atencion = null) => {
     if (atencion) {
       setNewAtencion({
         id: atencion.id,
         folio: atencion.folio ?? null,
+        fecha: atencion.fecha || null,
         trabajador_id: atencion.trabajador_id || atencion.trabajador?.id || '',
         sistema_id: atencion.sistema_id || atencion.sistema?.id || '',
         clasificacion_id: atencion.clasificacion_id || atencion.clasificacion?.id || '',
@@ -205,7 +228,7 @@ const Atenciones = () => {
       });
     } else {
       setNewAtencion({
-        id: null, folio: null, trabajador_id: '', sistema_id: '', clasificacion_id: '', personal_salud_id: '',
+        id: null, folio: null, fecha: new Date().toISOString(), trabajador_id: '', sistema_id: '', clasificacion_id: '', personal_salud_id: '',
         cita_id: '',
         hora_ingreso: new Date().toTimeString().substring(0,5), edad: '', residencia: '', empresa_id: '', cargo: '',
         descripcion: '', funciones_biologicas: { apetito: '', sed: '', sueno: '', estado_animo: '', orina: '', deposiciones: '' },
@@ -396,8 +419,27 @@ const Atenciones = () => {
                   <div className="form-group">
                     <label className="form-label">Fecha y Hora</label>
                     <div style={{display: 'flex', gap: '10px'}}>
-                      <input type="date" className="form-control mb-0" value={newAtencion.fecha ? newAtencion.fecha.substring(0,10) : new Date().toISOString().substring(0,10)} onChange={e => setNewAtencion({...newAtencion, fecha: new Date(e.target.value).toISOString()})} />
-                      <input type="time" className="form-control mb-0" value={newAtencion.hora_ingreso} onChange={e => setNewAtencion({...newAtencion, hora_ingreso: e.target.value})} />
+                      <input
+                        type="date"
+                        className="form-control mb-0"
+                        value={toDateInputValue(newAtencion.fecha)}
+                        onChange={e => setNewAtencion({
+                          ...newAtencion,
+                          fecha: fromDateInputValue(e.target.value, newAtencion.hora_ingreso || '00:00')
+                        })}
+                      />
+                      <input
+                        type="time"
+                        className="form-control mb-0"
+                        value={newAtencion.hora_ingreso}
+                        onChange={e => setNewAtencion({
+                          ...newAtencion,
+                          hora_ingreso: e.target.value,
+                          fecha: newAtencion.fecha
+                            ? fromDateInputValue(toDateInputValue(newAtencion.fecha), e.target.value)
+                            : fromDateInputValue(toDateInputValue(null), e.target.value)
+                        })}
+                      />
                     </div>
                   </div>
 

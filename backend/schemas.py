@@ -211,6 +211,7 @@ class AtencionMedicamento(AtencionMedicamentoBase):
         from_attributes = True
 
 class AtencionBase(BaseModel):
+    fecha: Optional[datetime] = None
     hora_ingreso: Optional[str] = None
     hora_salida: Optional[str] = None
     tiempo_topico: Optional[str] = None

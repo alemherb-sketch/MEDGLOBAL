@@ -670,6 +670,12 @@ def read_atenciones(db: Session = Depends(get_db), current_user: models.Usuario 
 def create_atencion(atencion: schemas.AtencionCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     # Separar la data base de medicamentos
     atencion_data = atencion.dict(exclude={'medicamentos'})
+    # Si no envian fecha, dejar que el default del modelo (utcnow) la asigne
+    if not atencion_data.get("fecha"):
+        atencion_data.pop("fecha", None)
+    for optional_fk in ("empresa_id", "cita_id", "personal_salud_id"):
+        if atencion_data.get(optional_fk) == "":
+            atencion_data[optional_fk] = None
     db_atencion = models.Atencion(**atencion_data)
 
     # Folio correlativo humano (Ficha N°), asignado solo por el servidor
@@ -725,6 +731,9 @@ def update_atencion(id: str, atencion: schemas.AtencionCreate, db: Session = Dep
     for optional_fk in ("empresa_id", "cita_id", "personal_salud_id"):
         if atencion_data.get(optional_fk) == "":
             atencion_data[optional_fk] = None
+    # Si no mandan fecha en la edicion, conservar la existente
+    if not atencion_data.get("fecha"):
+        atencion_data.pop("fecha", None)
 
     for key, value in atencion_data.items():
         setattr(db_atencion, key, value)
