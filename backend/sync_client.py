@@ -45,6 +45,11 @@ SYNC_INTERVAL_SEGUNDOS = int(os.getenv("SYNC_INTERVAL_SEGUNDOS", "30"))
 # segundos obligaria a reintentar el ciclo entero.
 PUSH_TIMEOUT_SEGUNDOS = int(os.getenv("SYNC_PUSH_TIMEOUT", "300"))
 PULL_TIMEOUT_SEGUNDOS = int(os.getenv("SYNC_PULL_TIMEOUT", "300"))
+# El chequeo de conexion tenia 5 segundos: en una PC de la clinica con
+# internet lento eso alcanzaba para que el indicador dijera "sin conexion"
+# aunque el servidor estuviera perfectamente accesible.
+CONEXION_TIMEOUT_SEGUNDOS = int(os.getenv("SYNC_CONEXION_TIMEOUT", "20"))
+LOGIN_TIMEOUT_SEGUNDOS = int(os.getenv("SYNC_LOGIN_TIMEOUT", "30"))
 
 _CURSOR_FILE = "sync_cursor.json"
 
@@ -191,9 +196,17 @@ def esta_en_linea():
     if not SYNC_SERVER_URL:
         return False
     try:
-        r = requests.get(f"{SYNC_SERVER_URL}/docs", timeout=5)
-        return r.status_code == 200
-    except requests.RequestException:
+        r = requests.get(f"{SYNC_SERVER_URL}/docs", timeout=CONEXION_TIMEOUT_SEGUNDOS)
+        if r.status_code != 200:
+            logger.warning("Chequeo de conexion: %s/docs respondio %s", SYNC_SERVER_URL, r.status_code)
+            return False
+        return True
+    except requests.RequestException as e:
+        # Con el detalle: sin esto, "sin conexion" podia ser un DNS que no
+        # resuelve, un certificado que no valida, un proxy o simplemente que
+        # no hay internet, y no habia forma de distinguirlos desde la PC.
+        logger.warning("Chequeo de conexion fallido contra %s: %s: %s",
+                       SYNC_SERVER_URL, type(e).__name__, e)
         return False
 
 
@@ -208,13 +221,21 @@ def _login():
         r = requests.post(
             f"{SYNC_SERVER_URL}/auth/login",
             data={"username": SYNC_USERNAME, "password": SYNC_PASSWORD},
-            timeout=10,
+            timeout=LOGIN_TIMEOUT_SEGUNDOS,
         )
-    except requests.RequestException:
-        return None, "sin_conexion"
+    except requests.RequestException as e:
+        # El texto de la excepcion no lleva la contrasena (requests no vuelca
+        # el cuerpo del request en el mensaje), pero si el motivo real: DNS,
+        # certificado, proxy, timeout. Sin esto la aplicacion solo podia decir
+        # "no se pudo conectar" y no habia por donde empezar a buscar.
+        logger.warning("Login de sincronizacion fallido contra %s: %s: %s",
+                       SYNC_SERVER_URL, type(e).__name__, e)
+        return None, "sin_conexion", f"{type(e).__name__}: {e}"
     if r.status_code == 200:
-        return r.json()["access_token"], None
-    return None, "credenciales"
+        return r.json()["access_token"], None, None
+    logger.warning("Login de sincronizacion rechazado: HTTP %s (usuario %r)",
+                   r.status_code, SYNC_USERNAME)
+    return None, "credenciales", f"El servidor respondio HTTP {r.status_code}"
 
 
 def _empujar_cambios(token, since_local, since_servidor, db):
@@ -371,9 +392,9 @@ def sincronizar_ahora(origen="manual"):
         return {"ok": False, "motivo": "en_curso"}
 
     try:
-        token, motivo_login = _login()
+        token, motivo_login, detalle_login = _login()
         if not token:
-            return {"ok": False, "motivo": motivo_login}
+            return {"ok": False, "motivo": motivo_login, "detalle": detalle_login}
 
         respaldo = _respaldar_base_local()
 

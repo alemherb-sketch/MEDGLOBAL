@@ -62,7 +62,15 @@ const SyncStatus = () => {
       const r = await apiJson('/sync/ahora', { method: 'POST' });
       setResultado(r.ok
         ? { tipo: 'ok', texto: resumir(r), recargar: r.bajados > 0 }
-        : { tipo: 'error', texto: MENSAJE_POR_MOTIVO[r.motivo] || 'La sincronización falló. Sus datos siguen guardados en esta PC.' });
+        : {
+            tipo: 'error',
+            texto: MENSAJE_POR_MOTIVO[r.motivo] || 'La sincronización falló. Sus datos siguen guardados en esta PC.',
+            // El detalle tecnico va aparte y en chico: al usuario le alcanza
+            // con el mensaje de arriba, pero sin esto no habia nada que
+            // pasarle a soporte para saber si es el certificado, el DNS, un
+            // proxy o el servidor caido.
+            detalle: r.detalle,
+          });
     } catch (e) {
       setResultado({ tipo: 'error', texto: 'No se pudo completar la sincronización. Sus datos siguen guardados en esta PC.' });
     } finally {
@@ -146,6 +154,11 @@ const SyncStatus = () => {
           }}
         >
           {resultado.texto}
+          {resultado.detalle && (
+            <div style={{ marginTop: '5px', color: 'var(--text-muted)', fontSize: '10.5px', wordBreak: 'break-word' }}>
+              Detalle: {resultado.detalle}
+            </div>
+          )}
           {resultado.recargar && (
             <button
               type="button"

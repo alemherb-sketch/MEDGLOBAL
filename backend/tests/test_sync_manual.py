@@ -20,7 +20,7 @@ def sync_configurado(monkeypatch, tmp_path):
     monkeypatch.setattr(sync_client, "SYNC_SERVER_URL", "https://servidor-de-prueba")
     monkeypatch.setattr(sync_client, "SYNC_USERNAME", "equipo")
     monkeypatch.setattr(sync_client, "SYNC_PASSWORD", "clave")
-    monkeypatch.setattr(sync_client, "_login", lambda: ("token-valido", None))
+    monkeypatch.setattr(sync_client, "_login", lambda: ("token-valido", None, None))
     monkeypatch.chdir(tmp_path)
     return tmp_path
 
@@ -35,13 +35,19 @@ def test_login_distingue_falta_de_internet_de_password_incorrecta(monkeypatch):
         raise requests.ConnectionError("no hay ruta al servidor")
 
     monkeypatch.setattr(sync_client.requests, "post", sin_red)
-    assert sync_client._login() == (None, "sin_conexion")
+    token, motivo, detalle = sync_client._login()
+    assert (token, motivo) == (None, "sin_conexion")
+    # El detalle dice QUE fallo: sin el, "no se pudo conectar" podia ser un
+    # DNS, un certificado, un proxy o falta de internet, sin forma de saberlo.
+    assert "ConnectionError" in detalle and "no hay ruta" in detalle
 
     class Respuesta401:
         status_code = 401
 
     monkeypatch.setattr(sync_client.requests, "post", lambda *a, **kw: Respuesta401())
-    assert sync_client._login() == (None, "credenciales")
+    token, motivo, detalle = sync_client._login()
+    assert (token, motivo) == (None, "credenciales")
+    assert "401" in detalle
 
     class Respuesta200:
         status_code = 200
@@ -50,7 +56,20 @@ def test_login_distingue_falta_de_internet_de_password_incorrecta(monkeypatch):
             return {"access_token": "abc"}
 
     monkeypatch.setattr(sync_client.requests, "post", lambda *a, **kw: Respuesta200())
-    assert sync_client._login() == ("abc", None)
+    assert sync_client._login() == ("abc", None, None)
+
+
+def test_el_detalle_del_fallo_llega_al_resultado(sync_configurado, monkeypatch):
+    """Lo que se ve en pantalla tiene que alcanzar para diagnosticar sin tener
+    que abrir la consola de la aplicacion."""
+    def sin_red(*a, **kw):
+        raise requests.exceptions.SSLError("certificate verify failed")
+
+    monkeypatch.setattr(sync_client, "_login", lambda: (None, "sin_conexion", "SSLError: certificate verify failed"))
+
+    resultado = sync_client.sincronizar_ahora(origen="manual")
+    assert resultado["motivo"] == "sin_conexion"
+    assert "certificate verify failed" in resultado["detalle"]
 
 
 def test_no_deja_correr_dos_sincronizaciones_a_la_vez(sync_configurado, monkeypatch):

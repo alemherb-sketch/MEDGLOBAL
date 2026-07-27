@@ -22,6 +22,8 @@ def _cargar_env_local():
 
 _cargar_env_local()
 
+import logging
+
 import uvicorn
 import webbrowser
 import threading
@@ -29,12 +31,22 @@ import time
 from main import app
 import sync_client
 
+# Configurable para poder levantar una segunda instancia (por ejemplo, para
+# revisar un problema de sincronizacion) sin cerrar la que esta en uso.
+PUERTO = int(os.getenv("MEDGLOBAL_PORT", "8000"))
+
+
 def open_browser():
     # Esperar un poco a que arranque FastAPI
     time.sleep(2)
-    webbrowser.open("http://127.0.0.1:8000")
+    webbrowser.open(f"http://127.0.0.1:{PUERTO}")
 
 if __name__ == "__main__":
+    # Los avisos de sync_client (por que fallo una conexion, por ejemplo) se
+    # escriben con logging: sin esta configuracion no aparecian en la consola
+    # de la aplicacion y no habia forma de diagnosticar nada desde la PC.
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
+
     # Iniciar hilo para abrir el navegador
     threading.Thread(target=open_browser, daemon=True).start()
 
@@ -45,4 +57,4 @@ if __name__ == "__main__":
     sync_client.iniciar_hilo_sincronizacion()
 
     # Iniciar servidor FastAPI
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
+    uvicorn.run(app, host="127.0.0.1", port=PUERTO, log_level="warning")
