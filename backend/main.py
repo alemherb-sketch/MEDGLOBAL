@@ -1624,10 +1624,43 @@ def get_reporte_consumo_medicamentos(
     }
 
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+
+# index.html NUNCA se cachea; los assets, para siempre.
+#
+# Vite le pone un hash al nombre de cada asset (index-DC3vAq3r.js), asi que un
+# archivo con ese nombre no cambia jamas y se puede cachear indefinidamente.
+# index.html es lo contrario: es el unico que dice cual es el hash vigente, y
+# si el navegador se lo queda cacheado sigue pidiendo el bundle anterior.
+#
+# Eso convertia cada actualizacion del .exe en un problema por PC: la
+# aplicacion quedaba actualizada en disco pero el navegador seguia mostrando
+# la version vieja hasta que alguien hiciera Ctrl+Shift+R, sin ninguna pista
+# de que eso hacia falta.
+_CACHE_INDEX = "no-store, no-cache, must-revalidate"
+_CACHE_ASSETS = "public, max-age=31536000, immutable"
+
+
+class ArchivosEstaticos(StaticFiles):
+    def file_response(self, full_path, stat_result, scope, status_code=200):
+        respuesta = super().file_response(full_path, stat_result, scope, status_code)
+        es_index = str(full_path).replace("\\", "/").endswith("/index.html")
+        respuesta.headers["Cache-Control"] = _CACHE_INDEX if es_index else _CACHE_ASSETS
+        return respuesta
+
+
 os.makedirs('static', exist_ok=True)
-app.mount('/', StaticFiles(directory='static', html=True), name='static')
+app.mount('/', ArchivosEstaticos(directory='static', html=True), name='static')
+
+
 @app.exception_handler(404)
 async def custom_404_handler(request, exc):
-    if request.url.path.startswith('/api'): return exc
-    return FileResponse('static/index.html')
+    # Las rutas del API que no existen devuelven un 404 normal; el resto cae en
+    # index.html porque el ruteo del frontend es del lado del navegador.
+    #
+    # Antes esta rama hacia `return exc`, devolviendo la excepcion misma donde
+    # Starlette espera una Response: cualquier /api/... inexistente terminaba
+    # en "TypeError: 'HTTPException' object is not callable" en vez de un 404.
+    if request.url.path.startswith('/api'):
+        return JSONResponse({"detail": getattr(exc, "detail", "Not Found")}, status_code=404)
+    return FileResponse('static/index.html', headers={"Cache-Control": _CACHE_INDEX})
