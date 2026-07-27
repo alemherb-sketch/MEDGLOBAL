@@ -54,19 +54,55 @@ def sync_habilitado():
     return bool(SYNC_SERVER_URL and SYNC_USERNAME and SYNC_PASSWORD)
 
 
-def _leer_cursor():
+def _leer_cursores():
+    """Devuelve (last_pulled_at, last_pushed_at).
+
+    Son DOS cursores distintos porque se comparan contra dos relojes distintos:
+
+      - last_pulled_at es el server_time que devolvio el ultimo pull, o sea el
+        reloj del SERVIDOR. Se usa como parametro 'since' de /sync/cambios y
+        /sync/subir, que el servidor interpreta con su propio reloj.
+
+      - last_pushed_at es la hora LOCAL en que se hizo el ultimo push. Se usa
+        para filtrar 'updated_at > since' sobre la base local, y updated_at lo
+        escribe el reloj de esta PC.
+
+    Antes habia un solo cursor y se usaba para las dos cosas: el filtro local
+    comparaba updated_at (reloj de la PC) contra el server_time (reloj del
+    servidor). En una PC con el reloj atrasado respecto al servidor — habitual
+    en la clinica, sin NTP — todo lo que se editaba nacia con updated_at menor
+    que el cursor y no se subia NUNCA, porque el cursor solo avanza. No era un
+    retraso: era perdida silenciosa de datos.
+
+    Compatibilidad: un sync_cursor.json del formato viejo ({"last_synced_at":
+    ...}) se lee como last_pulled_at y deja last_pushed_at en None, con lo que
+    el primer push despues de actualizar reenvia todo lo local. Eso es
+    justamente lo que recupera los cambios que el bug habia dejado sin subir;
+    el servidor los aplica de forma idempotente por id.
+    """
     if not os.path.exists(_CURSOR_FILE):
-        return None
+        return None, None
     try:
         with open(_CURSOR_FILE) as f:
-            return json.load(f).get("last_synced_at")
+            datos = json.load(f)
     except (OSError, json.JSONDecodeError):
-        return None
+        return None, None
+    last_pulled = datos.get("last_pulled_at") or datos.get("last_synced_at")
+    return last_pulled, datos.get("last_pushed_at")
 
 
-def _guardar_cursor(valor):
+def _guardar_cursores(last_pulled_at, last_pushed_at):
     with open(_CURSOR_FILE, "w") as f:
-        json.dump({"last_synced_at": valor}, f)
+        json.dump(
+            {
+                "last_pulled_at": last_pulled_at,
+                "last_pushed_at": last_pushed_at,
+                # Se mantiene la clave vieja para que un downgrade del
+                # ejecutable no pierda el punto de sincronizacion.
+                "last_synced_at": last_pulled_at,
+            },
+            f,
+        )
 
 
 def esta_en_linea():
@@ -93,12 +129,17 @@ def _login():
     return None
 
 
-def _empujar_cambios(token, since, db):
+def _empujar_cambios(token, since_local, since_servidor, db):
+    """since_local filtra la base local (se compara con updated_at, reloj de
+    esta PC). since_servidor es lo que viaja en el payload para que el servidor
+    detecte conflictos (se compara alla con server_updated_at, reloj del
+    servidor). Son valores de relojes distintos y no se pueden intercambiar:
+    ver la explicacion en _leer_cursores."""
     cambios = {}
     for tabla, model in SYNCABLE_MODELS.items():
         query = db.query(model)
-        if since:
-            query = query.filter(model.updated_at > _parse_iso(since))
+        if since_local:
+            query = query.filter(model.updated_at > _parse_iso(since_local))
         rows = query.all()
         if not rows:
             continue
@@ -118,7 +159,7 @@ def _empujar_cambios(token, since, db):
     requests.post(
         f"{SYNC_SERVER_URL}/sync/subir",
         headers={"Authorization": f"Bearer {token}"},
-        json={"since": since, "cambios": cambios},
+        json={"since": since_servidor, "cambios": cambios},
         timeout=30,
     ).raise_for_status()
 
@@ -203,10 +244,15 @@ def sincronizar_una_vez():
 
     db = LocalSession()
     try:
-        since = _leer_cursor()
-        _empujar_cambios(token, since, db)
-        nuevo_cursor = _traer_cambios(token, since, db)
-        _guardar_cursor(nuevo_cursor)
+        since_servidor, since_local = _leer_cursores()
+        # La marca local se toma ANTES de empujar: cualquier fila que un
+        # usuario guarde mientras el push esta en vuelo queda por encima de
+        # este corte y entra en el ciclo siguiente, en vez de caer en el hueco
+        # entre "ya la filtre" y "ya avance el cursor".
+        marca_local = datetime.utcnow().isoformat()
+        _empujar_cambios(token, since_local, since_servidor, db)
+        nuevo_cursor = _traer_cambios(token, since_servidor, db)
+        _guardar_cursores(nuevo_cursor, marca_local)
         return True
     except Exception:
         # Deliberadamente amplio, no solo requests.RequestException: el
@@ -232,7 +278,7 @@ def iniciar_hilo_sincronizacion():
     # exitoso -- lo usamos para que "ultima sincronizacion" no aparezca en
     # blanco cada vez que se reinicia la app (p.ej. tras reiniciar la PC)
     # aunque haya sincronizado bien minutos antes.
-    _cursor_inicial = _leer_cursor()
+    _cursor_inicial, _ = _leer_cursores()
     if _cursor_inicial:
         _estado["ultima_sincronizacion"] = _cursor_inicial + "Z"
 

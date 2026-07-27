@@ -1,4 +1,6 @@
+import logging
 import os
+import secrets
 from datetime import datetime, timedelta
 
 import bcrypt
@@ -10,7 +12,62 @@ from sqlalchemy.orm import Session
 import models
 from database import get_db
 
-SECRET_KEY = os.getenv("SECRET_KEY", "medglobal-dev-secret-cambiar-en-produccion")
+logger = logging.getLogger(__name__)
+
+# Archivo donde se guarda la clave generada automaticamente cuando no hay
+# SECRET_KEY en el entorno. Va junto a la BD (mismo directorio de trabajo que
+# medglobal.db y sync_cursor.json) y NO se versiona.
+_SECRET_KEY_FILE = "secret_key.txt"
+
+
+def _obtener_secret_key() -> str:
+    """La clave con la que se firman los tokens de sesion.
+
+    Antes esta funcion no existia y habia un valor por defecto fijo escrito en
+    el codigo. Como ese valor esta en el repositorio, cualquiera que lo leyera
+    podia firmarse un token de administrador valido contra cualquier
+    despliegue que no definiera SECRET_KEY -- y ningun despliegue la definia.
+
+    Orden de resolucion:
+      1. SECRET_KEY del entorno (lo correcto en el VPS y en Render).
+      2. Una clave aleatoria persistida en disco junto a la BD. Esto es para
+         el .exe de escritorio, que no tiene forma comoda de recibir variables
+         de entorno: la primera vez se genera sola y despues se reutiliza, asi
+         que las sesiones sobreviven a los reinicios de la app.
+    Ya no hay un tercer caso: nunca se cae a una constante conocida.
+    """
+    del_entorno = os.getenv("SECRET_KEY")
+    if del_entorno:
+        return del_entorno
+
+    if os.path.exists(_SECRET_KEY_FILE):
+        with open(_SECRET_KEY_FILE, encoding="utf-8") as f:
+            guardada = f.read().strip()
+        if guardada:
+            return guardada
+
+    nueva = secrets.token_urlsafe(64)
+    try:
+        with open(_SECRET_KEY_FILE, "w", encoding="utf-8") as f:
+            f.write(nueva)
+        logger.warning(
+            "SECRET_KEY no esta definida: se genero una clave nueva en %s. "
+            "En el servidor define SECRET_KEY como variable de entorno.",
+            os.path.abspath(_SECRET_KEY_FILE),
+        )
+    except OSError:
+        # Filesystem de solo lectura: la app arranca igual, pero cada
+        # reinicio invalida las sesiones abiertas. Preferible a firmar con
+        # una clave que este publicada en el repositorio.
+        logger.warning(
+            "SECRET_KEY no esta definida y no se pudo guardar una clave en disco. "
+            "Se usara una clave temporal: las sesiones se cerraran al reiniciar. "
+            "Define SECRET_KEY como variable de entorno."
+        )
+    return nueva
+
+
+SECRET_KEY = _obtener_secret_key()
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 12  # 12 horas
 

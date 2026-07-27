@@ -7,6 +7,16 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.7
+      # Clave de firma de los tokens de sesion. generateValue hace que Render
+      # cree una aleatoria y la conserve entre despliegues. Sin esta variable
+      # el backend genera una propia en disco, pero el filesystem de Render es
+      # efimero y cada deploy cerraria todas las sesiones abiertas.
+      - key: SECRET_KEY
+        generateValue: true
+      # Origenes autorizados a llamar al API desde un navegador, separados por
+      # comas. Si se despliega el frontend en otro dominio, agregarlo aqui.
+      - key: ALLOWED_ORIGINS
+        value: https://medglobal.erpgest.com.pe
       - key: DATABASE_URL
         fromDatabase:
           name: medglobal-db

@@ -1,0 +1,8 @@
+# Dependencias solo para correr los tests (backend/tests/). No se instalan en
+# el servidor: deploy/vps_deploy.sh y render.yaml usan requirements.txt.
+#
+#   pip install -r requirements-dev.txt
+#   pytest tests
+-r requirements.txt
+pytest==8.0.0
+httpx==0.26.0

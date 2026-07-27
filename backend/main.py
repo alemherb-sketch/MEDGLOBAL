@@ -78,12 +78,39 @@ app = FastAPI(title="MEDGLOBAL API")
 
 # Configure CORS
 # ALLOWED_ORIGINS es una lista separada por comas (ej. "https://medglobal.erpgest.com.pe").
-# Por defecto "*" para no romper el desarrollo local ni el .exe de escritorio.
-_allowed_origins = os.getenv("ALLOWED_ORIGINS", "*")
+#
+# El default ya NO es "*": con allow_credentials=True, Starlette responde
+# reflejando el Origin que venga en el request, asi que cualquier pagina web
+# podia llamar a este API desde el navegador de un usuario logueado. Ahora el
+# default es la lista de origenes que realmente usa el sistema. El .exe de
+# escritorio sirve el frontend desde el mismo origen (127.0.0.1:8000), asi que
+# no depende de esta lista.
+#
+# Si un despliegue usa otro dominio, se configura con la variable de entorno;
+# ALLOWED_ORIGINS="*" sigue disponible como valvula de escape explicita.
+_ORIGENES_POR_DEFECTO = [
+    "https://medglobal.erpgest.com.pe",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+_allowed_origins = os.getenv("ALLOWED_ORIGINS")
+if _allowed_origins is None:
+    _origins = _ORIGENES_POR_DEFECTO
+elif _allowed_origins.strip() == "*":
+    _origins = ["*"]
+else:
+    _origins = [o.strip() for o in _allowed_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if _allowed_origins == "*" else [o.strip() for o in _allowed_origins.split(",")],
-    allow_credentials=True,
+    allow_origins=_origins,
+    # La sesion viaja en el header Authorization (token en localStorage), no en
+    # cookies, asi que el navegador nunca necesita mandar credenciales de
+    # origen cruzado. Dejarlo en False es lo que hace que allow_origins=["*"]
+    # sea seguro cuando alguien lo configure asi a proposito.
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -205,10 +232,26 @@ def _apply_sync_fields(row, data, tabla=None, trusted_source=False):
 
 
 def _procesar_atencion_nueva(db: Session, atencion_row, medicamentos):
-    """Igual que create_atencion: asigna folio y descuenta stock/kardex.
-    Solo corre para atenciones que no existian en el servidor todavia —
-    editar los medicamentos de una atencion ya existente via sync no esta
-    soportado, igual que tampoco lo esta en el endpoint normal de edicion."""
+    """Asigna folio y reconstruye la receta (atencion_medicamentos) de una
+    atencion que llega por sync. Solo corre para atenciones que no existian en
+    el servidor todavia — editar los medicamentos de una atencion ya existente
+    via sync no esta soportado, igual que tampoco lo esta en el endpoint normal
+    de edicion.
+
+    A PROPOSITO no toca el stock ni escribe en kardex, aunque create_atencion
+    si lo haga: cuando el dispositivo registro esta atencion, create_atencion
+    ya escribio localmente su fila de kardex SALIDA, y esa fila viaja en el
+    mismo push como parte de la tabla 'kardex'. Ahi la recoge
+    _procesar_kardex_nuevo, que es quien descuenta el stock recalculandolo
+    contra el estado actual del servidor. Si ademas se descontara aca, cada
+    atencion sincronizada restaria el doble y dejaria dos movimientos SALIDA
+    duplicados en el kardex — el inventario del servidor se degradaba de forma
+    acumulativa con cada sincronizacion.
+
+    Regla: la fila de kardex es la unica fuente de verdad de un movimiento de
+    stock. Quien crea el movimiento (create_atencion, create_kardex) descuenta;
+    quien lo replica por sync solo lo aplica una vez, via kardex.
+    """
     max_folio = db.query(func.max(models.Atencion.folio)).scalar()
     atencion_row.folio = (max_folio or 0) + 1
     for med in medicamentos or []:
@@ -217,13 +260,6 @@ def _procesar_atencion_nueva(db: Session, atencion_row, medicamentos):
         if not med_id:
             continue
         db.add(models.AtencionMedicamento(atencion_id=atencion_row.id, medicamento_id=med_id, cantidad=cantidad))
-        db_med = db.query(models.Medicamento).filter(models.Medicamento.id == med_id).first()
-        if db_med:
-            db_med.stock_actual -= cantidad
-            db.add(models.Kardex(
-                medicamento_id=db_med.id, tipo_movimiento="SALIDA",
-                cantidad=cantidad, saldo=db_med.stock_actual,
-            ))
 
 
 def _procesar_kardex_nuevo(db: Session, kardex_row):

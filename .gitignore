@@ -9,12 +9,13 @@ dist-ssr/
 
 backend/venv/
 backend/venv_fresh/
-backend/__pycache__/
-backend/.pytest_cache/
+__pycache__/
+.pytest_cache/
 backend/medglobal.db
 backend/*.db.bak
 backend/*.db.*.bak
 backend/sync_cursor.json
+backend/secret_key.txt
 backend/static/
 backend/build/
 backend/MEDGLOBAL.egg-info/
