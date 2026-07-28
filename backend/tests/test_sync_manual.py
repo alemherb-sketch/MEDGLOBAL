@@ -72,6 +72,110 @@ def test_el_detalle_del_fallo_llega_al_resultado(sync_configurado, monkeypatch):
     assert "certificate verify failed" in resultado["detalle"]
 
 
+def test_el_push_se_parte_en_lotes(sync_configurado, monkeypatch, db):
+    """Una instalacion real tiene ~16.000 filas (el catalogo CIE-10 solo trae
+    15.040). Mandarlas en un unico POST hacia que el servidor, que confirma
+    fila por fila, quedara ocupado varios minutos; el ciclo siguiente cortaba
+    por timeout y, como el cursor no avanza ante un fallo, volvia a intentar
+    las mismas 16.000 filas para siempre."""
+    import models
+
+    for i in range(750):
+        db.add(models.DiagnosticoCie10(codigo=f"Z{i:04d}", descripcion=f"Diagnostico {i}"))
+    db.commit()
+
+    monkeypatch.setattr(sync_client, "LOTE_FILAS", 300)
+
+    peticiones = []
+
+    class RespuestaFalsa:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"resultado": {"diagnosticos_cie10": {"aplicados": 300, "conflictos": 0}}}
+
+    def post_falso(url, headers=None, json=None, timeout=None):
+        peticiones.append(sum(len(filas) for filas in json["cambios"].values()))
+        return RespuestaFalsa()
+
+    monkeypatch.setattr(sync_client.requests, "post", post_falso)
+
+    sync_client._empujar_cambios(token="t", since_local=None, since_servidor=None, db=db)
+
+    assert len(peticiones) >= 3, "se mando todo en una sola peticion"
+    assert max(peticiones) <= 300, f"un lote supero el maximo: {max(peticiones)}"
+    assert sum(peticiones) >= 750, "se perdieron filas al partir en lotes"
+
+
+def test_los_lotes_no_pierden_ninguna_fila(sync_configurado, monkeypatch, db):
+    """Cortar en lotes no puede saltearse registros: lo que se sube tiene que
+    ser exactamente lo que hay en la base."""
+    import models
+
+    esperados = set()
+    for i in range(120):
+        codigo = f"Y{i:04d}"
+        esperados.add(codigo)
+        db.add(models.DiagnosticoCie10(codigo=codigo, descripcion=f"D{i}"))
+    db.commit()
+
+    monkeypatch.setattr(sync_client, "LOTE_FILAS", 25)
+    enviados = set()
+
+    class RespuestaFalsa:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"resultado": {}}
+
+    def post_falso(url, headers=None, json=None, timeout=None):
+        for fila in json["cambios"].get("diagnosticos_cie10", []):
+            enviados.add(fila["codigo"])
+        return RespuestaFalsa()
+
+    monkeypatch.setattr(sync_client.requests, "post", post_falso)
+    sync_client._empujar_cambios(token="t", since_local=None, since_servidor=None, db=db)
+
+    assert esperados <= enviados, f"faltaron {len(esperados - enviados)} filas"
+
+
+def test_el_pull_puede_reordenar_valores_unicos_entre_filas(sync_configurado, db):
+    """El servidor le asigna a cada atencion que recibe el siguiente folio
+    libre EN EL SERVIDOR, que no tiene por que ser el que tenia en la PC. Al
+    bajar la respuesta, el folio 1 puede tener que pasar de la atencion A a la
+    B mientras A pasa al 2. Aplicandolas de a una, la primera choca contra la
+    segunda, que todavia tiene el valor viejo: la sincronizacion entera se
+    caia con "UNIQUE constraint failed: atenciones.folio" y, como el cursor no
+    avanza ante un fallo, el error se repetia en cada intento."""
+    import models
+
+    db.query(models.AtencionMedicamento).delete()
+    db.query(models.Atencion).delete()
+    db.commit()
+
+    a = models.Atencion(id="aaaaaaaa-0000-0000-0000-000000000001", descripcion="A", folio=1)
+    b = models.Atencion(id="bbbbbbbb-0000-0000-0000-000000000002", descripcion="B", folio=2)
+    db.add_all([a, b])
+    db.commit()
+
+    # El servidor devuelve los folios intercambiados.
+    filas = [
+        {"id": a.id, "folio": 2, "descripcion": "A"},
+        {"id": b.id, "folio": 1, "descripcion": "B"},
+    ]
+
+    sync_client._liberar_valores_unicos(db, models.Atencion, filas)
+    for fila in filas:
+        existente = db.query(models.Atencion).filter(models.Atencion.id == fila["id"]).first()
+        sync_client._apply_sync_fields(existente, fila, "atenciones", trusted_source=True)
+    db.commit()
+
+    assert db.query(models.Atencion).filter(models.Atencion.id == a.id).first().folio == 2
+    assert db.query(models.Atencion).filter(models.Atencion.id == b.id).first().folio == 1
+
+
 def test_no_deja_correr_dos_sincronizaciones_a_la_vez(sync_configurado, monkeypatch):
     """El ciclo automatico corre cada 30 segundos; si el usuario aprieta el
     boton justo en ese momento, los dos ciclos empujarian las mismas filas y

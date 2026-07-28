@@ -51,6 +51,15 @@ PULL_TIMEOUT_SEGUNDOS = int(os.getenv("SYNC_PULL_TIMEOUT", "300"))
 CONEXION_TIMEOUT_SEGUNDOS = int(os.getenv("SYNC_CONEXION_TIMEOUT", "20"))
 LOGIN_TIMEOUT_SEGUNDOS = int(os.getenv("SYNC_LOGIN_TIMEOUT", "30"))
 
+# Cuantas filas como maximo van en cada peticion de subida. El servidor
+# confirma fila por fila, asi que el tiempo de cada peticion es proporcional a
+# este numero; 300 mantiene cada una en unos pocos segundos incluso contra una
+# base remota. Ver _armar_lotes.
+LOTE_FILAS = int(os.getenv("SYNC_LOTE_FILAS", "300"))
+
+# Tope de la espera entre reintentos automaticos tras fallos seguidos.
+ESPERA_MAXIMA_SEGUNDOS = int(os.getenv("SYNC_ESPERA_MAXIMA", "600"))
+
 _CURSOR_FILE = "sync_cursor.json"
 
 # Respaldos de la base local previos a cada sincronizacion. Se conservan los
@@ -247,41 +256,62 @@ def _empujar_cambios(token, since_local, since_servidor, db):
 
     Devuelve (subidos, conflictos) para poder mostrarle al usuario cuantos
     registros salieron de esta PC, en vez de un "listo" sin respaldo."""
-    cambios = {}
+    subidos = 0
+    conflictos = 0
+    for lote in _armar_lotes(db, since_local):
+        respuesta = requests.post(
+            f"{SYNC_SERVER_URL}/sync/subir",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"since": since_servidor, "cambios": lote},
+            timeout=PUSH_TIMEOUT_SEGUNDOS,
+        )
+        respuesta.raise_for_status()
+
+        # El servidor informa por tabla cuantas filas aplico y cuantas quedaron
+        # como conflicto (se guardan enteras en conflictos_sync, no se pierden).
+        resultado = respuesta.json().get("resultado", {})
+        subidos += sum(r.get("aplicados", 0) for r in resultado.values())
+        conflictos += sum(r.get("conflictos", 0) for r in resultado.values())
+    return subidos, conflictos
+
+
+def _armar_lotes(db, since_local):
+    """Parte los cambios locales en peticiones de a lo sumo LOTE_FILAS filas.
+
+    Antes se mandaba TODO en un unico POST. Con una instalacion real eso son
+    casi 16.000 filas (el catalogo CIE-10 solo ya trae 15.040), y el servidor
+    confirma fila por fila: una sola peticion se convertia en ~16.000
+    escrituras seguidas contra la base. El worker quedaba ocupado varios
+    minutos, el siguiente ciclo de sincronizacion (cada 30 segundos) se
+    encontraba el servidor sin responder y cortaba por timeout, y como el
+    cursor no avanza ante un fallo, el ciclo siguiente volvia a intentar las
+    mismas 16.000 filas. La sincronizacion no terminaba nunca y de paso dejaba
+    al servidor sin atender al resto.
+
+    Cortar en lotes es seguro: cada fila se aplica por id, asi que reenviar un
+    lote ya aplicado no duplica nada. Si un lote falla, los anteriores quedan
+    aplicados y el reintento los vuelve a mandar sin consecuencias.
+    """
+    lote = {}
+    en_lote = 0
     for tabla, model in SYNCABLE_MODELS.items():
         query = db.query(model)
         if since_local:
             query = query.filter(model.updated_at > _parse_iso(since_local))
-        rows = query.all()
-        if not rows:
-            continue
-        items = []
-        for row in rows:
+        for row in query.all():
             item = _row_to_sync_dict(row)
             if tabla == "atenciones":
                 item["medicamentos"] = [
                     {"medicamento_id": am.medicamento_id, "cantidad": am.cantidad}
                     for am in row.medicamentos
                 ]
-            items.append(item)
-        cambios[tabla] = items
-
-    if not cambios:
-        return 0, 0
-    respuesta = requests.post(
-        f"{SYNC_SERVER_URL}/sync/subir",
-        headers={"Authorization": f"Bearer {token}"},
-        json={"since": since_servidor, "cambios": cambios},
-        timeout=PUSH_TIMEOUT_SEGUNDOS,
-    )
-    respuesta.raise_for_status()
-
-    # El servidor informa por tabla cuantas filas aplico y cuantas quedaron
-    # como conflicto (se guardan enteras en conflictos_sync, no se pierden).
-    resultado = respuesta.json().get("resultado", {})
-    subidos = sum(r.get("aplicados", 0) for r in resultado.values())
-    conflictos = sum(r.get("conflictos", 0) for r in resultado.values())
-    return subidos, conflictos
+            lote.setdefault(tabla, []).append(item)
+            en_lote += 1
+            if en_lote >= LOTE_FILAS:
+                yield lote
+                lote, en_lote = {}, 0
+    if en_lote:
+        yield lote
 
 
 def _limpiar_colisiones_locales(db, model, fila):
@@ -306,6 +336,39 @@ def _limpiar_colisiones_locales(db, model, fila):
     db.flush()
 
 
+def _liberar_valores_unicos(db, model, filas):
+    """Antes de aplicar un lote del pull, pone en NULL las columnas unique de
+    las filas locales que el lote va a reescribir.
+
+    Hace falta porque los valores llegan REORDENADOS entre filas. El caso real
+    es el folio de las atenciones: el servidor le asigna a cada atencion que
+    recibe el siguiente folio libre EN EL SERVIDOR, que no tiene por que
+    coincidir con el que esa atencion tenia en la PC. Al bajar la respuesta,
+    el folio 15 puede tener que pasar de la atencion A a la B mientras A pasa
+    a 16 — y aplicandolas de a una, la primera ya choca contra la segunda, que
+    todavia tiene el valor viejo. La sincronizacion entera se caia con
+    "UNIQUE constraint failed: atenciones.folio" y el cursor no avanzaba, asi
+    que el error se repetia en cada intento.
+
+    Liberar primero y asignar despues evita el choque intermedio. Todo ocurre
+    dentro de la transaccion del pull: si algo falla, el rollback devuelve los
+    valores originales y no queda ninguna fila sin folio.
+    """
+    columnas_unicas = [c.name for c in model.__table__.columns if c.unique and c.name != "id"]
+    if not columnas_unicas:
+        return
+    ids = [f.get("id") for f in filas if f.get("id")]
+    if not ids:
+        return
+    # De a tandas: SQLite tiene un limite de variables por consulta (999).
+    for i in range(0, len(ids), 500):
+        tanda = ids[i:i + 500]
+        (db.query(model)
+           .filter(model.id.in_(tanda))
+           .update({c: None for c in columnas_unicas}, synchronize_session=False))
+    db.flush()
+
+
 def _traer_cambios(token, since, db):
     """Devuelve (server_time, bajados). Todo el pull se aplica en UNA sola
     transaccion: el commit esta al final, asi que si algo falla a mitad de
@@ -326,6 +389,7 @@ def _traer_cambios(token, since, db):
         model = SYNCABLE_MODELS.get(tabla)
         if model is None:
             continue
+        _liberar_valores_unicos(db, model, filas)
         for fila in filas:
             row_id = fila.get("id")
             if not row_id:
@@ -486,11 +550,23 @@ def iniciar_hilo_sincronizacion():
         _estado["ultima_sincronizacion"] = _cursor_inicial + "Z"
 
     def loop():
+        fallos_seguidos = 0
         while True:
             if esta_en_linea():
-                _actualizar_estado(sincronizar_ahora(origen="automatico"))
+                resultado = sincronizar_ahora(origen="automatico")
+                _actualizar_estado(resultado)
+                fallos_seguidos = 0 if resultado.get("ok") else fallos_seguidos + 1
             else:
                 _estado["estado"] = "fuera_de_linea"
-            time.sleep(SYNC_INTERVAL_SEGUNDOS)
+                fallos_seguidos += 1
+
+            # Espera creciente tras fallos seguidos. Sin esto, un ciclo que
+            # falla se reintenta cada 30 segundos indefinidamente: si lo que
+            # falla es un envio pesado que dejo al servidor ocupado, cada
+            # reintento lo vuelve a cargar y el problema se realimenta en vez
+            # de resolverse. Se corta en ESPERA_MAXIMA para que una PC que
+            # estuvo sin internet toda la noche no tarde horas en reconectar.
+            espera = min(SYNC_INTERVAL_SEGUNDOS * (2 ** min(fallos_seguidos, 5)), ESPERA_MAXIMA_SEGUNDOS)
+            time.sleep(espera if fallos_seguidos else SYNC_INTERVAL_SEGUNDOS)
 
     threading.Thread(target=loop, daemon=True).start()
