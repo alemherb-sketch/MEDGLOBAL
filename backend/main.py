@@ -115,7 +115,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 import pandas as pd
@@ -1623,6 +1623,140 @@ def get_reporte_consumo_medicamentos(
         }
     }
 
+
+
+# --- Administracion de cuentas (la usa el panel del ERP) ---------------------
+#
+# Hasta ahora los usuarios de MEDGLOBAL se creaban con scripts sueltos en el
+# servidor (crear_admin.py, cambiar_password.py) y no habia forma de verlos ni
+# bloquearlos a distancia. Estos endpoints existen para que el panel de
+# plataforma pueda hacerlo, y todos exigen rol ADMIN.
+#
+# Bloquear surte efecto de inmediato: authenticate_user rechaza a quien no
+# este ACTIVO y get_current_user lo revalida en cada peticion, asi que ademas
+# corta las sesiones que ya estuvieran abiertas.
+
+def _registrar_evento(db: Session, request: Request, actor, accion: str,
+                      objetivo: str = "", objetivo_id: str = "", detalle: str = ""):
+    db.add(models.EventoAdmin(
+        actor=getattr(actor, "username", None) or "sistema",
+        accion=accion,
+        objetivo=objetivo,
+        objetivo_id=objetivo_id,
+        detalle=detalle,
+        ip=(request.client.host if request and request.client else ""),
+    ))
+
+
+@app.get("/admin/usuarios", response_model=List[schemas.Usuario])
+def admin_listar_usuarios(
+    db: Session = Depends(get_db),
+    _: models.Usuario = Depends(auth.require_admin),
+):
+    return db.query(models.Usuario).order_by(models.Usuario.username).all()
+
+
+@app.post("/admin/usuarios", response_model=schemas.Usuario, status_code=201)
+def admin_crear_usuario(
+    datos: schemas.UsuarioAdminCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    actor: models.Usuario = Depends(auth.require_admin),
+):
+    if db.query(models.Usuario).filter(models.Usuario.username == datos.username).first():
+        raise HTTPException(status_code=400, detail="Ese nombre de usuario ya existe.")
+    if len(datos.password or "") < 8:
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 8 caracteres.")
+
+    usuario = models.Usuario(
+        username=datos.username,
+        nombre=datos.nombre,
+        rol=(datos.rol or "ESTANDAR").upper(),
+        estado=(datos.estado or "ACTIVO").upper(),
+        password_hash=auth.hash_password(datos.password),
+    )
+    db.add(usuario)
+    _registrar_evento(db, request, actor, "crear_usuario",
+                      objetivo=usuario.username, objetivo_id=usuario.id,
+                      detalle=f"rol={usuario.rol} estado={usuario.estado}")
+    db.commit()
+    db.refresh(usuario)
+    return usuario
+
+
+@app.patch("/admin/usuarios/{usuario_id}", response_model=schemas.Usuario)
+def admin_editar_usuario(
+    usuario_id: str,
+    datos: schemas.UsuarioAdminUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    actor: models.Usuario = Depends(auth.require_admin),
+):
+    usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+    # Candado contra dejarse fuera: un administrador no puede bloquearse ni
+    # quitarse el rol a si mismo. Si es el ultimo ADMIN activo, ademas nadie
+    # podria volver a entrar a administrar.
+    if usuario.id == actor.id:
+        if datos.estado and datos.estado.upper() != "ACTIVO":
+            raise HTTPException(status_code=400, detail="No puede bloquear su propia cuenta.")
+        if datos.rol and datos.rol.upper() != "ADMIN":
+            raise HTTPException(status_code=400, detail="No puede quitarse el rol de administrador.")
+
+    cambios = []
+    if datos.nombre is not None and datos.nombre != usuario.nombre:
+        usuario.nombre = datos.nombre
+        cambios.append("nombre")
+    if datos.rol is not None and datos.rol.upper() != usuario.rol:
+        usuario.rol = datos.rol.upper()
+        cambios.append(f"rol={usuario.rol}")
+    if datos.estado is not None and datos.estado.upper() != usuario.estado:
+        usuario.estado = datos.estado.upper()
+        cambios.append(f"estado={usuario.estado}")
+    # Vacio o ausente = no tocar la contrasena.
+    if datos.password:
+        if len(datos.password) < 8:
+            raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 8 caracteres.")
+        usuario.password_hash = auth.hash_password(datos.password)
+        cambios.append("contraseña")
+
+    if not cambios:
+        return usuario
+
+    # Si se queda sin ningun ADMIN activo, nadie podria volver a administrar.
+    admins_activos = db.query(models.Usuario).filter(
+        models.Usuario.rol == "ADMIN", models.Usuario.estado == "ACTIVO"
+    ).count()
+    if admins_activos == 0:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="No puede dejar el sistema sin ningún administrador activo.",
+        )
+
+    _registrar_evento(db, request, actor, "editar_usuario",
+                      objetivo=usuario.username, objetivo_id=usuario.id,
+                      detalle=", ".join(cambios))
+    db.commit()
+    db.refresh(usuario)
+    return usuario
+
+
+@app.get("/admin/actividad", response_model=List[schemas.EventoAdmin])
+def admin_actividad(
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    _: models.Usuario = Depends(auth.require_admin),
+):
+    return (
+        db.query(models.EventoAdmin)
+        .order_by(models.EventoAdmin.creado_en.desc())
+        .limit(min(max(limit, 1), 500))
+        .all()
+    )
+
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -1653,6 +1787,17 @@ os.makedirs('static', exist_ok=True)
 app.mount('/', ArchivosEstaticos(directory='static', html=True), name='static')
 
 
+# Prefijos que son API pura y nunca rutas del navegador. No se puede
+# generalizar a «todo lo que sea una ruta declarada»: /atenciones, /empresas y
+# casi todas las demas son a la vez endpoint del API y pantalla del frontend,
+# asi que ahi el 404 tiene que seguir cayendo en index.html.
+#
+# (Queda pendiente, y es anterior a esto: un 404 de esos endpoints compartidos
+# devuelve la pagina web en vez de un JSON. No se toca aqui para no cambiar un
+# comportamiento que las pruebas existentes dan por bueno.)
+_PREFIJOS_SOLO_API = ("/api", "/admin/")
+
+
 @app.exception_handler(404)
 async def custom_404_handler(request, exc):
     # Las rutas del API que no existen devuelven un 404 normal; el resto cae en
@@ -1661,6 +1806,6 @@ async def custom_404_handler(request, exc):
     # Antes esta rama hacia `return exc`, devolviendo la excepcion misma donde
     # Starlette espera una Response: cualquier /api/... inexistente terminaba
     # en "TypeError: 'HTTPException' object is not callable" en vez de un 404.
-    if request.url.path.startswith('/api'):
+    if request.url.path.startswith(_PREFIJOS_SOLO_API):
         return JSONResponse({"detail": getattr(exc, "detail", "Not Found")}, status_code=404)
     return FileResponse('static/index.html', headers={"Cache-Control": _CACHE_INDEX})

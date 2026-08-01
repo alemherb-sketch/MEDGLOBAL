@@ -18,6 +18,38 @@ class Usuario(UsuarioBase):
     class Config:
         from_attributes = True
 
+class UsuarioAdminCreate(UsuarioBase):
+    """Alta de cuenta desde el panel de administracion."""
+    password: str
+    estado: Optional[str] = "ACTIVO"
+
+
+class UsuarioAdminUpdate(BaseModel):
+    """Todos opcionales: se envia solo lo que cambia.
+
+    `password` vacio o ausente significa "no tocar la contrasena"; si no,
+    editar el nombre obligaria a reescribirla en cada cambio.
+    """
+    nombre: Optional[str] = None
+    rol: Optional[str] = None
+    estado: Optional[str] = None
+    password: Optional[str] = None
+
+
+class EventoAdmin(BaseModel):
+    id: str
+    actor: Optional[str] = None
+    accion: str
+    objetivo: Optional[str] = None
+    objetivo_id: Optional[str] = None
+    detalle: Optional[str] = ""
+    ip: Optional[str] = ""
+    creado_en: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"

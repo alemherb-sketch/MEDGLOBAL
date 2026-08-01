@@ -113,3 +113,19 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user is None or user.estado != "ACTIVO":
         raise credentials_exception
     return user
+
+
+def require_admin(current_user: models.Usuario = Depends(get_current_user)) -> models.Usuario:
+    """Exige rol ADMIN.
+
+    Hasta ahora ningun endpoint distinguia el rol: bastaba una sesion valida
+    para hacer cualquier cosa. Para administrar cuentas ajenas eso no sirve,
+    porque cualquier usuario ESTANDAR podria bloquear al resto o darse ADMIN
+    a si mismo.
+    """
+    if (current_user.rol or "").upper() != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Se requiere rol de administrador.",
+        )
+    return current_user

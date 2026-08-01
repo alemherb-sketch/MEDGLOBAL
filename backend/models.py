@@ -340,3 +340,29 @@ class Cita(Base):
     # dispositivo se la perderia. Ver _SYNC_SERVER_COMPUTED_COLUMNS en main.py.
     server_updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     is_deleted = Column(Boolean, default=False, index=True)
+
+
+class EventoAdmin(Base):
+    """Registro de lo que hacen los administradores sobre las cuentas.
+
+    MEDGLOBAL no tenia ninguna traza: se sabia quien era usuario, pero no
+    quien lo habia creado, bloqueado ni cambiado de rol. El panel del ERP
+    necesita mostrar esa actividad, y sin esta tabla no habria nada que
+    mostrar.
+
+    NO entra en SYNCABLE_MODELS a proposito: es del servidor. Repartirla a
+    cada PC local expondria en todas partes quien administra que, y no aporta
+    nada al trabajo offline.
+    """
+
+    __tablename__ = "eventos_admin"
+    id = Column(String(36), primary_key=True, default=gen_uuid, index=True)
+    # Se guarda el nombre, no una clave foranea: si algun dia se borra al
+    # usuario, la traza de lo que hizo debe sobrevivir.
+    actor = Column(String(150))
+    accion = Column(String(60), index=True)
+    objetivo = Column(String(150))
+    objetivo_id = Column(String(36))
+    detalle = Column(Text, default="")
+    ip = Column(String(60), default="")
+    creado_en = Column(DateTime, default=datetime.datetime.utcnow, index=True)
