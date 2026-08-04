@@ -1,18 +1,36 @@
-// En la web del VPS el frontend vive en medglobal.erpgest.com.pe y el API en
-// api.medglobal.erpgest.com.pe (origen distinto). Una ruta relativa rompe las
+// En la web del VPS el frontend vive en medglobal.erpgestapp.com y el API en
+// api.medglobal.erpgestapp.com (origen distinto). Una ruta relativa rompe las
 // llamadas y el dashboard queda en ceros aunque la data exista.
 //
-// Para el .exe de escritorio se compila con VITE_API_URL='' (cadena vacia):
-// ahi el frontend y el API los sirve el mismo proceso en 127.0.0.1:8000, asi
-// que las rutas tienen que ser relativas y NO apuntar a internet.
+// En la app de ESCRITORIO (ventana nativa o 127.0.0.1) el frontend y el API
+// salen del mismo motor local: las rutas DEBEN ser relativas. Si una build
+// del .exe embebiera por error la URL del VPS, el login falla con
+// "Failed to fetch" (CORS / red) aunque la clave sea correcta.
 //
-// Por eso la comparacion es contra undefined y no un `||`: con `||` la cadena
-// vacia es falsy y caia al fallback, quedando un instalable "offline" que en
-// realidad llamaba al servidor de produccion y no funcionaba sin internet.
+// Por eso primero se mira el hostname en runtime, y solo si no es local se
+// usa VITE_API_URL o el fallback de produccion.
+//
+// VITE_API_URL='' al compilar sigue siendo valido; con `||` la cadena vacia
+// es falsy y caia al fallback de produccion — la comparacion es contra
+// undefined, no un `||`.
+
+function _esOrigenLocal() {
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hostname;
+  return h === '127.0.0.1' || h === 'localhost' || h === '';
+}
+
 const desdeEntorno = import.meta.env.VITE_API_URL;
 
-export const API_URL = typeof desdeEntorno === 'string'
-  ? desdeEntorno
-  : (import.meta.env.PROD
-    ? 'https://api.medglobal.erpgest.com.pe'
-    : 'http://localhost:8000');
+function _resolverApiUrl() {
+  // Escritorio / dev local: siempre relativo al origen actual.
+  if (_esOrigenLocal()) return '';
+
+  if (typeof desdeEntorno === 'string') return desdeEntorno;
+
+  return import.meta.env.PROD
+    ? 'https://api.medglobal.erpgestapp.com'
+    : 'http://localhost:8000';
+}
+
+export const API_URL = _resolverApiUrl();

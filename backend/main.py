@@ -77,7 +77,7 @@ with engine.connect() as conn:
 app = FastAPI(title="MEDGLOBAL API")
 
 # Configure CORS
-# ALLOWED_ORIGINS es una lista separada por comas (ej. "https://medglobal.erpgest.com.pe").
+# ALLOWED_ORIGINS es una lista separada por comas (ej. "https://medglobal.erpgestapp.com").
 #
 # El default ya NO es "*": con allow_credentials=True, Starlette responde
 # reflejando el Origin que venga en el request, asi que cualquier pagina web
@@ -89,6 +89,7 @@ app = FastAPI(title="MEDGLOBAL API")
 # Si un despliegue usa otro dominio, se configura con la variable de entorno;
 # ALLOWED_ORIGINS="*" sigue disponible como valvula de escape explicita.
 _ORIGENES_POR_DEFECTO = [
+    "https://medglobal.erpgestapp.com",
     "https://medglobal.erpgest.com.pe",
     "http://localhost:5173",
     "http://127.0.0.1:5173",

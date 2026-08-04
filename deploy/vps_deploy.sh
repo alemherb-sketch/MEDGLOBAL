@@ -43,7 +43,9 @@ fi
 
 if [ "$frontend_changed" = "1" ]; then
   echo "== Frontend cambio: reconstruyendo dist/ =="
-  (cd frontend && npm install && npm run build)
+  # Sin VITE_API_URL el build cae al fallback de config.js; en el VPS hay que
+  # apuntar siempre al API de erpgestapp.com para no romper el guardado.
+  (cd frontend && npm install && VITE_API_URL=https://api.medglobal.erpgestapp.com npm run build)
 fi
 
 if [ "$backend_changed" = "1" ]; then
