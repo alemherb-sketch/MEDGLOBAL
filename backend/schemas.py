@@ -311,7 +311,26 @@ class Atencion(AtencionBase):
         from_attributes = True
 
 # --- Botiquin ---
+class BotiquinProductoBase(BaseModel):
+    medicamento_id: str
+    cantidad: int = 1
+
+
+class BotiquinProductoCreate(BotiquinProductoBase):
+    pass
+
+
+class BotiquinProducto(BotiquinProductoBase):
+    id: str
+    medicamento: Optional[Medicamento] = None
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
 class BotiquinBase(BaseModel):
+    codigo: Optional[str] = None
     tipo_equipo: str
     area: str
     empresa_id: Optional[str] = None
@@ -319,13 +338,18 @@ class BotiquinBase(BaseModel):
     numero_serie_placa: Optional[str] = None
     equipo: str
     estado: Optional[str] = "ACTIVO"
+    fecha_creacion: Optional[datetime] = None
+    productos: List[BotiquinProductoCreate] = []
+
 
 class BotiquinCreate(BotiquinBase):
     pass
 
+
 class Botiquin(BotiquinBase):
     id: str
     empresa: Optional[Empresa] = None
+    productos: List[BotiquinProducto] = []
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

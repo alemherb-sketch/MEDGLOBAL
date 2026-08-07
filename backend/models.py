@@ -346,6 +346,7 @@ class Botiquin(Base):
     """Equipo de emergencia / botiquin en area, vehiculo o instalacion."""
     __tablename__ = "botiquines"
     id = Column(String(36), primary_key=True, default=gen_uuid, index=True)
+    codigo = Column(String(50), unique=True, nullable=True, index=True)
     tipo_equipo = Column(String(120), index=True)  # Botiquin area, vehiculo, etc.
     area = Column(String(50), index=True)  # Mina, Planta
     empresa_id = Column(String(36), ForeignKey("empresas.id"), nullable=True, index=True)
@@ -353,14 +354,27 @@ class Botiquin(Base):
     numero_serie_placa = Column(String(100), nullable=True, index=True)
     equipo = Column(String(100), index=True)  # Botiquin emergencia, Polvorines, Refugios
     estado = Column(String(50), default="ACTIVO")
+    fecha_creacion = Column(DateTime, default=datetime.datetime.utcnow, index=True)
 
     empresa = relationship("Empresa")
+    productos = relationship("BotiquinProducto", cascade="all, delete-orphan")
     inspecciones = relationship("BotiquinInspeccion", back_populates="botiquin")
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     server_updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     is_deleted = Column(Boolean, default=False, index=True)
+
+
+class BotiquinProducto(Base):
+    """Contenido / inventario asignado al botiquin desde el catalogo de medicamentos."""
+    __tablename__ = "botiquin_productos"
+    id = Column(String(36), primary_key=True, default=gen_uuid, index=True)
+    botiquin_id = Column(String(36), ForeignKey("botiquines.id"), index=True)
+    medicamento_id = Column(String(36), ForeignKey("medicamentos.id"), index=True)
+    cantidad = Column(Integer, default=1)
+
+    medicamento = relationship("Medicamento")
 
 
 class BotiquinInspeccion(Base):

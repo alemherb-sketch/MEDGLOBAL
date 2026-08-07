@@ -74,6 +74,17 @@ with engine.connect() as conn:
         except Exception:
             pass
 
+    columnas_botiquin = [
+        "codigo VARCHAR(50)",
+        "fecha_creacion TIMESTAMP",
+    ]
+    for col in columnas_botiquin:
+        try:
+            with conn.begin():
+                conn.execute(text(f"ALTER TABLE botiquines ADD COLUMN {col}"))
+        except Exception:
+            pass
+
 app = FastAPI(title="MEDGLOBAL API")
 
 # Configure CORS
@@ -190,7 +201,7 @@ _SYNC_SERVER_COMPUTED_COLUMNS = {"folio", "server_updated_at"}
 _SYNC_SERVER_COMPUTED_COLUMNS_POR_TABLA = {
     "medicamentos": {"stock_actual"},
 }
-_SYNC_DATETIME_COLUMNS = {"fecha", "fecha_hora", "created_at", "updated_at", "server_updated_at", "creado_en"}
+_SYNC_DATETIME_COLUMNS = {"fecha", "fecha_hora", "fecha_creacion", "created_at", "updated_at", "server_updated_at", "creado_en"}
 
 
 def _parse_sync_dt(value):
@@ -274,6 +285,25 @@ def _procesar_botiquin_inspeccion_nueva(db: Session, insp_row, insumos):
             continue
         db.add(models.BotiquinInspeccionInsumo(
             inspeccion_id=insp_row.id,
+            medicamento_id=med_id,
+            cantidad=max(1, cantidad),
+        ))
+
+
+def _reemplazar_productos_botiquin(db: Session, botiquin_row, productos):
+    """Asigna o reemplaza el inventario del botiquin desde el catalogo."""
+    db.query(models.BotiquinProducto).filter(
+        models.BotiquinProducto.botiquin_id == botiquin_row.id
+    ).delete(synchronize_session=False)
+    for item in productos or []:
+        if hasattr(item, "dict"):
+            item = item.dict()
+        med_id = item.get("medicamento_id")
+        cantidad = int(item.get("cantidad") or 1)
+        if not med_id:
+            continue
+        db.add(models.BotiquinProducto(
+            botiquin_id=botiquin_row.id,
             medicamento_id=med_id,
             cantidad=max(1, cantidad),
         ))
@@ -367,6 +397,11 @@ def sync_cambios(since: Optional[str] = None, db: Session = Depends(get_db), cur
                     {"medicamento_id": am.medicamento_id, "cantidad": am.cantidad}
                     for am in row.medicamentos
                 ]
+            if tabla == "botiquines":
+                item["productos"] = [
+                    {"medicamento_id": p.medicamento_id, "cantidad": p.cantidad}
+                    for p in row.productos
+                ]
             if tabla == "botiquin_inspecciones":
                 item["insumos"] = [
                     {"medicamento_id": am.medicamento_id, "cantidad": am.cantidad}
@@ -427,6 +462,8 @@ def sync_subir(payload: schemas.SyncPushRequest, db: Session = Depends(get_db), 
                     db.flush()
                     if tabla == "atenciones":
                         _procesar_atencion_nueva(db, nuevo, fila.get("medicamentos", []))
+                    elif tabla == "botiquines":
+                        _reemplazar_productos_botiquin(db, nuevo, fila.get("productos", []))
                     elif tabla == "botiquin_inspecciones":
                         _procesar_botiquin_inspeccion_nueva(db, nuevo, fila.get("insumos", []))
                     elif tabla == "kardex":
@@ -1223,7 +1260,8 @@ def read_botiquines(
     if search:
         like = f"%{search}%"
         q = q.filter(
-            (models.Botiquin.ubicacion.ilike(like))
+            (models.Botiquin.codigo.ilike(like))
+            | (models.Botiquin.ubicacion.ilike(like))
             | (models.Botiquin.numero_serie_placa.ilike(like))
             | (models.Botiquin.tipo_equipo.ilike(like))
             | (models.Botiquin.equipo.ilike(like))
@@ -1237,11 +1275,19 @@ def create_botiquin(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(auth.get_current_user),
 ):
-    data = botiquin.dict()
+    data = botiquin.dict(exclude={"productos"})
     if not data.get("empresa_id"):
         data["empresa_id"] = None
+    if not (data.get("codigo") or "").strip():
+        data["codigo"] = _next_prefixed_code(db, models.Botiquin, "codigo", "BOT")
+    else:
+        data["codigo"] = data["codigo"].strip()
+    if not data.get("fecha_creacion"):
+        data["fecha_creacion"] = datetime.utcnow()
     db_bot = models.Botiquin(**data)
     db.add(db_bot)
+    db.flush()
+    _reemplazar_productos_botiquin(db, db_bot, botiquin.productos or [])
     db.commit()
     db.refresh(db_bot)
     return db_bot
@@ -1265,11 +1311,14 @@ def update_botiquin(
     db_bot = db.query(models.Botiquin).filter(models.Botiquin.id == id).first()
     if not db_bot:
         raise HTTPException(status_code=404, detail="Botiquín no encontrado")
-    data = botiquin.dict()
+    data = botiquin.dict(exclude={"productos"})
     if not data.get("empresa_id"):
         data["empresa_id"] = None
+    if data.get("codigo") is not None:
+        data["codigo"] = (data["codigo"] or "").strip() or db_bot.codigo
     for key, value in data.items():
         setattr(db_bot, key, value)
+    _reemplazar_productos_botiquin(db, db_bot, botiquin.productos or [])
     db.commit()
     db.refresh(db_bot)
     return db_bot
