@@ -1,4 +1,4 @@
-import os
+﻿import os
 import re
 import json
 from datetime import datetime
@@ -18,7 +18,7 @@ from database import engine, get_db
 # Create DB tables
 models.Base.metadata.create_all(bind=engine)
 
-# Aplicar migraciones automÃ¡ticas para SQLite/PostgreSQL si las columnas no existen
+# Aplicar migraciones autom├â┬íticas para SQLite/PostgreSQL si las columnas no existen
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 with engine.connect() as conn:
@@ -77,6 +77,7 @@ with engine.connect() as conn:
     columnas_botiquin = [
         "codigo VARCHAR(50)",
         "fecha_creacion TIMESTAMP",
+        "tipo_botiquin_id VARCHAR(36)",
     ]
     for col in columnas_botiquin:
         try:
@@ -135,7 +136,7 @@ import io
 
 
 def _next_prefixed_code(db: Session, model, field_name: str, prefix: str) -> str:
-    """Siguiente cÃ³digo secuencial tipo PREFIX-0001, buscando el mÃ¡ximo existente
+    """Siguiente c├â┬│digo secuencial tipo PREFIX-0001, buscando el m├â┬íximo existente
     (no se puede usar el id para esto desde que los ids son UUID)."""
     col = getattr(model, field_name)
     rows = db.query(col).filter(col.like(f"{prefix}-%")).all()
@@ -154,7 +155,7 @@ def _next_prefixed_code(db: Session, model, field_name: str, prefix: str) -> str
 # Tablas que participan del protocolo generico de sync. atencion_medicamentos
 # se sincroniza embebida dentro de cada atencion (igual que ya se expone en
 # la API normal), no como tabla independiente. usuarios SI participa (a
-# diferencia del diseÃ±o original de la Fase 2): el mismo login debe
+# diferencia del dise├â┬▒o original de la Fase 2): el mismo login debe
 # funcionar tanto en la web como en el instalable de escritorio. Usa
 # exactamente el mismo mecanismo generico de conflicto que cualquier otra
 # tabla -- no hay tratamiento especial para password_hash, porque cualquier
@@ -172,6 +173,7 @@ SYNCABLE_MODELS = {
     "citas": models.Cita,
     "atenciones": models.Atencion,
     "kardex": models.Kardex,
+    "tipos_botiquin": models.TipoBotiquin,
     "botiquines": models.Botiquin,
     "botiquin_inspecciones": models.BotiquinInspeccion,
 }
@@ -180,10 +182,10 @@ SYNCABLE_MODELS = {
 _SYNC_ALWAYS_SKIP = {"id"}
 # folio, stock_actual y server_updated_at son calculados por el servidor.
 # Un dispositivo empujando cambios (push) nunca puede pisarlos directo,
-# aunque los mande en su payload â€” por eso se saltan cuando
+# aunque los mande en su payload ├óÔé¼ÔÇØ por eso se saltan cuando
 # trusted_source=False. Pero cuando el cliente de escritorio (Fase 3)
-# APLICA lo que bajo del servidor (pull), sÃ­ necesita quedarse con esos
-# valores tal cual, porque son la verdad autoritativa â€” por eso ahi se
+# APLICA lo que bajo del servidor (pull), s├â┬¡ necesita quedarse con esos
+# valores tal cual, porque son la verdad autoritativa ├óÔé¼ÔÇØ por eso ahi se
 # llama con trusted_source=True.
 #
 # server_updated_at existe SEPARADO de updated_at a proposito (ver el
@@ -191,7 +193,7 @@ _SYNC_ALWAYS_SKIP = {"id"}
 # fecha de edicion del usuario, tal cual la manda el cliente, porque de eso
 # depende decidir quien gana un conflicto. server_updated_at es cuando el
 # SERVIDOR escribio la fila, y es lo que se usa para el filtro "que cambio
-# desde since" â€” si se usara updated_at para ambas cosas, aplicar la
+# desde since" ├óÔé¼ÔÇØ si se usara updated_at para ambas cosas, aplicar la
 # version ganadora de un conflicto con la fecha de edicion original
 # (posiblemente antigua) dejaria la fila "vieja" para el filtro de sync
 # aunque el servidor la acabe de tocar, y un tercer dispositivo se la
@@ -223,7 +225,7 @@ def _row_to_sync_dict(row):
 def _apply_sync_fields(row, data, tabla=None, trusted_source=False):
     """Copia los campos de 'data' a 'row' via setattr. Usa flag_modified en
     cada columna tocada porque SQLAlchemy solo incluye una columna en el
-    UPDATE si la detecta 'dirty' â€” y su deteccion de cambios es por
+    UPDATE si la detecta 'dirty' ├óÔé¼ÔÇØ y su deteccion de cambios es por
     igualdad de valor. Cuando un dispositivo recibe de vuelta (pull) su
     propio cambio recien empujado, el valor entrante es identico al que ya
     tiene en memoria, SQLAlchemy no lo marca dirty, la columna queda fuera
@@ -248,7 +250,7 @@ def _apply_sync_fields(row, data, tabla=None, trusted_source=False):
 def _procesar_atencion_nueva(db: Session, atencion_row, medicamentos):
     """Asigna folio y reconstruye la receta (atencion_medicamentos) de una
     atencion que llega por sync. Solo corre para atenciones que no existian en
-    el servidor todavia â€” editar los medicamentos de una atencion ya existente
+    el servidor todavia ├óÔé¼ÔÇØ editar los medicamentos de una atencion ya existente
     via sync no esta soportado, igual que tampoco lo esta en el endpoint normal
     de edicion.
 
@@ -259,7 +261,7 @@ def _procesar_atencion_nueva(db: Session, atencion_row, medicamentos):
     _procesar_kardex_nuevo, que es quien descuenta el stock recalculandolo
     contra el estado actual del servidor. Si ademas se descontara aca, cada
     atencion sincronizada restaria el doble y dejaria dos movimientos SALIDA
-    duplicados en el kardex â€” el inventario del servidor se degradaba de forma
+    duplicados en el kardex ├óÔé¼ÔÇØ el inventario del servidor se degradaba de forma
     acumulativa con cada sincronizacion.
 
     Regla: la fila de kardex es la unica fuente de verdad de un movimiento de
@@ -290,28 +292,41 @@ def _procesar_botiquin_inspeccion_nueva(db: Session, insp_row, insumos):
         ))
 
 
-def _reemplazar_productos_botiquin(db: Session, botiquin_row, productos):
-    """Asigna o reemplaza el inventario del botiquin desde el catalogo."""
-    db.query(models.BotiquinProducto).filter(
-        models.BotiquinProducto.botiquin_id == botiquin_row.id
+def _reemplazar_insumos_tipo_botiquin(db: Session, tipo_row, insumos):
+    """Asigna o reemplaza la plantilla de insumos de un tipo de botiquin."""
+    db.query(models.TipoBotiquinInsumo).filter(
+        models.TipoBotiquinInsumo.tipo_botiquin_id == tipo_row.id
     ).delete(synchronize_session=False)
-    for item in productos or []:
+    for item in insumos or []:
         if hasattr(item, "dict"):
             item = item.dict()
         med_id = item.get("medicamento_id")
         cantidad = int(item.get("cantidad") or 1)
         if not med_id:
             continue
-        db.add(models.BotiquinProducto(
-            botiquin_id=botiquin_row.id,
+        db.add(models.TipoBotiquinInsumo(
+            tipo_botiquin_id=tipo_row.id,
             medicamento_id=med_id,
             cantidad=max(1, cantidad),
         ))
 
 
+def _insumos_plantilla_botiquin(db: Session, botiquin_row):
+    """Devuelve la lista estandar de insumos segun el tipo del botiquin."""
+    if not botiquin_row or not botiquin_row.tipo_botiquin_id:
+        return []
+    tipo = db.query(models.TipoBotiquin).filter(
+        models.TipoBotiquin.id == botiquin_row.tipo_botiquin_id,
+        models.TipoBotiquin.is_deleted == False,
+    ).first()
+    if not tipo:
+        return []
+    return list(tipo.insumos or [])
+
+
 def _procesar_kardex_nuevo(db: Session, kardex_row):
     """El stock y el saldo se recalculan aqui contra el estado actual del
-    servidor â€” nunca se confia en el stock_actual/saldo que traiga el
+    servidor ├óÔé¼ÔÇØ nunca se confia en el stock_actual/saldo que traiga el
     dispositivo, porque puede estar desactualizado si otro dispositivo
     sincronizo movimientos de este mismo medicamento mientras tanto."""
     db_med = db.query(models.Medicamento).filter(models.Medicamento.id == kardex_row.medicamento_id).first()
@@ -371,9 +386,9 @@ def sync_ahora(current_user: models.Usuario = Depends(auth.get_current_user)):
 def sync_cambios(since: Optional[str] = None, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     """Pull: todo lo que cambio desde 'since' (ISO 8601), incluyendo
     borrados (is_deleted=true actua como tombstone). Sin 'since', devuelve
-    todo â€” es la sincronizacion inicial de un dispositivo nuevo.
+    todo ├óÔé¼ÔÇØ es la sincronizacion inicial de un dispositivo nuevo.
     server_time va en la respuesta a proposito: el cliente debe guardar ESE
-    valor como su proximo cursor, no su propio reloj â€” evita que un reloj
+    valor como su proximo cursor, no su propio reloj ├óÔé¼ÔÇØ evita que un reloj
     desincronizado en una PC cause huecos o duplicados en la sync."""
     server_time = datetime.utcnow()
     since_dt = None
@@ -397,10 +412,10 @@ def sync_cambios(since: Optional[str] = None, db: Session = Depends(get_db), cur
                     {"medicamento_id": am.medicamento_id, "cantidad": am.cantidad}
                     for am in row.medicamentos
                 ]
-            if tabla == "botiquines":
-                item["productos"] = [
+            if tabla == "tipos_botiquin":
+                item["insumos"] = [
                     {"medicamento_id": p.medicamento_id, "cantidad": p.cantidad}
-                    for p in row.productos
+                    for p in row.insumos
                 ]
             if tabla == "botiquin_inspecciones":
                 item["insumos"] = [
@@ -462,8 +477,8 @@ def sync_subir(payload: schemas.SyncPushRequest, db: Session = Depends(get_db), 
                     db.flush()
                     if tabla == "atenciones":
                         _procesar_atencion_nueva(db, nuevo, fila.get("medicamentos", []))
-                    elif tabla == "botiquines":
-                        _reemplazar_productos_botiquin(db, nuevo, fila.get("productos", []))
+                    elif tabla == "tipos_botiquin":
+                        _reemplazar_insumos_tipo_botiquin(db, nuevo, fila.get("insumos", []))
                     elif tabla == "botiquin_inspecciones":
                         _procesar_botiquin_inspeccion_nueva(db, nuevo, fila.get("insumos", []))
                     elif tabla == "kardex":
@@ -527,7 +542,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     if not user:
         raise HTTPException(
             status_code=401,
-            detail="Usuario o contraseÃ±a incorrectos",
+            detail="Usuario o contrase├â┬▒a incorrectos",
             headers={"WWW-Authenticate": "Bearer"},
         )
     return {"access_token": auth.create_access_token(user.username), "token_type": "bearer"}
@@ -570,13 +585,13 @@ def create_diagnostico(diag: schemas.DiagnosticoCie10Create, db: Session = Depen
 def update_diagnostico(id: str, diag: schemas.DiagnosticoCie10Create, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_diag = db.query(models.DiagnosticoCie10).filter(models.DiagnosticoCie10.id == id).first()
     if not db_diag:
-        raise HTTPException(status_code=404, detail="DiagnÃ³stico no encontrado")
+        raise HTTPException(status_code=404, detail="Diagn├â┬│stico no encontrado")
 
     # Check if new code already exists in another record
     if diag.codigo != db_diag.codigo:
         exist = db.query(models.DiagnosticoCie10).filter(models.DiagnosticoCie10.codigo == diag.codigo).first()
         if exist:
-            raise HTTPException(status_code=400, detail="El cÃ³digo CIE-10 ya existe")
+            raise HTTPException(status_code=400, detail="El c├â┬│digo CIE-10 ya existe")
 
     for key, value in diag.dict().items():
         setattr(db_diag, key, value)
@@ -588,7 +603,7 @@ def update_diagnostico(id: str, diag: schemas.DiagnosticoCie10Create, db: Sessio
 def delete_diagnostico(id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_diag = db.query(models.DiagnosticoCie10).filter(models.DiagnosticoCie10.id == id).first()
     if not db_diag:
-        raise HTTPException(status_code=404, detail="DiagnÃ³stico no encontrado")
+        raise HTTPException(status_code=404, detail="Diagn├â┬│stico no encontrado")
     db_diag.is_deleted = True
     db.commit()
     return {"detail": "Eliminado"}
@@ -596,7 +611,7 @@ def delete_diagnostico(id: str, db: Session = Depends(get_db), current_user: mod
 @app.post("/diagnosticos/importar/")
 async def import_diagnosticos(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     if not file.filename.endswith(('.xlsx', '.xls')):
-        raise HTTPException(status_code=400, detail="Formato de archivo invÃ¡lido. Usa Excel (.xlsx)")
+        raise HTTPException(status_code=400, detail="Formato de archivo inv├â┬ílido. Usa Excel (.xlsx)")
 
     contents = await file.read()
     try:
@@ -618,7 +633,7 @@ async def import_diagnosticos(file: UploadFile = File(...), db: Session = Depend
                 codigo = match.group(1).strip()
                 descripcion = match.group(2).strip()
             else:
-                # Si tiene 2 columnas, plan B clÃ¡sico
+                # Si tiene 2 columnas, plan B cl├â┬ísico
                 if len(df.columns) >= 2 and not pd.isna(row.iloc[1]):
                     codigo = celda
                     descripcion = str(row.iloc[1]).strip()
@@ -626,7 +641,7 @@ async def import_diagnosticos(file: UploadFile = File(...), db: Session = Depend
                     continue
 
             if codigo and codigo != 'nan' and descripcion and descripcion != 'nan':
-                # Evitar duplicados por cÃ³digo
+                # Evitar duplicados por c├â┬│digo
                 exist = db.query(models.DiagnosticoCie10).filter(models.DiagnosticoCie10.codigo == codigo).first()
                 if not exist:
                     new_diag = models.DiagnosticoCie10(codigo=codigo, descripcion=descripcion)
@@ -634,7 +649,7 @@ async def import_diagnosticos(file: UploadFile = File(...), db: Session = Depend
                     count += 1
 
         db.commit()
-        return {"message": f"Se importaron {count} diagnÃ³sticos nuevos."}
+        return {"message": f"Se importaron {count} diagn├â┬│sticos nuevos."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -772,7 +787,7 @@ def create_clasificacion(clasificacion: schemas.ClasificacionCreate, db: Session
 def update_clasificacion(id: str, clasificacion: schemas.ClasificacionCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_clas = db.query(models.ClasificacionAtencion).filter(models.ClasificacionAtencion.id == id).first()
     if not db_clas:
-        raise HTTPException(status_code=404, detail="ClasificaciÃ³n no encontrada")
+        raise HTTPException(status_code=404, detail="Clasificaci├â┬│n no encontrada")
     for key, value in clasificacion.dict().items():
         setattr(db_clas, key, value)
     db.commit()
@@ -783,7 +798,7 @@ def update_clasificacion(id: str, clasificacion: schemas.ClasificacionCreate, db
 def delete_clasificacion(id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_clas = db.query(models.ClasificacionAtencion).filter(models.ClasificacionAtencion.id == id).first()
     if not db_clas:
-        raise HTTPException(status_code=404, detail="ClasificaciÃ³n no encontrada")
+        raise HTTPException(status_code=404, detail="Clasificaci├â┬│n no encontrada")
     db_clas.is_deleted = True
     db.commit()
     return {"detail": "Eliminado"}
@@ -805,7 +820,7 @@ def create_atencion(atencion: schemas.AtencionCreate, db: Session = Depends(get_
             atencion_data[optional_fk] = None
     db_atencion = models.Atencion(**atencion_data)
 
-    # Folio correlativo humano (Ficha NÂ°), asignado solo por el servidor
+    # Folio correlativo humano (Ficha N├é┬░), asignado solo por el servidor
     max_folio = db.query(func.max(models.Atencion.folio)).scalar()
     db_atencion.folio = (max_folio or 0) + 1
 
@@ -816,7 +831,7 @@ def create_atencion(atencion: schemas.AtencionCreate, db: Session = Depends(get_
     # Procesar medicamentos si hay
     if atencion.medicamentos:
         for med_req in atencion.medicamentos:
-            # AÃ±adir relaciÃ³n
+            # A├â┬▒adir relaci├â┬│n
             db_am = models.AtencionMedicamento(
                 atencion_id=db_atencion.id,
                 medicamento_id=med_req.medicamento_id,
@@ -851,10 +866,10 @@ def create_atencion(atencion: schemas.AtencionCreate, db: Session = Depends(get_
 def update_atencion(id: str, atencion: schemas.AtencionCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_atencion = db.query(models.Atencion).filter(models.Atencion.id == id).first()
     if not db_atencion:
-        raise HTTPException(status_code=404, detail="AtenciÃ³n no encontrada")
+        raise HTTPException(status_code=404, detail="Atenci├â┬│n no encontrada")
 
     atencion_data = atencion.dict(exclude={'medicamentos'})
-    # Evitar FK invÃ¡lidos por strings vacÃ­os enviados desde el formulario
+    # Evitar FK inv├â┬ílidos por strings vac├â┬¡os enviados desde el formulario
     for optional_fk in ("empresa_id", "cita_id", "personal_salud_id"):
         if atencion_data.get(optional_fk) == "":
             atencion_data[optional_fk] = None
@@ -909,7 +924,7 @@ def update_atencion(id: str, atencion: schemas.AtencionCreate, db: Session = Dep
 def delete_atencion(id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_atencion = db.query(models.Atencion).filter(models.Atencion.id == id).first()
     if not db_atencion:
-        raise HTTPException(status_code=404, detail="AtenciÃ³n no encontrada")
+        raise HTTPException(status_code=404, detail="Atenci├â┬│n no encontrada")
     db_atencion.is_deleted = True
     db.commit()
     return {"detail": "Eliminada"}
@@ -951,7 +966,7 @@ def delete_medicamento(id: str, db: Session = Depends(get_db), current_user: mod
 
 def _norm_header(h) -> str:
     h = str(h).strip().lower()
-    for a, b in [("Ã¡", "a"), ("Ã©", "e"), ("Ã­", "i"), ("Ã³", "o"), ("Ãº", "u"), ("Ã±", "n")]:
+    for a, b in [("├â┬í", "a"), ("├â┬®", "e"), ("├â┬¡", "i"), ("├â┬│", "o"), ("├â┬║", "u"), ("├â┬▒", "n")]:
         h = h.replace(a, b)
     return re.sub(r"[\s_\-\.]+", "", h)
 
@@ -1006,7 +1021,7 @@ def _parse_med_costo(val) -> float:
 
 def _parse_med_fecha_vencimiento(val):
     """Ademas de fechas reales de Excel, acepta el formato abreviado en
-    espaÃ±ol que usa el excel real de la clinica para la columna de
+    espa├â┬▒ol que usa el excel real de la clinica para la columna de
     vencimiento (ej. 'sep.-28', 'ene.-28') -- no trae dia, se asume el 01
     del mes."""
     if val is None:
@@ -1035,7 +1050,7 @@ async def import_medicamentos(file: UploadFile = File(...), db: Session = Depend
     (o si no hay Codigo, si el Nombre ya existe), actualiza esa fila en vez
     de crear una nueva; si no trae Codigo, se genera uno (MED-000X)."""
     if not file.filename.endswith(('.xlsx', '.xls')):
-        raise HTTPException(status_code=400, detail="Formato de archivo invÃ¡lido. Usa Excel (.xlsx)")
+        raise HTTPException(status_code=400, detail="Formato de archivo inv├â┬ílido. Usa Excel (.xlsx)")
 
     contents = await file.read()
     try:
@@ -1050,7 +1065,7 @@ async def import_medicamentos(file: UploadFile = File(...), db: Session = Depend
             if cantidad > mejor_cantidad:
                 header_row_idx, mejor_cantidad = i, cantidad
         if mejor_cantidad <= 0:
-            raise HTTPException(status_code=400, detail="No se encontraron encabezados reconocibles (Nombre/Medicamento, PresentaciÃ³n, etc.) en las primeras filas del archivo.")
+            raise HTTPException(status_code=400, detail="No se encontraron encabezados reconocibles (Nombre/Medicamento, Presentaci├â┬│n, etc.) en las primeras filas del archivo.")
 
         df = pd.read_excel(io.BytesIO(contents), header=header_row_idx)
         encabezados_originales = [str(c) for c in df.columns]
@@ -1146,7 +1161,7 @@ async def import_medicamentos(file: UploadFile = File(...), db: Session = Depend
                 creados += 1
 
         db.commit()
-        msg = f"ImportaciÃ³n completa: {creados} nuevos, {actualizados} actualizados, {omitidos} fila(s) omitida(s) (sin nombre o presentaciÃ³n)."
+        msg = f"Importaci├â┬│n completa: {creados} nuevos, {actualizados} actualizados, {omitidos} fila(s) omitida(s) (sin nombre o presentaci├â┬│n)."
         if creados == 0 and actualizados == 0 and omitidos > 0:
             msg += f" Encabezados detectados en el archivo: {', '.join(encabezados_originales)}."
         return {"message": msg}
@@ -1234,6 +1249,94 @@ def delete_personal_salud(id: str, db: Session = Depends(get_db), current_user: 
     db.commit()
     return {"detail": "Eliminado"}
 
+# --- Tipos de Botiquin ---
+@app.get("/tipos_botiquin/", response_model=List[schemas.TipoBotiquin])
+def read_tipos_botiquin(
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(auth.get_current_user),
+):
+    q = db.query(models.TipoBotiquin).filter(models.TipoBotiquin.is_deleted == False)
+    if search:
+        like = f"%{search}%"
+        q = q.filter(
+            (models.TipoBotiquin.codigo.ilike(like))
+            | (models.TipoBotiquin.nombre.ilike(like))
+        )
+    return q.order_by(models.TipoBotiquin.nombre.asc()).all()
+
+
+@app.post("/tipos_botiquin/", response_model=schemas.TipoBotiquin)
+def create_tipo_botiquin(
+    tipo: schemas.TipoBotiquinCreate,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(auth.get_current_user),
+):
+    data = tipo.dict(exclude={"insumos"})
+    if not (data.get("codigo") or "").strip():
+        data["codigo"] = _next_prefixed_code(db, models.TipoBotiquin, "codigo", "TB")
+    else:
+        data["codigo"] = data["codigo"].strip()
+    db_tipo = models.TipoBotiquin(**data)
+    db.add(db_tipo)
+    db.flush()
+    _reemplazar_insumos_tipo_botiquin(db, db_tipo, tipo.insumos or [])
+    db.commit()
+    db.refresh(db_tipo)
+    return db_tipo
+
+
+@app.get("/tipos_botiquin/{id}", response_model=schemas.TipoBotiquin)
+def read_tipo_botiquin(id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    db_tipo = db.query(models.TipoBotiquin).filter(
+        models.TipoBotiquin.id == id,
+        models.TipoBotiquin.is_deleted == False,
+    ).first()
+    if not db_tipo:
+        raise HTTPException(status_code=404, detail="Tipo de botiquín no encontrado")
+    return db_tipo
+
+
+@app.put("/tipos_botiquin/{id}", response_model=schemas.TipoBotiquin)
+def update_tipo_botiquin(
+    id: str,
+    tipo: schemas.TipoBotiquinCreate,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(auth.get_current_user),
+):
+    db_tipo = db.query(models.TipoBotiquin).filter(models.TipoBotiquin.id == id).first()
+    if not db_tipo:
+        raise HTTPException(status_code=404, detail="Tipo de botiquín no encontrado")
+    data = tipo.dict(exclude={"insumos"})
+    if data.get("codigo") is not None:
+        data["codigo"] = (data["codigo"] or "").strip() or db_tipo.codigo
+    for key, value in data.items():
+        setattr(db_tipo, key, value)
+    _reemplazar_insumos_tipo_botiquin(db, db_tipo, tipo.insumos or [])
+    db.commit()
+    db.refresh(db_tipo)
+    return db_tipo
+
+
+@app.delete("/tipos_botiquin/{id}")
+def delete_tipo_botiquin(id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    db_tipo = db.query(models.TipoBotiquin).filter(models.TipoBotiquin.id == id).first()
+    if not db_tipo:
+        raise HTTPException(status_code=404, detail="Tipo de botiquín no encontrado")
+    en_uso = db.query(models.Botiquin).filter(
+        models.Botiquin.tipo_botiquin_id == id,
+        models.Botiquin.is_deleted == False,
+    ).count()
+    if en_uso:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se puede eliminar: hay {en_uso} botiquín(es) usando este tipo",
+        )
+    db_tipo.is_deleted = True
+    db.commit()
+    return {"detail": "Eliminado"}
+
+
 # --- Botiquin ---
 @app.get("/botiquines/", response_model=List[schemas.Botiquin])
 def read_botiquines(
@@ -1242,6 +1345,7 @@ def read_botiquines(
     empresa_id: Optional[str] = None,
     equipo: Optional[str] = None,
     estado: Optional[str] = None,
+    tipo_botiquin_id: Optional[str] = None,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(auth.get_current_user),
@@ -1257,6 +1361,8 @@ def read_botiquines(
         q = q.filter(models.Botiquin.equipo == equipo)
     if estado:
         q = q.filter(models.Botiquin.estado == estado)
+    if tipo_botiquin_id:
+        q = q.filter(models.Botiquin.tipo_botiquin_id == tipo_botiquin_id)
     if search:
         like = f"%{search}%"
         q = q.filter(
@@ -1275,9 +1381,16 @@ def create_botiquin(
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(auth.get_current_user),
 ):
-    data = botiquin.dict(exclude={"productos"})
+    data = botiquin.dict()
     if not data.get("empresa_id"):
         data["empresa_id"] = None
+    if not data.get("tipo_botiquin_id"):
+        data["tipo_botiquin_id"] = None
+    elif not db.query(models.TipoBotiquin).filter(
+        models.TipoBotiquin.id == data["tipo_botiquin_id"],
+        models.TipoBotiquin.is_deleted == False,
+    ).first():
+        raise HTTPException(status_code=400, detail="Tipo de botiquín no encontrado")
     if not (data.get("codigo") or "").strip():
         data["codigo"] = _next_prefixed_code(db, models.Botiquin, "codigo", "BOT")
     else:
@@ -1286,8 +1399,6 @@ def create_botiquin(
         data["fecha_creacion"] = datetime.utcnow()
     db_bot = models.Botiquin(**data)
     db.add(db_bot)
-    db.flush()
-    _reemplazar_productos_botiquin(db, db_bot, botiquin.productos or [])
     db.commit()
     db.refresh(db_bot)
     return db_bot
@@ -1301,6 +1412,15 @@ def read_botiquin(id: str, db: Session = Depends(get_db), current_user: models.U
     return db_bot
 
 
+@app.get("/botiquines/{id}/insumos", response_model=List[schemas.TipoBotiquinInsumo])
+def read_botiquin_insumos(id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
+    """Plantilla de insumos del tipo asociado al botiquin (para inspecciones)."""
+    db_bot = db.query(models.Botiquin).filter(models.Botiquin.id == id, models.Botiquin.is_deleted == False).first()
+    if not db_bot:
+        raise HTTPException(status_code=404, detail="Botiquín no encontrado")
+    return _insumos_plantilla_botiquin(db, db_bot)
+
+
 @app.put("/botiquines/{id}", response_model=schemas.Botiquin)
 def update_botiquin(
     id: str,
@@ -1311,14 +1431,20 @@ def update_botiquin(
     db_bot = db.query(models.Botiquin).filter(models.Botiquin.id == id).first()
     if not db_bot:
         raise HTTPException(status_code=404, detail="Botiquín no encontrado")
-    data = botiquin.dict(exclude={"productos"})
+    data = botiquin.dict()
     if not data.get("empresa_id"):
         data["empresa_id"] = None
+    if not data.get("tipo_botiquin_id"):
+        data["tipo_botiquin_id"] = None
+    elif not db.query(models.TipoBotiquin).filter(
+        models.TipoBotiquin.id == data["tipo_botiquin_id"],
+        models.TipoBotiquin.is_deleted == False,
+    ).first():
+        raise HTTPException(status_code=400, detail="Tipo de botiquín no encontrado")
     if data.get("codigo") is not None:
         data["codigo"] = (data["codigo"] or "").strip() or db_bot.codigo
     for key, value in data.items():
         setattr(db_bot, key, value)
-    _reemplazar_productos_botiquin(db, db_bot, botiquin.productos or [])
     db.commit()
     db.refresh(db_bot)
     return db_bot
@@ -1381,7 +1507,7 @@ def create_botiquin_inspeccion(
         models.Botiquin.is_deleted == False,
     ).first()
     if not bot:
-        raise HTTPException(status_code=404, detail="Botiquín no encontrado")
+        raise HTTPException(status_code=404, detail="Botiqu├¡n no encontrado")
 
     data = inspeccion.dict(exclude={"insumos"})
     if not data.get("responsable_id"):
@@ -1416,7 +1542,7 @@ def read_botiquin_inspeccion(id: str, db: Session = Depends(get_db), current_use
         models.BotiquinInspeccion.is_deleted == False,
     ).first()
     if not db_insp:
-        raise HTTPException(status_code=404, detail="Inspección no encontrada")
+        raise HTTPException(status_code=404, detail="Inspecci├│n no encontrada")
     return db_insp
 
 
@@ -1424,7 +1550,7 @@ def read_botiquin_inspeccion(id: str, db: Session = Depends(get_db), current_use
 def delete_botiquin_inspeccion(id: str, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     db_insp = db.query(models.BotiquinInspeccion).filter(models.BotiquinInspeccion.id == id).first()
     if not db_insp:
-        raise HTTPException(status_code=404, detail="Inspección no encontrada")
+        raise HTTPException(status_code=404, detail="Inspecci├│n no encontrada")
     db_insp.is_deleted = True
     db.commit()
     return {"detail": "Eliminado"}
@@ -1575,7 +1701,7 @@ def get_dashboard_stats(fecha_inicio: str = None, fecha_fin: str = None, db: Ses
             query = query.filter(func.date(models.Atencion.fecha) <= fecha_fin)
         return query
 
-    # 1. Enfermedades mÃ¡s frecuentes
+    # 1. Enfermedades m├â┬ís frecuentes
     q_enf = db.query(models.Atencion.diagnostico, func.count(models.Atencion.id).label('total')) \
         .filter(models.Atencion.is_deleted == False, models.Atencion.diagnostico != None, models.Atencion.diagnostico != '')
     q_enf = apply_date_filter(q_enf)
@@ -1585,7 +1711,7 @@ def get_dashboard_stats(fecha_inicio: str = None, fecha_fin: str = None, db: Ses
 
     enfermedades = [{"name": str(e.diagnostico), "value": int(e.total)} for e in top_enfermedades]
 
-    # 2. Pacientes mÃ¡s atendidos
+    # 2. Pacientes m├â┬ís atendidos
     q_pac = db.query(models.Trabajador.nombre, models.Trabajador.apellidos, func.count(models.Atencion.id).label('total')) \
         .join(models.Atencion, models.Trabajador.id == models.Atencion.trabajador_id) \
         .filter(models.Atencion.is_deleted == False)
@@ -1596,7 +1722,7 @@ def get_dashboard_stats(fecha_inicio: str = None, fecha_fin: str = None, db: Ses
 
     pacientes = [{"name": f"{p.nombre} {p.apellidos}", "value": int(p.total)} for p in top_pacientes]
 
-    # 3. Empresas mÃ¡s atendidas
+    # 3. Empresas m├â┬ís atendidas
     q_emp = db.query(models.Empresa.nombre, func.count(models.Atencion.id).label('total')) \
         .join(models.Atencion, models.Empresa.id == models.Atencion.empresa_id) \
         .filter(models.Atencion.is_deleted == False)
@@ -1607,7 +1733,7 @@ def get_dashboard_stats(fecha_inicio: str = None, fecha_fin: str = None, db: Ses
 
     empresas = [{"name": str(e.nombre), "value": int(e.total)} for e in top_empresas]
 
-    # 4. Medicamentos mÃ¡s usados
+    # 4. Medicamentos m├â┬ís usados
     q_med = db.query(models.Medicamento.nombre, func.sum(models.AtencionMedicamento.cantidad).label('total')) \
         .join(models.AtencionMedicamento, models.Medicamento.id == models.AtencionMedicamento.medicamento_id) \
         .join(models.Atencion, models.Atencion.id == models.AtencionMedicamento.atencion_id) \
@@ -1638,14 +1764,14 @@ def get_dashboard_stats(fecha_inicio: str = None, fecha_fin: str = None, db: Ses
         .group_by(models.Empresa.estado).all()
     estado_empresas = [{"name": str(e.estado or 'Desconocido'), "value": int(e.total)} for e in q_estado]
 
-    # 7. Atenciones por DÃ­a (Ãšltimas Atenciones GrÃ¡fico)
+    # 7. Atenciones por D├â┬¡a (├â┼íltimas Atenciones Gr├â┬ífico)
     q_dias = db.query(func.date(models.Atencion.fecha).label('dia'), func.count(models.Atencion.id).label('total')) \
         .filter(models.Atencion.is_deleted == False)
     q_dias = apply_date_filter(q_dias)
     dias_query = q_dias.group_by(func.date(models.Atencion.fecha)).order_by(func.date(models.Atencion.fecha).asc()).limit(14).all()
     atenciones_por_dia = [{"name": str(d.dia), "value": int(d.total)} for d in dias_query]
 
-    # 8. Ãšltimas Atenciones Realizadas (Lista)
+    # 8. ├â┼íltimas Atenciones Realizadas (Lista)
     q_ultimas = db.query(models.Atencion).filter(models.Atencion.is_deleted == False)
     q_ultimas = apply_date_filter(q_ultimas)
     ultimas = q_ultimas.order_by(models.Atencion.fecha.desc()).limit(10).all()
@@ -1712,7 +1838,7 @@ def get_reporte_sistemas(
         "sistemas": [{"name": str(r.nombre), "value": int(r.total)} for r in resultados]
     }
 
-# â”€â”€ Detailed Report Data â”€â”€
+# ├óÔÇØÔé¼├óÔÇØÔé¼ Detailed Report Data ├óÔÇØÔé¼├óÔÇØÔé¼
 @app.get("/dashboard/report/{report_type}")
 def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str = None, db: Session = Depends(get_db), current_user: models.Usuario = Depends(auth.get_current_user)):
     def apply_date_filter(query):
@@ -1737,10 +1863,10 @@ def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str
             emp = a.empresa
             grouped[a.diagnostico].append({
                 "fecha": a.fecha.strftime("%d/%m/%Y") if a.fecha else "",
-                "paciente": f"{trab.nombre} {trab.apellidos}" if trab else "â€”",
-                "dni": trab.dni if trab else "â€”",
-                "empresa": emp.nombre if emp else "â€”",
-                "area": trab.area or "â€”" if trab else "â€”",
+                "paciente": f"{trab.nombre} {trab.apellidos}" if trab else "├óÔé¼ÔÇØ",
+                "dni": trab.dni if trab else "├óÔé¼ÔÇØ",
+                "empresa": emp.nombre if emp else "├óÔé¼ÔÇØ",
+                "area": trab.area or "├óÔé¼ÔÇØ" if trab else "├óÔé¼ÔÇØ",
             })
 
         result = []
@@ -1763,13 +1889,13 @@ def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str
             key = trab.id
             grouped[key].append({
                 "fecha": a.fecha.strftime("%d/%m/%Y") if a.fecha else "",
-                "diagnostico": a.diagnostico or "â€”",
-                "empresa": emp.nombre if emp else "â€”",
-                "destino": a.destino or "â€”",
+                "diagnostico": a.diagnostico or "├óÔé¼ÔÇØ",
+                "empresa": emp.nombre if emp else "├óÔé¼ÔÇØ",
+                "destino": a.destino or "├óÔé¼ÔÇØ",
                 "_nombre": f"{trab.nombre} {trab.apellidos}",
                 "_dni": trab.dni,
-                "_cargo": trab.cargo or "â€”",
-                "_area": trab.area or "â€”",
+                "_cargo": trab.cargo or "├óÔé¼ÔÇØ",
+                "_area": trab.area or "├óÔé¼ÔÇØ",
             })
 
         result = []
@@ -1799,9 +1925,9 @@ def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str
                 continue
             grouped[emp.id].append({
                 "fecha": a.fecha.strftime("%d/%m/%Y") if a.fecha else "",
-                "paciente": f"{trab.nombre} {trab.apellidos}" if trab else "â€”",
-                "diagnostico": a.diagnostico or "â€”",
-                "destino": a.destino or "â€”",
+                "paciente": f"{trab.nombre} {trab.apellidos}" if trab else "├óÔé¼ÔÇØ",
+                "diagnostico": a.diagnostico or "├óÔé¼ÔÇØ",
+                "destino": a.destino or "├óÔé¼ÔÇØ",
                 "_empresa": emp.nombre,
                 "_ruc": emp.ruc,
             })
@@ -1834,7 +1960,7 @@ def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str
         for r in rows:
             result.append({
                 "name": str(r.nombre),
-                "presentacion": str(r.presentacion or "â€”"),
+                "presentacion": str(r.presentacion or "├óÔé¼ÔÇØ"),
                 "costo_unitario": float(r.costo_unitario or 0),
                 "stock_actual": int(r.stock_actual or 0),
                 "total": int(r.total or 0),
@@ -1856,7 +1982,7 @@ def get_report_detail(report_type: str, fecha_inicio: str = None, fecha_fin: str
                 continue
             ed = empresas_data[emp.id]
             ed["nombre"] = emp.nombre
-            ed["ruc"] = emp.ruc or "â€”"
+            ed["ruc"] = emp.ruc or "├óÔé¼ÔÇØ"
             for am in a.medicamentos:
                 med = am.medicamento
                 if med:
@@ -2010,7 +2136,7 @@ def admin_crear_usuario(
     if db.query(models.Usuario).filter(models.Usuario.username == datos.username).first():
         raise HTTPException(status_code=400, detail="Ese nombre de usuario ya existe.")
     if len(datos.password or "") < 8:
-        raise HTTPException(status_code=400, detail="La contraseÃ±a debe tener al menos 8 caracteres.")
+        raise HTTPException(status_code=400, detail="La contrase├â┬▒a debe tener al menos 8 caracteres.")
 
     usuario = models.Usuario(
         username=datos.username,
@@ -2062,9 +2188,9 @@ def admin_editar_usuario(
     # Vacio o ausente = no tocar la contrasena.
     if datos.password:
         if len(datos.password) < 8:
-            raise HTTPException(status_code=400, detail="La contraseÃ±a debe tener al menos 8 caracteres.")
+            raise HTTPException(status_code=400, detail="La contrase├â┬▒a debe tener al menos 8 caracteres.")
         usuario.password_hash = auth.hash_password(datos.password)
-        cambios.append("contraseÃ±a")
+        cambios.append("contrase├â┬▒a")
 
     if not cambios:
         return usuario
@@ -2077,7 +2203,7 @@ def admin_editar_usuario(
         db.rollback()
         raise HTTPException(
             status_code=400,
-            detail="No puede dejar el sistema sin ningÃºn administrador activo.",
+            detail="No puede dejar el sistema sin ning├â┬║n administrador activo.",
         )
 
     _registrar_evento(db, request, actor, "editar_usuario",
@@ -2132,7 +2258,7 @@ app.mount('/', ArchivosEstaticos(directory='static', html=True), name='static')
 
 
 # Prefijos que son API pura y nunca rutas del navegador. No se puede
-# generalizar a Â«todo lo que sea una ruta declaradaÂ»: /atenciones, /empresas y
+# generalizar a ├é┬½todo lo que sea una ruta declarada├é┬╗: /atenciones, /empresas y
 # casi todas las demas son a la vez endpoint del API y pantalla del frontend,
 # asi que ahi el 404 tiene que seguir cayendo en index.html.
 #

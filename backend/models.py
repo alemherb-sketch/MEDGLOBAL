@@ -342,11 +342,37 @@ class Cita(Base):
     is_deleted = Column(Boolean, default=False, index=True)
 
 
+class TipoBotiquin(Base):
+    """Plantilla de botiquin: define el conjunto estandar de insumos/medicamentos."""
+    __tablename__ = "tipos_botiquin"
+    id = Column(String(36), primary_key=True, default=gen_uuid, index=True)
+    codigo = Column(String(50), unique=True, nullable=True, index=True)
+    nombre = Column(String(150), index=True)
+
+    insumos = relationship("TipoBotiquinInsumo", cascade="all, delete-orphan")
+
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    server_updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    is_deleted = Column(Boolean, default=False, index=True)
+
+
+class TipoBotiquinInsumo(Base):
+    __tablename__ = "tipo_botiquin_insumos"
+    id = Column(String(36), primary_key=True, default=gen_uuid, index=True)
+    tipo_botiquin_id = Column(String(36), ForeignKey("tipos_botiquin.id"), index=True)
+    medicamento_id = Column(String(36), ForeignKey("medicamentos.id"), index=True)
+    cantidad = Column(Integer, default=1)
+
+    medicamento = relationship("Medicamento")
+
+
 class Botiquin(Base):
     """Equipo de emergencia / botiquin en area, vehiculo o instalacion."""
     __tablename__ = "botiquines"
     id = Column(String(36), primary_key=True, default=gen_uuid, index=True)
     codigo = Column(String(50), unique=True, nullable=True, index=True)
+    tipo_botiquin_id = Column(String(36), ForeignKey("tipos_botiquin.id"), nullable=True, index=True)
     tipo_equipo = Column(String(120), index=True)  # Botiquin area, vehiculo, etc.
     area = Column(String(50), index=True)  # Mina, Planta
     empresa_id = Column(String(36), ForeignKey("empresas.id"), nullable=True, index=True)
@@ -357,6 +383,7 @@ class Botiquin(Base):
     fecha_creacion = Column(DateTime, default=datetime.datetime.utcnow, index=True)
 
     empresa = relationship("Empresa")
+    tipo_botiquin = relationship("TipoBotiquin")
     productos = relationship("BotiquinProducto", cascade="all, delete-orphan")
     inspecciones = relationship("BotiquinInspeccion", back_populates="botiquin")
 
@@ -367,7 +394,7 @@ class Botiquin(Base):
 
 
 class BotiquinProducto(Base):
-    """Contenido / inventario asignado al botiquin desde el catalogo de medicamentos."""
+    """Legacy: contenido por botiquin. El estandar actual es TipoBotiquin + insumos."""
     __tablename__ = "botiquin_productos"
     id = Column(String(36), primary_key=True, default=gen_uuid, index=True)
     botiquin_id = Column(String(36), ForeignKey("botiquines.id"), index=True)

@@ -311,16 +311,16 @@ class Atencion(AtencionBase):
         from_attributes = True
 
 # --- Botiquin ---
-class BotiquinProductoBase(BaseModel):
+class TipoBotiquinInsumoBase(BaseModel):
     medicamento_id: str
     cantidad: int = 1
 
 
-class BotiquinProductoCreate(BotiquinProductoBase):
+class TipoBotiquinInsumoCreate(TipoBotiquinInsumoBase):
     pass
 
 
-class BotiquinProducto(BotiquinProductoBase):
+class TipoBotiquinInsumo(TipoBotiquinInsumoBase):
     id: str
     medicamento: Optional[Medicamento] = None
 
@@ -329,8 +329,30 @@ class BotiquinProducto(BotiquinProductoBase):
         from_attributes = True
 
 
+class TipoBotiquinBase(BaseModel):
+    codigo: Optional[str] = None
+    nombre: str
+    insumos: List[TipoBotiquinInsumoCreate] = []
+
+
+class TipoBotiquinCreate(TipoBotiquinBase):
+    pass
+
+
+class TipoBotiquin(TipoBotiquinBase):
+    id: str
+    insumos: List[TipoBotiquinInsumo] = []
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
 class BotiquinBase(BaseModel):
     codigo: Optional[str] = None
+    tipo_botiquin_id: Optional[str] = None
     tipo_equipo: str
     area: str
     empresa_id: Optional[str] = None
@@ -339,7 +361,6 @@ class BotiquinBase(BaseModel):
     equipo: str
     estado: Optional[str] = "ACTIVO"
     fecha_creacion: Optional[datetime] = None
-    productos: List[BotiquinProductoCreate] = []
 
 
 class BotiquinCreate(BotiquinBase):
@@ -349,7 +370,7 @@ class BotiquinCreate(BotiquinBase):
 class Botiquin(BotiquinBase):
     id: str
     empresa: Optional[Empresa] = None
-    productos: List[BotiquinProducto] = []
+    tipo_botiquin: Optional[TipoBotiquin] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

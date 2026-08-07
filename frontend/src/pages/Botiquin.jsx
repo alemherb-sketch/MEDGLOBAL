@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Select from 'react-select';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import * as XLSX from 'xlsx';
 import {
   Search, Plus, Trash2, Edit2, X, ClipboardCheck, Download,
-  Filter, Package, History, Save
+  Filter, Package, History, Save, Layers
 } from 'lucide-react';
 import { apiFetch, apiJson } from '../api';
 
@@ -50,6 +50,7 @@ const emptyBotiquin = {
   id: null,
   codigo: '',
   fecha_creacion: new Date(),
+  tipo_botiquin_id: '',
   tipo_equipo: TIPOS_EQUIPO_EMERGENCIA[0],
   area: AREAS[0],
   empresa_id: '',
@@ -57,12 +58,24 @@ const emptyBotiquin = {
   numero_serie_placa: '',
   equipo: EQUIPOS[0],
   estado: 'ACTIVO',
-  productos: [], // { medicamento_id, cantidad, label }
+};
+
+const emptyTipo = {
+  id: null,
+  codigo: '',
+  nombre: '',
+  insumos: [],
+};
+
+const labelMedicamento = (m) => {
+  if (!m) return '—';
+  return `${m.codigo || '—'} · ${m.nombre}${m.presentacion ? ` (${m.presentacion})` : ''}${m.tipo ? ` [${m.tipo}]` : ''}`;
 };
 
 const Botiquin = () => {
-  const [tab, setTab] = useState('botiquines'); // botiquines | inspecciones | reporte
+  const [tab, setTab] = useState('botiquines'); // tipos | botiquines | inspecciones | reporte
   const [botiquines, setBotiquines] = useState([]);
+  const [tiposBotiquin, setTiposBotiquin] = useState([]);
   const [inspecciones, setInspecciones] = useState([]);
   const [empresas, setEmpresas] = useState([]);
   const [personal, setPersonal] = useState([]);
@@ -76,11 +89,15 @@ const Botiquin = () => {
     equipo: '',
     estado: '',
   });
+  const [tipoSearch, setTipoSearch] = useState('');
 
   const [modalBotiquin, setModalBotiquin] = useState(false);
   const [formBotiquin, setFormBotiquin] = useState(emptyBotiquin);
-  const [productoSelect, setProductoSelect] = useState(null);
-  const [productoCantidad, setProductoCantidad] = useState(1);
+
+  const [modalTipo, setModalTipo] = useState(false);
+  const [formTipo, setFormTipo] = useState(emptyTipo);
+  const [insumoTipoSelect, setInsumoTipoSelect] = useState(null);
+  const [insumoTipoCantidad, setInsumoTipoCantidad] = useState(1);
 
   const [modalInspeccion, setModalInspeccion] = useState(false);
   const [formInspeccion, setFormInspeccion] = useState({
@@ -88,10 +105,11 @@ const Botiquin = () => {
     responsable_id: '',
     fecha: new Date(),
     observaciones: '',
-    insumos: [], // { medicamento_id, cantidad, label }
+    insumos: [],
   });
   const [insumoSelect, setInsumoSelect] = useState(null);
   const [insumoCantidad, setInsumoCantidad] = useState(1);
+  const [cargandoInsumos, setCargandoInsumos] = useState(false);
 
   const [reporteFiltros, setReporteFiltros] = useState({
     empresa_id: '',
@@ -123,9 +141,17 @@ const Botiquin = () => {
   const botiquinOptions = useMemo(
     () => botiquines.map(b => ({
       value: String(b.id),
-      label: `${b.codigo ? b.codigo + ' · ' : ''}${b.tipo_equipo} · ${b.ubicacion || 's/u'} · ${b.numero_serie_placa || 's/n'}`,
+      label: `${b.codigo ? b.codigo + ' · ' : ''}${b.tipo_botiquin?.nombre || b.tipo_equipo} · ${b.ubicacion || 's/u'} · ${b.numero_serie_placa || 's/n'}`,
     })),
     [botiquines]
+  );
+
+  const tipoBotiquinOptions = useMemo(
+    () => tiposBotiquin.map(t => ({
+      value: String(t.id),
+      label: `${t.codigo ? t.codigo + ' · ' : ''}${t.nombre} (${(t.insumos || []).length} insumos)`,
+    })),
+    [tiposBotiquin]
   );
 
   const insumoOptions = useMemo(() => {
@@ -133,7 +159,6 @@ const Botiquin = () => {
       const t = (m.tipo || '').toUpperCase();
       return t === 'INSUMO' || t === 'MEDICAMENTO' || t === 'OTROS' || !t;
     });
-    // Prefer insumos first
     list.sort((a, b) => {
       const ai = (a.tipo || '').toUpperCase() === 'INSUMO' ? 0 : 1;
       const bi = (b.tipo || '').toUpperCase() === 'INSUMO' ? 0 : 1;
@@ -142,7 +167,7 @@ const Botiquin = () => {
     });
     return list.map(m => ({
       value: String(m.id),
-      label: `${m.codigo || '—'} · ${m.nombre}${m.presentacion ? ` (${m.presentacion})` : ''}${m.tipo ? ` [${m.tipo}]` : ''}`,
+      label: labelMedicamento(m),
     }));
   }, [medicamentos]);
 
@@ -151,6 +176,15 @@ const Botiquin = () => {
     apiJson('/personal_salud/').then(setPersonal).catch(() => setPersonal([]));
     apiJson('/medicamentos/').then(setMedicamentos).catch(() => setMedicamentos([]));
   };
+
+  const loadTipos = useCallback(() => {
+    const params = new URLSearchParams();
+    if (tipoSearch) params.append('search', tipoSearch);
+    const q = params.toString();
+    apiJson(`/tipos_botiquin/${q ? `?${q}` : ''}`)
+      .then(setTiposBotiquin)
+      .catch(() => setTiposBotiquin([]));
+  }, [tipoSearch]);
 
   const loadBotiquines = () => {
     const params = new URLSearchParams();
@@ -178,17 +212,145 @@ const Botiquin = () => {
 
   useEffect(() => {
     loadCatalogos();
+    loadTipos();
+    // Cargar botiquines para combos de inspeccion/reporte aunque no este la pestana
+    apiJson('/botiquines/').then(setBotiquines).catch(() => setBotiquines([]));
   }, []);
 
   useEffect(() => {
+    if (tab === 'tipos') loadTipos();
     if (tab === 'botiquines') loadBotiquines();
     if (tab === 'inspecciones') loadInspecciones();
-  }, [tab, filters]);
+  }, [tab, filters, loadTipos]);
 
+  const mapInsumosFromApi = (list) =>
+    (list || []).map(p => ({
+      medicamento_id: String(p.medicamento_id),
+      cantidad: p.cantidad || 1,
+      label: p.medicamento ? labelMedicamento(p.medicamento) : String(p.medicamento_id),
+    }));
+
+  const cargarInsumosDeBotiquin = async (botiquinId) => {
+    if (!botiquinId) {
+      setFormInspeccion(prev => ({ ...prev, botiquin_id: '', insumos: [] }));
+      return;
+    }
+    setCargandoInsumos(true);
+    try {
+      const insumos = await apiJson(`/botiquines/${botiquinId}/insumos`);
+      setFormInspeccion(prev => ({
+        ...prev,
+        botiquin_id: String(botiquinId),
+        insumos: mapInsumosFromApi(insumos),
+      }));
+    } catch (err) {
+      console.error(err);
+      // Fallback: usar tipo embebido si el botiquin ya lo trae
+      const bot = botiquines.find(b => String(b.id) === String(botiquinId));
+      const insumosTipo = bot?.tipo_botiquin?.insumos || [];
+      setFormInspeccion(prev => ({
+        ...prev,
+        botiquin_id: String(botiquinId),
+        insumos: mapInsumosFromApi(insumosTipo),
+      }));
+    } finally {
+      setCargandoInsumos(false);
+    }
+  };
+
+  // --- Tipos de botiquin ---
+  const openNewTipo = () => {
+    setFormTipo({ ...emptyTipo, insumos: [] });
+    setInsumoTipoSelect(null);
+    setInsumoTipoCantidad(1);
+    setModalTipo(true);
+  };
+
+  const openEditTipo = (t) => {
+    setFormTipo({
+      id: t.id,
+      codigo: t.codigo || '',
+      nombre: t.nombre || '',
+      insumos: mapInsumosFromApi(t.insumos),
+    });
+    setInsumoTipoSelect(null);
+    setInsumoTipoCantidad(1);
+    setModalTipo(true);
+  };
+
+  const addInsumoTipoLinea = () => {
+    if (!insumoTipoSelect) return;
+    const cantidad = Math.max(1, parseInt(insumoTipoCantidad, 10) || 1);
+    setFormTipo(prev => {
+      const existing = prev.insumos.find(i => String(i.medicamento_id) === String(insumoTipoSelect.value));
+      if (existing) {
+        return {
+          ...prev,
+          insumos: prev.insumos.map(i =>
+            String(i.medicamento_id) === String(insumoTipoSelect.value)
+              ? { ...i, cantidad: i.cantidad + cantidad }
+              : i
+          ),
+        };
+      }
+      return {
+        ...prev,
+        insumos: [
+          ...prev.insumos,
+          { medicamento_id: insumoTipoSelect.value, cantidad, label: insumoTipoSelect.label },
+        ],
+      };
+    });
+    setInsumoTipoSelect(null);
+    setInsumoTipoCantidad(1);
+  };
+
+  const removeInsumoTipoLinea = (medicamento_id) => {
+    setFormTipo(prev => ({
+      ...prev,
+      insumos: prev.insumos.filter(i => String(i.medicamento_id) !== String(medicamento_id)),
+    }));
+  };
+
+  const saveTipo = (e) => {
+    e.preventDefault();
+    if (!(formTipo.nombre || '').trim()) {
+      alert('Ingrese el nombre del tipo de botiquín');
+      return;
+    }
+    const isEdit = formTipo.id != null;
+    const url = isEdit ? `/tipos_botiquin/${formTipo.id}` : '/tipos_botiquin/';
+    const method = isEdit ? 'PUT' : 'POST';
+    const data = {
+      codigo: (formTipo.codigo || '').trim() || null,
+      nombre: formTipo.nombre.trim(),
+      insumos: (formTipo.insumos || []).map(p => ({
+        medicamento_id: p.medicamento_id,
+        cantidad: p.cantidad,
+      })),
+    };
+    apiFetch(url, { method, body: JSON.stringify(data) })
+      .then(async res => {
+        if (!res.ok) throw new Error(await res.text());
+        setModalTipo(false);
+        loadTipos();
+      })
+      .catch(err => alert('Error al guardar: ' + err.message));
+  };
+
+  const deleteTipo = (id) => {
+    if (!window.confirm('¿Eliminar este tipo de botiquín?')) return;
+    apiFetch(`/tipos_botiquin/${id}`, { method: 'DELETE' })
+      .then(async res => {
+        if (!res.ok) throw new Error(await res.text());
+        loadTipos();
+      })
+      .catch(err => alert('Error al eliminar: ' + err.message));
+  };
+
+  // --- Botiquines ---
   const openNewBotiquin = () => {
-    setFormBotiquin({ ...emptyBotiquin, fecha_creacion: new Date(), productos: [] });
-    setProductoSelect(null);
-    setProductoCantidad(1);
+    setFormBotiquin({ ...emptyBotiquin, fecha_creacion: new Date() });
     setModalBotiquin(true);
   };
 
@@ -197,6 +359,7 @@ const Botiquin = () => {
       id: b.id,
       codigo: b.codigo || '',
       fecha_creacion: b.fecha_creacion ? new Date(b.fecha_creacion) : (b.created_at ? new Date(b.created_at) : new Date()),
+      tipo_botiquin_id: b.tipo_botiquin_id ? String(b.tipo_botiquin_id) : '',
       tipo_equipo: b.tipo_equipo || TIPOS_EQUIPO_EMERGENCIA[0],
       area: b.area || AREAS[0],
       empresa_id: b.empresa_id ? String(b.empresa_id) : '',
@@ -204,60 +367,22 @@ const Botiquin = () => {
       numero_serie_placa: b.numero_serie_placa || '',
       equipo: b.equipo || EQUIPOS[0],
       estado: b.estado || 'ACTIVO',
-      productos: (b.productos || []).map(p => ({
-        medicamento_id: String(p.medicamento_id),
-        cantidad: p.cantidad || 1,
-        label: p.medicamento
-          ? `${p.medicamento.codigo || '—'} · ${p.medicamento.nombre}${p.medicamento.presentacion ? ` (${p.medicamento.presentacion})` : ''}`
-          : String(p.medicamento_id),
-      })),
     });
-    setProductoSelect(null);
-    setProductoCantidad(1);
     setModalBotiquin(true);
-  };
-
-  const addProductoLinea = () => {
-    if (!productoSelect) return;
-    const cantidad = Math.max(1, parseInt(productoCantidad, 10) || 1);
-    setFormBotiquin(prev => {
-      const existing = prev.productos.find(i => String(i.medicamento_id) === String(productoSelect.value));
-      if (existing) {
-        return {
-          ...prev,
-          productos: prev.productos.map(i =>
-            String(i.medicamento_id) === String(productoSelect.value)
-              ? { ...i, cantidad: i.cantidad + cantidad }
-              : i
-          ),
-        };
-      }
-      return {
-        ...prev,
-        productos: [
-          ...prev.productos,
-          { medicamento_id: productoSelect.value, cantidad, label: productoSelect.label },
-        ],
-      };
-    });
-    setProductoSelect(null);
-    setProductoCantidad(1);
-  };
-
-  const removeProductoLinea = (medicamento_id) => {
-    setFormBotiquin(prev => ({
-      ...prev,
-      productos: prev.productos.filter(i => String(i.medicamento_id) !== String(medicamento_id)),
-    }));
   };
 
   const saveBotiquin = (e) => {
     e.preventDefault();
+    if (!formBotiquin.tipo_botiquin_id) {
+      alert('Seleccione un tipo de botiquín');
+      return;
+    }
     const isEdit = formBotiquin.id != null;
     const url = isEdit ? `/botiquines/${formBotiquin.id}` : '/botiquines/';
     const method = isEdit ? 'PUT' : 'POST';
     const data = {
       codigo: (formBotiquin.codigo || '').trim() || null,
+      tipo_botiquin_id: formBotiquin.tipo_botiquin_id || null,
       tipo_equipo: formBotiquin.tipo_equipo,
       area: formBotiquin.area,
       empresa_id: formBotiquin.empresa_id || null,
@@ -268,10 +393,6 @@ const Botiquin = () => {
       fecha_creacion: formBotiquin.fecha_creacion
         ? new Date(formBotiquin.fecha_creacion).toISOString()
         : new Date().toISOString(),
-      productos: (formBotiquin.productos || []).map(p => ({
-        medicamento_id: p.medicamento_id,
-        cantidad: p.cantidad,
-      })),
     };
 
     apiFetch(url, { method, body: JSON.stringify(data) })
@@ -279,6 +400,7 @@ const Botiquin = () => {
         if (!res.ok) throw new Error(await res.text());
         setModalBotiquin(false);
         loadBotiquines();
+        loadTipos();
       })
       .catch(err => alert('Error al guardar: ' + err.message));
   };
@@ -289,6 +411,7 @@ const Botiquin = () => {
       .then(() => loadBotiquines());
   };
 
+  // --- Inspecciones ---
   const openNewInspeccion = (botiquinId = '') => {
     setFormInspeccion({
       botiquin_id: botiquinId ? String(botiquinId) : '',
@@ -300,6 +423,9 @@ const Botiquin = () => {
     setInsumoSelect(null);
     setInsumoCantidad(1);
     setModalInspeccion(true);
+    if (botiquinId) {
+      cargarInsumosDeBotiquin(botiquinId);
+    }
   };
 
   const addInsumoLinea = () => {
@@ -445,12 +571,15 @@ const Botiquin = () => {
         <div>
           <h1 style={{ margin: 0 }}>Botiquín</h1>
           <p style={{ margin: '4px 0 0', color: 'var(--text-muted)' }}>
-            Equipos de emergencia, inspecciones y consumo de insumos
+            Tipos de botiquín, equipos, inspecciones y consumo de insumos
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" className="btn btn-secondary" onClick={() => openNewInspeccion()}>
             <ClipboardCheck size={18} /> Registrar inspección
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={openNewTipo}>
+            <Layers size={18} /> Nuevo tipo
           </button>
           <button type="button" className="btn btn-primary" onClick={openNewBotiquin}>
             <Plus size={18} /> Nuevo botiquín
@@ -460,6 +589,7 @@ const Botiquin = () => {
 
       <div className="flex gap-2 mb-4" style={{ flexWrap: 'wrap' }}>
         {[
+          { id: 'tipos', label: 'Tipos de botiquín', icon: Layers },
           { id: 'botiquines', label: 'Botiquines', icon: Package },
           { id: 'inspecciones', label: 'Inspecciones', icon: History },
           { id: 'reporte', label: 'Consumo de insumos', icon: Download },
@@ -475,6 +605,24 @@ const Botiquin = () => {
           </button>
         ))}
       </div>
+
+      {tab === 'tipos' && (
+        <div className="glass-panel mb-4" style={{ padding: 16 }}>
+          <div className="form-group" style={{ margin: 0, maxWidth: 360 }}>
+            <label className="form-label">Buscar tipo</label>
+            <div style={{ position: 'relative' }}>
+              <Search size={16} style={{ position: 'absolute', left: 10, top: 12, opacity: 0.5 }} />
+              <input
+                className="form-control"
+                style={{ paddingLeft: 32 }}
+                placeholder="Código o nombre..."
+                value={tipoSearch}
+                onChange={e => setTipoSearch(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {(tab === 'botiquines' || tab === 'inspecciones') && (
         <div className="glass-panel mb-4" style={{ padding: 16 }}>
@@ -543,6 +691,49 @@ const Botiquin = () => {
         </div>
       )}
 
+      {tab === 'tipos' && (
+        <div className="glass-panel" style={{ overflowX: 'auto' }}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Nombre</th>
+                <th>Insumos</th>
+                <th style={{ width: 120 }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tiposBotiquin.length === 0 && (
+                <tr><td colSpan={4} style={{ textAlign: 'center', opacity: 0.7 }}>Sin tipos de botiquín. Cree uno para usarlo al registrar botiquines.</td></tr>
+              )}
+              {tiposBotiquin.map(t => (
+                <tr key={t.id}>
+                  <td>{t.codigo || '—'}</td>
+                  <td>{t.nombre}</td>
+                  <td>
+                    {(t.insumos || []).length
+                      ? t.insumos.map(i =>
+                          `${i.medicamento?.nombre || i.medicamento_id} (x${i.cantidad})`
+                        ).join(', ')
+                      : '—'}
+                  </td>
+                  <td>
+                    <div style={{ display: 'inline-flex', gap: 6 }}>
+                      <button type="button" className="btn-icon" title="Editar" onClick={() => openEditTipo(t)}>
+                        <Edit2 size={16} />
+                      </button>
+                      <button type="button" className="btn-icon btn-icon-danger" title="Eliminar" onClick={() => deleteTipo(t.id)}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {tab === 'botiquines' && (
         <div className="glass-panel" style={{ overflowX: 'auto' }}>
           <table className="table">
@@ -550,13 +741,13 @@ const Botiquin = () => {
               <tr>
                 <th>Código</th>
                 <th>Fecha creación</th>
+                <th>Tipo de botiquín</th>
                 <th>Tipo de equipo</th>
                 <th>Área</th>
                 <th>Empresa</th>
                 <th>Ubicación</th>
                 <th>Serie / Placa</th>
                 <th>Equipo</th>
-                <th>Productos</th>
                 <th>Estado</th>
                 <th style={{ width: 140 }}>Acciones</th>
               </tr>
@@ -573,13 +764,13 @@ const Botiquin = () => {
                       ? new Date(b.fecha_creacion).toLocaleDateString()
                       : (b.created_at ? new Date(b.created_at).toLocaleDateString() : '—')}
                   </td>
+                  <td>{b.tipo_botiquin?.nombre || '—'}</td>
                   <td>{b.tipo_equipo}</td>
                   <td>{b.area}</td>
                   <td>{b.empresa?.nombre || '—'}</td>
                   <td>{b.ubicacion || '—'}</td>
                   <td>{b.numero_serie_placa || '—'}</td>
                   <td>{b.equipo}</td>
-                  <td>{(b.productos || []).length || 0}</td>
                   <td>{b.estado}</td>
                   <td>
                     <div style={{ display: 'inline-flex', gap: 6 }}>
@@ -624,7 +815,7 @@ const Botiquin = () => {
                   <td>{ins.fecha ? new Date(ins.fecha).toLocaleString() : '—'}</td>
                   <td>
                     {ins.botiquin
-                      ? `${ins.botiquin.tipo_equipo} · ${ins.botiquin.ubicacion || ''}`
+                      ? `${ins.botiquin.codigo ? ins.botiquin.codigo + ' · ' : ''}${ins.botiquin.tipo_botiquin?.nombre || ins.botiquin.tipo_equipo} · ${ins.botiquin.ubicacion || ''}`
                       : '—'}
                   </td>
                   <td>{ins.botiquin?.area || '—'}</td>
@@ -788,6 +979,116 @@ const Botiquin = () => {
         </div>
       )}
 
+      {/* Modal Tipo de Botiquín */}
+      {modalTipo && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: 640 }}>
+            <div className="modal-header">
+              <h3>{formTipo.id ? 'Editar tipo de botiquín' : 'Tipo de botiquín'}</h3>
+              <button className="close-btn" type="button" onClick={() => setModalTipo(false)}><X size={24} /></button>
+            </div>
+            <form onSubmit={saveTipo}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label className="form-label">Código</label>
+                  <input
+                    className="form-control"
+                    value={formTipo.codigo}
+                    onChange={e => setFormTipo({ ...formTipo, codigo: e.target.value })}
+                    placeholder="Automático (TB-0001) si se deja vacío"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Nombre</label>
+                  <input
+                    className="form-control"
+                    required
+                    value={formTipo.nombre}
+                    onChange={e => setFormTipo({ ...formTipo, nombre: e.target.value })}
+                    placeholder="Ej. Botiquín área de trabajo estándar"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Insumos</label>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'stretch' }}>
+                    <div style={{ flex: '1 1 240px', minWidth: 200 }}>
+                      <Select
+                        styles={selectStyles}
+                        options={insumoOptions}
+                        placeholder="Buscar y seleccionar medicamento..."
+                        value={insumoTipoSelect}
+                        onChange={setInsumoTipoSelect}
+                        noOptionsMessage={() => 'Sin resultados'}
+                      />
+                    </div>
+                    <div style={{ width: 88 }}>
+                      <input
+                        type="number"
+                        min={1}
+                        className="form-control"
+                        value={insumoTipoCantidad}
+                        onChange={e => setInsumoTipoCantidad(e.target.value)}
+                        title="Cantidad"
+                        aria-label="Cantidad"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={addInsumoTipoLinea}
+                      disabled={!insumoTipoSelect}
+                    >
+                      <Plus size={16} /> Agregar
+                    </button>
+                  </div>
+                  {formTipo.insumos.length > 0 ? (
+                    <ul style={{ marginTop: 12, paddingLeft: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {formTipo.insumos.map(p => (
+                        <li
+                          key={p.medicamento_id}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: 12,
+                            padding: '10px 12px',
+                            borderRadius: 10,
+                            background: 'rgba(15, 23, 42, 0.45)',
+                            border: '1px solid var(--border-color)',
+                          }}
+                        >
+                          <span style={{ fontSize: '0.92rem', lineHeight: 1.35 }}>{p.label} × <strong>{p.cantidad}</strong></span>
+                          <button
+                            type="button"
+                            className="btn-icon btn-icon-sm btn-icon-danger"
+                            title="Quitar insumo"
+                            onClick={() => removeInsumoTipoLinea(p.medicamento_id)}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p style={{ marginTop: 10, opacity: 0.6, fontSize: '0.9rem' }}>
+                      Añada los medicamentos e insumos que componen este tipo.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setModalTipo(false)}>
+                  <X size={16} /> Cancelar
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  <Save size={16} /> Guardar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Modal Botiquín */}
       {modalBotiquin && (
         <div className="modal-overlay">
@@ -817,6 +1118,17 @@ const Botiquin = () => {
                       className="form-control"
                     />
                   </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Tipo de botiquín</label>
+                  <Select
+                    styles={selectStyles}
+                    options={tipoBotiquinOptions}
+                    placeholder="Buscar tipo de botiquín..."
+                    value={tipoBotiquinOptions.find(o => o.value === String(formBotiquin.tipo_botiquin_id || '')) || null}
+                    onChange={opt => setFormBotiquin({ ...formBotiquin, tipo_botiquin_id: opt ? opt.value : '' })}
+                    noOptionsMessage={() => 'Sin tipos. Cree uno en la pestaña Tipos de botiquín'}
+                  />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Tipo de equipo de emergencia</label>
@@ -881,74 +1193,6 @@ const Botiquin = () => {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Productos del catálogo de medicamentos</label>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'stretch' }}>
-                    <div style={{ flex: '1 1 240px', minWidth: 200 }}>
-                      <Select
-                        styles={selectStyles}
-                        options={insumoOptions}
-                        placeholder="Buscar y seleccionar del catálogo..."
-                        value={productoSelect}
-                        onChange={setProductoSelect}
-                        noOptionsMessage={() => 'Sin resultados'}
-                      />
-                    </div>
-                    <div style={{ width: 88 }}>
-                      <input
-                        type="number"
-                        min={1}
-                        className="form-control"
-                        value={productoCantidad}
-                        onChange={e => setProductoCantidad(e.target.value)}
-                        title="Cantidad"
-                        aria-label="Cantidad"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={addProductoLinea}
-                      disabled={!productoSelect}
-                      title="Agregar producto a la lista"
-                    >
-                      <Plus size={16} /> Agregar
-                    </button>
-                  </div>
-                  {formBotiquin.productos.length > 0 ? (
-                    <ul style={{ marginTop: 12, paddingLeft: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {formBotiquin.productos.map(p => (
-                        <li
-                          key={p.medicamento_id}
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            gap: 12,
-                            padding: '10px 12px',
-                            borderRadius: 10,
-                            background: 'rgba(15, 23, 42, 0.45)',
-                            border: '1px solid var(--border-color)',
-                          }}
-                        >
-                          <span style={{ fontSize: '0.92rem', lineHeight: 1.35 }}>{p.label} × <strong>{p.cantidad}</strong></span>
-                          <button
-                            type="button"
-                            className="btn-icon btn-icon-sm btn-icon-danger"
-                            title="Quitar producto"
-                            onClick={() => removeProductoLinea(p.medicamento_id)}
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p style={{ marginTop: 10, opacity: 0.6, fontSize: '0.9rem' }}>
-                      Aún no hay productos en la lista del botiquín.
-                    </p>
-                  )}
-                </div>
-                <div className="form-group">
                   <label className="form-label">Estado</label>
                   <select
                     className="form-control"
@@ -990,7 +1234,7 @@ const Botiquin = () => {
                     options={botiquinOptions}
                     placeholder="Buscar botiquín..."
                     value={botiquinOptions.find(o => o.value === formInspeccion.botiquin_id) || null}
-                    onChange={opt => setFormInspeccion({ ...formInspeccion, botiquin_id: opt ? opt.value : '' })}
+                    onChange={opt => cargarInsumosDeBotiquin(opt ? opt.value : '')}
                     noOptionsMessage={() => 'Sin botiquines'}
                   />
                 </div>
@@ -1016,13 +1260,19 @@ const Botiquin = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Lista de insumos</label>
+                  <label className="form-label">
+                    Lista de insumos
+                    {cargandoInsumos && <span style={{ marginLeft: 8, opacity: 0.7, fontWeight: 400 }}>(cargando del tipo...)</span>}
+                  </label>
+                  <p style={{ margin: '0 0 10px', fontSize: '0.88rem', opacity: 0.7 }}>
+                    Se completan automáticamente según el tipo del botiquín seleccionado. Puede ajustar cantidades o agregar más.
+                  </p>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'stretch' }}>
                     <div style={{ flex: '1 1 240px' }}>
                       <Select
                         styles={selectStyles}
                         options={insumoOptions}
-                        placeholder="Buscar insumo / medicamento..."
+                        placeholder="Agregar insumo adicional..."
                         value={insumoSelect}
                         onChange={setInsumoSelect}
                         noOptionsMessage={() => 'Sin resultados'}
@@ -1046,7 +1296,7 @@ const Botiquin = () => {
                       <Plus size={16} /> Agregar
                     </button>
                   </div>
-                  {formInspeccion.insumos.length > 0 && (
+                  {formInspeccion.insumos.length > 0 ? (
                     <ul style={{ marginTop: 12, paddingLeft: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {formInspeccion.insumos.map(i => (
                         <li
@@ -1062,7 +1312,25 @@ const Botiquin = () => {
                             border: '1px solid var(--border-color)',
                           }}
                         >
-                          <span>{i.label} × <strong>{i.cantidad}</strong></span>
+                          <span style={{ flex: 1 }}>{i.label}</span>
+                          <input
+                            type="number"
+                            min={1}
+                            className="form-control"
+                            style={{ width: 72 }}
+                            value={i.cantidad}
+                            onChange={e => {
+                              const cantidad = Math.max(1, parseInt(e.target.value, 10) || 1);
+                              setFormInspeccion(prev => ({
+                                ...prev,
+                                insumos: prev.insumos.map(x =>
+                                  String(x.medicamento_id) === String(i.medicamento_id)
+                                    ? { ...x, cantidad }
+                                    : x
+                                ),
+                              }));
+                            }}
+                          />
                           <button
                             type="button"
                             className="btn-icon btn-icon-sm btn-icon-danger"
@@ -1074,6 +1342,12 @@ const Botiquin = () => {
                         </li>
                       ))}
                     </ul>
+                  ) : (
+                    <p style={{ marginTop: 10, opacity: 0.6, fontSize: '0.9rem' }}>
+                      {formInspeccion.botiquin_id
+                        ? 'Este botiquín no tiene tipo con insumos definidos.'
+                        : 'Seleccione un botiquín para cargar sus insumos.'}
+                    </p>
                   )}
                 </div>
                 <div className="form-group">
