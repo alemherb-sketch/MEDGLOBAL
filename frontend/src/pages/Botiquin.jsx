@@ -5,7 +5,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import * as XLSX from 'xlsx';
 import {
   Search, Plus, Trash2, Edit2, X, ClipboardCheck, Download,
-  Filter, Package, History
+  Filter, Package, History, Save
 } from 'lucide-react';
 import { apiFetch, apiJson } from '../api';
 
@@ -449,11 +449,11 @@ const Botiquin = () => {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={() => openNewInspeccion()}>
-            <ClipboardCheck size={18} style={{ marginRight: 8 }} /> Registrar inspección
+          <button type="button" className="btn btn-secondary" onClick={() => openNewInspeccion()}>
+            <ClipboardCheck size={18} /> Registrar inspección
           </button>
-          <button className="btn btn-primary" onClick={openNewBotiquin}>
-            <Plus size={18} style={{ marginRight: 8 }} /> Nuevo botiquín
+          <button type="button" className="btn btn-primary" onClick={openNewBotiquin}>
+            <Plus size={18} /> Nuevo botiquín
           </button>
         </div>
       </div>
@@ -582,15 +582,17 @@ const Botiquin = () => {
                   <td>{(b.productos || []).length || 0}</td>
                   <td>{b.estado}</td>
                   <td>
-                    <button className="btn-icon" title="Inspeccionar" onClick={() => openNewInspeccion(b.id)}>
-                      <ClipboardCheck size={16} />
-                    </button>
-                    <button className="btn-icon" title="Editar" onClick={() => openEditBotiquin(b)}>
-                      <Edit2 size={16} />
-                    </button>
-                    <button className="btn-icon" title="Eliminar" onClick={() => deleteBotiquin(b.id)}>
-                      <Trash2 size={16} />
-                    </button>
+                    <div style={{ display: 'inline-flex', gap: 6 }}>
+                      <button type="button" className="btn-icon" title="Inspeccionar" onClick={() => openNewInspeccion(b.id)}>
+                        <ClipboardCheck size={16} />
+                      </button>
+                      <button type="button" className="btn-icon" title="Editar" onClick={() => openEditBotiquin(b)}>
+                        <Edit2 size={16} />
+                      </button>
+                      <button type="button" className="btn-icon btn-icon-danger" title="Eliminar" onClick={() => deleteBotiquin(b.id)}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -640,7 +642,7 @@ const Botiquin = () => {
                       : '—'}
                   </td>
                   <td>
-                    <button className="btn-icon" onClick={() => deleteInspeccion(ins.id)}>
+                    <button type="button" className="btn-icon btn-icon-danger" title="Eliminar" onClick={() => deleteInspeccion(ins.id)}>
                       <Trash2 size={16} />
                     </button>
                   </td>
@@ -723,11 +725,11 @@ const Botiquin = () => {
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-primary" onClick={buscarReporte} disabled={loadingReporte}>
-                <Search size={16} style={{ marginRight: 6 }} />
+                <Search size={16} />
                 {loadingReporte ? 'Generando...' : 'Generar reporte'}
               </button>
               <button className="btn btn-secondary" onClick={exportarExcel} disabled={!(reporte.insumos || []).length}>
-                <Download size={16} style={{ marginRight: 6 }} /> Exportar Excel
+                <Download size={16} /> Exportar Excel
               </button>
             </div>
           </div>
@@ -880,8 +882,8 @@ const Botiquin = () => {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Productos del catálogo de medicamentos</label>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                    <div style={{ flex: '1 1 260px' }}>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'stretch' }}>
+                    <div style={{ flex: '1 1 240px', minWidth: 200 }}>
                       <Select
                         styles={selectStyles}
                         options={insumoOptions}
@@ -891,7 +893,7 @@ const Botiquin = () => {
                         noOptionsMessage={() => 'Sin resultados'}
                       />
                     </div>
-                    <div style={{ width: 90 }}>
+                    <div style={{ width: 88 }}>
                       <input
                         type="number"
                         min={1}
@@ -899,14 +901,21 @@ const Botiquin = () => {
                         value={productoCantidad}
                         onChange={e => setProductoCantidad(e.target.value)}
                         title="Cantidad"
+                        aria-label="Cantidad"
                       />
                     </div>
-                    <button type="button" className="btn btn-secondary" onClick={addProductoLinea}>
-                      Agregar
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={addProductoLinea}
+                      disabled={!productoSelect}
+                      title="Agregar producto a la lista"
+                    >
+                      <Plus size={16} /> Agregar
                     </button>
                   </div>
                   {formBotiquin.productos.length > 0 ? (
-                    <ul style={{ marginTop: 12, paddingLeft: 0, listStyle: 'none' }}>
+                    <ul style={{ marginTop: 12, paddingLeft: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {formBotiquin.productos.map(p => (
                         <li
                           key={p.medicamento_id}
@@ -914,13 +923,21 @@ const Botiquin = () => {
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            padding: '8px 0',
-                            borderBottom: '1px solid var(--border-color, #334155)',
+                            gap: 12,
+                            padding: '10px 12px',
+                            borderRadius: 10,
+                            background: 'rgba(15, 23, 42, 0.45)',
+                            border: '1px solid var(--border-color)',
                           }}
                         >
-                          <span>{p.label} × {p.cantidad}</span>
-                          <button type="button" className="btn-icon" onClick={() => removeProductoLinea(p.medicamento_id)}>
-                            <Trash2 size={14} />
+                          <span style={{ fontSize: '0.92rem', lineHeight: 1.35 }}>{p.label} × <strong>{p.cantidad}</strong></span>
+                          <button
+                            type="button"
+                            className="btn-icon btn-icon-sm btn-icon-danger"
+                            title="Quitar producto"
+                            onClick={() => removeProductoLinea(p.medicamento_id)}
+                          >
+                            <Trash2 size={15} />
                           </button>
                         </li>
                       ))}
@@ -944,8 +961,12 @@ const Botiquin = () => {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setModalBotiquin(false)}>Cancelar</button>
-                <button type="submit" className="btn btn-primary">Guardar</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setModalBotiquin(false)}>
+                  <X size={16} /> Cancelar
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  <Save size={16} /> Guardar
+                </button>
               </div>
             </form>
           </div>
@@ -996,8 +1017,8 @@ const Botiquin = () => {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Lista de insumos</label>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                    <div style={{ flex: '1 1 260px' }}>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'stretch' }}>
+                    <div style={{ flex: '1 1 240px' }}>
                       <Select
                         styles={selectStyles}
                         options={insumoOptions}
@@ -1007,7 +1028,7 @@ const Botiquin = () => {
                         noOptionsMessage={() => 'Sin resultados'}
                       />
                     </div>
-                    <div style={{ width: 90 }}>
+                    <div style={{ width: 88 }}>
                       <input
                         type="number"
                         min={1}
@@ -1016,12 +1037,17 @@ const Botiquin = () => {
                         onChange={e => setInsumoCantidad(e.target.value)}
                       />
                     </div>
-                    <button type="button" className="btn btn-secondary" onClick={addInsumoLinea}>
-                      Agregar
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={addInsumoLinea}
+                      disabled={!insumoSelect}
+                    >
+                      <Plus size={16} /> Agregar
                     </button>
                   </div>
                   {formInspeccion.insumos.length > 0 && (
-                    <ul style={{ marginTop: 12, paddingLeft: 0, listStyle: 'none' }}>
+                    <ul style={{ marginTop: 12, paddingLeft: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {formInspeccion.insumos.map(i => (
                         <li
                           key={i.medicamento_id}
@@ -1029,13 +1055,21 @@ const Botiquin = () => {
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            padding: '8px 0',
-                            borderBottom: '1px solid var(--border-color, #334155)',
+                            gap: 12,
+                            padding: '10px 12px',
+                            borderRadius: 10,
+                            background: 'rgba(15, 23, 42, 0.45)',
+                            border: '1px solid var(--border-color)',
                           }}
                         >
-                          <span>{i.label} × {i.cantidad}</span>
-                          <button type="button" className="btn-icon" onClick={() => removeInsumoLinea(i.medicamento_id)}>
-                            <Trash2 size={14} />
+                          <span>{i.label} × <strong>{i.cantidad}</strong></span>
+                          <button
+                            type="button"
+                            className="btn-icon btn-icon-sm btn-icon-danger"
+                            title="Quitar insumo"
+                            onClick={() => removeInsumoLinea(i.medicamento_id)}
+                          >
+                            <Trash2 size={15} />
                           </button>
                         </li>
                       ))}
@@ -1053,8 +1087,12 @@ const Botiquin = () => {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setModalInspeccion(false)}>Cancelar</button>
-                <button type="submit" className="btn btn-primary">Guardar inspección</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setModalInspeccion(false)}>
+                  <X size={16} /> Cancelar
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  <Save size={16} /> Guardar inspección
+                </button>
               </div>
             </form>
           </div>
