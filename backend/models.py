@@ -342,6 +342,56 @@ class Cita(Base):
     is_deleted = Column(Boolean, default=False, index=True)
 
 
+class Botiquin(Base):
+    """Equipo de emergencia / botiquin en area, vehiculo o instalacion."""
+    __tablename__ = "botiquines"
+    id = Column(String(36), primary_key=True, default=gen_uuid, index=True)
+    tipo_equipo = Column(String(120), index=True)  # Botiquin area, vehiculo, etc.
+    area = Column(String(50), index=True)  # Mina, Planta
+    empresa_id = Column(String(36), ForeignKey("empresas.id"), nullable=True, index=True)
+    ubicacion = Column(String(250), nullable=True)
+    numero_serie_placa = Column(String(100), nullable=True, index=True)
+    equipo = Column(String(100), index=True)  # Botiquin emergencia, Polvorines, Refugios
+    estado = Column(String(50), default="ACTIVO")
+
+    empresa = relationship("Empresa")
+    inspecciones = relationship("BotiquinInspeccion", back_populates="botiquin")
+
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    server_updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    is_deleted = Column(Boolean, default=False, index=True)
+
+
+class BotiquinInspeccion(Base):
+    """Inspeccion de un botiquin con responsable e insumos registrados (uso)."""
+    __tablename__ = "botiquin_inspecciones"
+    id = Column(String(36), primary_key=True, default=gen_uuid, index=True)
+    botiquin_id = Column(String(36), ForeignKey("botiquines.id"), index=True)
+    fecha = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    responsable_id = Column(String(36), ForeignKey("personal_salud.id"), nullable=True, index=True)
+    observaciones = Column(Text, nullable=True)
+
+    botiquin = relationship("Botiquin", back_populates="inspecciones")
+    responsable = relationship("PersonalSalud")
+    insumos = relationship("BotiquinInspeccionInsumo", cascade="all, delete-orphan")
+
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    server_updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    is_deleted = Column(Boolean, default=False, index=True)
+
+
+class BotiquinInspeccionInsumo(Base):
+    __tablename__ = "botiquin_inspeccion_insumos"
+    id = Column(String(36), primary_key=True, default=gen_uuid, index=True)
+    inspeccion_id = Column(String(36), ForeignKey("botiquin_inspecciones.id"), index=True)
+    medicamento_id = Column(String(36), ForeignKey("medicamentos.id"), index=True)
+    cantidad = Column(Integer, default=1)
+
+    medicamento = relationship("Medicamento")
+
+
 class EventoAdmin(Base):
     """Registro de lo que hacen los administradores sobre las cuentas.
 

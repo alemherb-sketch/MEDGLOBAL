@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route } from 'react-router-dom';
+﻿import { HashRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import RequireAuth from './components/RequireAuth';
 import Login from './pages/Login';
@@ -12,6 +12,7 @@ import PersonalSalud from './pages/PersonalSalud';
 import Empresas from './pages/Empresas';
 import DiagnosticosCie10 from './pages/DiagnosticosCie10';
 import ConsumoMedicamentos from './pages/ConsumoMedicamentos';
+import Botiquin from './pages/Botiquin';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
           <Route path="sistemas" element={<Sistemas />} />
           <Route path="diagnosticos-cie10" element={<DiagnosticosCie10 />} />
           <Route path="consumo-medicamentos" element={<ConsumoMedicamentos />} />
+          <Route path="botiquin" element={<Botiquin />} />
         </Route>
       </Routes>
     </HashRouter>

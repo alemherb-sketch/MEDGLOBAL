@@ -310,6 +310,72 @@ class Atencion(AtencionBase):
     class Config:
         from_attributes = True
 
+# --- Botiquin ---
+class BotiquinBase(BaseModel):
+    tipo_equipo: str
+    area: str
+    empresa_id: Optional[str] = None
+    ubicacion: Optional[str] = None
+    numero_serie_placa: Optional[str] = None
+    equipo: str
+    estado: Optional[str] = "ACTIVO"
+
+class BotiquinCreate(BotiquinBase):
+    pass
+
+class Botiquin(BotiquinBase):
+    id: str
+    empresa: Optional[Empresa] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class BotiquinInspeccionInsumoBase(BaseModel):
+    medicamento_id: str
+    cantidad: int = 1
+
+class BotiquinInspeccionInsumoCreate(BotiquinInspeccionInsumoBase):
+    pass
+
+class BotiquinInspeccionInsumo(BotiquinInspeccionInsumoBase):
+    id: str
+    medicamento: Optional[Medicamento] = None
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class BotiquinInspeccionBase(BaseModel):
+    botiquin_id: str
+    fecha: Optional[datetime] = None
+    responsable_id: Optional[str] = None
+    observaciones: Optional[str] = None
+    insumos: List[BotiquinInspeccionInsumoCreate] = []
+
+class BotiquinInspeccionCreate(BotiquinInspeccionBase):
+    pass
+
+class BotiquinInspeccion(BaseModel):
+    id: str
+    botiquin_id: str
+    fecha: Optional[datetime] = None
+    responsable_id: Optional[str] = None
+    observaciones: Optional[str] = None
+    botiquin: Optional[Botiquin] = None
+    responsable: Optional[PersonalSalud] = None
+    insumos: List[BotiquinInspeccionInsumo] = []
+    created_at: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
 # --- Citas ---
 class CitaBase(BaseModel):
     fecha_hora: datetime
