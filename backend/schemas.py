@@ -362,6 +362,8 @@ class BotiquinBase(BaseModel):
     vehiculo: Optional[str] = None
     marca: Optional[str] = None
     modelo: Optional[str] = None
+    serie: Optional[str] = None
+    placa: Optional[str] = None
     equipo: str
     estado: Optional[str] = "ACTIVO"
     fecha_creacion: Optional[datetime] = None

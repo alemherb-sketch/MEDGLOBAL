@@ -379,9 +379,11 @@ class Botiquin(Base):
     ubicacion = Column(String(250), nullable=True)
     mapa_url = Column(String(500), nullable=True)  # Enlace Google Maps u otro mapa
     numero_serie_placa = Column(String(100), nullable=True, index=True)  # legacy
-    vehiculo = Column(String(150), nullable=True, index=True)
+    vehiculo = Column(String(200), nullable=True, index=True)  # resumen: marca, modelo, serie, placa
     marca = Column(String(100), nullable=True)
     modelo = Column(String(100), nullable=True)
+    serie = Column(String(100), nullable=True, index=True)
+    placa = Column(String(50), nullable=True, index=True)
     equipo = Column(String(100), index=True)  # Botiquin emergencia, Polvorines, Refugios
     estado = Column(String(50), default="ACTIVO")
     fecha_creacion = Column(DateTime, default=datetime.datetime.utcnow, index=True)

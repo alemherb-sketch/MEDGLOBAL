@@ -15,6 +15,7 @@ import {
   emptyTipo,
   labelMedicamento,
   estadoBadgeStyle,
+  resumenVehiculo,
 } from './botiquinShared';
 
 const Botiquin = () => {
@@ -220,9 +221,10 @@ const Botiquin = () => {
       empresa_id: b.empresa_id ? String(b.empresa_id) : '',
       ubicacion: b.ubicacion || '',
       mapa_url: b.mapa_url || '',
-      vehiculo: b.vehiculo || b.numero_serie_placa || '',
       marca: b.marca || '',
       modelo: b.modelo || '',
+      serie: b.serie || '',
+      placa: b.placa || '',
       equipo: b.equipo || EQUIPOS[0],
       estado: b.estado || 'ACTIVO',
     });
@@ -238,6 +240,10 @@ const Botiquin = () => {
     const isEdit = formBotiquin.id != null;
     const url = isEdit ? `/botiquines/${formBotiquin.id}` : '/botiquines/';
     const method = isEdit ? 'PUT' : 'POST';
+    const marca = (formBotiquin.marca || '').trim() || null;
+    const modelo = (formBotiquin.modelo || '').trim() || null;
+    const serie = (formBotiquin.serie || '').trim() || null;
+    const placa = (formBotiquin.placa || '').trim() || null;
     const data = {
       codigo: (formBotiquin.codigo || '').trim() || null,
       tipo_botiquin_id: formBotiquin.tipo_botiquin_id || null,
@@ -246,9 +252,11 @@ const Botiquin = () => {
       empresa_id: formBotiquin.empresa_id || null,
       ubicacion: formBotiquin.ubicacion || null,
       mapa_url: (formBotiquin.mapa_url || '').trim() || null,
-      vehiculo: (formBotiquin.vehiculo || '').trim() || null,
-      marca: (formBotiquin.marca || '').trim() || null,
-      modelo: (formBotiquin.modelo || '').trim() || null,
+      marca,
+      modelo,
+      serie,
+      placa,
+      vehiculo: resumenVehiculo({ marca, modelo, serie, placa }) || null,
       equipo: formBotiquin.equipo,
       estado: formBotiquin.estado || 'ACTIVO',
       fecha_creacion: formBotiquin.fecha_creacion
@@ -623,9 +631,20 @@ const Botiquin = () => {
                       </div>
                     )}
                   </DetailField>
-                  <DetailField label="Vehículo">{viewBotiquin.vehiculo || viewBotiquin.numero_serie_placa || '—'}</DetailField>
+                  <DetailField label="Vehículo">
+                    {viewBotiquin.vehiculo
+                      || resumenVehiculo({
+                        marca: viewBotiquin.marca,
+                        modelo: viewBotiquin.modelo,
+                        serie: viewBotiquin.serie,
+                        placa: viewBotiquin.placa,
+                      })
+                      || '—'}
+                  </DetailField>
                   <DetailField label="Marca">{viewBotiquin.marca || '—'}</DetailField>
                   <DetailField label="Modelo">{viewBotiquin.modelo || '—'}</DetailField>
+                  <DetailField label="Serie">{viewBotiquin.serie || '—'}</DetailField>
+                  <DetailField label="Placa">{viewBotiquin.placa || '—'}</DetailField>
                   <DetailField label="Equipo" span2>{viewBotiquin.equipo || '—'}</DetailField>
                 </div>
 
@@ -882,18 +901,23 @@ const Botiquin = () => {
                   />
                 </div>
 
-                {/* 4: Vehículo + Marca + Modelo */}
+                {/* 4: Vehículo (resumen) + Marca, Modelo, Serie, Placa */}
                 <div className="form-group">
                   <label className="form-label">Vehículo</label>
                   <input
                     className="form-control"
-                    value={formBotiquin.vehiculo}
-                    onChange={e => setFormBotiquin({ ...formBotiquin, vehiculo: e.target.value })}
-                    placeholder="Identificación o descripción del vehículo"
+                    value={resumenVehiculo(formBotiquin)}
+                    readOnly
+                    placeholder="Se genera con marca, modelo, serie y placa"
+                    style={{ opacity: 0.9, cursor: 'default' }}
+                    title="Se completa automáticamente"
                   />
+                  <p style={{ margin: '6px 0 0', fontSize: '0.82rem', opacity: 0.65 }}>
+                    Se genera automáticamente con marca, modelo, serie y placa.
+                  </p>
                 </div>
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <div className="form-group" style={{ flex: '1 1 180px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+                  <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label">Marca</label>
                     <input
                       className="form-control"
@@ -902,13 +926,31 @@ const Botiquin = () => {
                       placeholder="Marca"
                     />
                   </div>
-                  <div className="form-group" style={{ flex: '1 1 180px' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label">Modelo</label>
                     <input
                       className="form-control"
                       value={formBotiquin.modelo}
                       onChange={e => setFormBotiquin({ ...formBotiquin, modelo: e.target.value })}
                       placeholder="Modelo"
+                    />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Serie</label>
+                    <input
+                      className="form-control"
+                      value={formBotiquin.serie}
+                      onChange={e => setFormBotiquin({ ...formBotiquin, serie: e.target.value })}
+                      placeholder="N° de serie"
+                    />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Placa</label>
+                    <input
+                      className="form-control"
+                      value={formBotiquin.placa}
+                      onChange={e => setFormBotiquin({ ...formBotiquin, placa: e.target.value })}
+                      placeholder="Placa"
                     />
                   </div>
                 </div>

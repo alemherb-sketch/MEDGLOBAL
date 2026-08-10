@@ -79,9 +79,11 @@ with engine.connect() as conn:
         "fecha_creacion TIMESTAMP",
         "tipo_botiquin_id VARCHAR(36)",
         "mapa_url VARCHAR(500)",
-        "vehiculo VARCHAR(150)",
+        "vehiculo VARCHAR(200)",
         "marca VARCHAR(100)",
         "modelo VARCHAR(100)",
+        "serie VARCHAR(100)",
+        "placa VARCHAR(50)",
     ]
     for col in columnas_botiquin:
         try:
@@ -1376,10 +1378,40 @@ def read_botiquines(
             | (models.Botiquin.vehiculo.ilike(like))
             | (models.Botiquin.marca.ilike(like))
             | (models.Botiquin.modelo.ilike(like))
+            | (models.Botiquin.serie.ilike(like))
+            | (models.Botiquin.placa.ilike(like))
             | (models.Botiquin.tipo_equipo.ilike(like))
             | (models.Botiquin.equipo.ilike(like))
         )
     return q.order_by(models.Botiquin.created_at.desc()).all()
+
+
+
+def _resumen_vehiculo(marca=None, modelo=None, serie=None, placa=None) -> Optional[str]:
+    """Nombre legible del vehiculo a partir de sus componentes."""
+    partes = []
+    marca = (marca or "").strip()
+    modelo = (modelo or "").strip()
+    serie = (serie or "").strip()
+    placa = (placa or "").strip()
+    if marca or modelo:
+        partes.append(" ".join(p for p in (marca, modelo) if p))
+    if serie:
+        partes.append(f"Serie {serie}")
+    if placa:
+        partes.append(f"Placa {placa}")
+    return " · ".join(partes) if partes else None
+
+
+def _aplicar_resumen_vehiculo(data: dict) -> dict:
+    marca = data.get("marca")
+    modelo = data.get("modelo")
+    serie = data.get("serie")
+    placa = data.get("placa")
+    data["vehiculo"] = _resumen_vehiculo(marca, modelo, serie, placa)
+    if serie or placa:
+        data["numero_serie_placa"] = " / ".join(p for p in (serie, placa) if p)
+    return data
 
 
 @app.post("/botiquines/", response_model=schemas.Botiquin)
@@ -1404,6 +1436,7 @@ def create_botiquin(
         data["codigo"] = data["codigo"].strip()
     if not data.get("fecha_creacion"):
         data["fecha_creacion"] = datetime.utcnow()
+    data = _aplicar_resumen_vehiculo(data)
     db_bot = models.Botiquin(**data)
     db.add(db_bot)
     db.commit()
@@ -1450,6 +1483,7 @@ def update_botiquin(
         raise HTTPException(status_code=400, detail="Tipo de botiquín no encontrado")
     if data.get("codigo") is not None:
         data["codigo"] = (data["codigo"] or "").strip() or db_bot.codigo
+    data = _aplicar_resumen_vehiculo(data)
     for key, value in data.items():
         setattr(db_bot, key, value)
     db.commit()

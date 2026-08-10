@@ -46,12 +46,26 @@ export const emptyBotiquin = {
   empresa_id: '',
   ubicacion: '',
   mapa_url: '',
-  vehiculo: '',
   marca: '',
   modelo: '',
+  serie: '',
+  placa: '',
   equipo: EQUIPOS[0],
   estado: 'ACTIVO',
 };
+
+/** Resumen automático del vehículo: Marca Modelo · Serie X · Placa Y */
+export function resumenVehiculo({ marca = '', modelo = '', serie = '', placa = '' } = {}) {
+  const partes = [];
+  const m = (marca || '').trim();
+  const mo = (modelo || '').trim();
+  const s = (serie || '').trim();
+  const p = (placa || '').trim();
+  if (m || mo) partes.push([m, mo].filter(Boolean).join(' '));
+  if (s) partes.push(`Serie ${s}`);
+  if (p) partes.push(`Placa ${p}`);
+  return partes.join(' · ');
+}
 
 export const emptyTipo = {
   id: null,
