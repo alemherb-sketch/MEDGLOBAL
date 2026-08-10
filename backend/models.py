@@ -377,7 +377,11 @@ class Botiquin(Base):
     area = Column(String(50), index=True)  # Mina, Planta
     empresa_id = Column(String(36), ForeignKey("empresas.id"), nullable=True, index=True)
     ubicacion = Column(String(250), nullable=True)
-    numero_serie_placa = Column(String(100), nullable=True, index=True)
+    mapa_url = Column(String(500), nullable=True)  # Enlace Google Maps u otro mapa
+    numero_serie_placa = Column(String(100), nullable=True, index=True)  # legacy
+    vehiculo = Column(String(150), nullable=True, index=True)
+    marca = Column(String(100), nullable=True)
+    modelo = Column(String(100), nullable=True)
     equipo = Column(String(100), index=True)  # Botiquin emergencia, Polvorines, Refugios
     estado = Column(String(50), default="ACTIVO")
     fecha_creacion = Column(DateTime, default=datetime.datetime.utcnow, index=True)

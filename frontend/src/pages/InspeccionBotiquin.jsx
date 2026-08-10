@@ -75,7 +75,7 @@ const InspeccionBotiquin = () => {
   const botiquinOptions = useMemo(
     () => botiquines.map(b => ({
       value: String(b.id),
-      label: `${b.codigo ? b.codigo + ' · ' : ''}${b.tipo_botiquin?.nombre || b.tipo_equipo} · ${b.ubicacion || 's/u'} · ${b.numero_serie_placa || 's/n'}`,
+      label: `${b.codigo ? b.codigo + ' · ' : ''}${b.tipo_botiquin?.nombre || b.tipo_equipo}${b.vehiculo ? ` · ${b.vehiculo}` : ''}${b.ubicacion ? ` · ${b.ubicacion}` : ''}`,
     })),
     [botiquines]
   );

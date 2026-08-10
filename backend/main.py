@@ -78,6 +78,10 @@ with engine.connect() as conn:
         "codigo VARCHAR(50)",
         "fecha_creacion TIMESTAMP",
         "tipo_botiquin_id VARCHAR(36)",
+        "mapa_url VARCHAR(500)",
+        "vehiculo VARCHAR(150)",
+        "marca VARCHAR(100)",
+        "modelo VARCHAR(100)",
     ]
     for col in columnas_botiquin:
         try:
@@ -1369,6 +1373,9 @@ def read_botiquines(
             (models.Botiquin.codigo.ilike(like))
             | (models.Botiquin.ubicacion.ilike(like))
             | (models.Botiquin.numero_serie_placa.ilike(like))
+            | (models.Botiquin.vehiculo.ilike(like))
+            | (models.Botiquin.marca.ilike(like))
+            | (models.Botiquin.modelo.ilike(like))
             | (models.Botiquin.tipo_equipo.ilike(like))
             | (models.Botiquin.equipo.ilike(like))
         )

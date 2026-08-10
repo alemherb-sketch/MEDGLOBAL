@@ -45,7 +45,10 @@ export const emptyBotiquin = {
   area: AREAS[0],
   empresa_id: '',
   ubicacion: '',
-  numero_serie_placa: '',
+  mapa_url: '',
+  vehiculo: '',
+  marca: '',
+  modelo: '',
   equipo: EQUIPOS[0],
   estado: 'ACTIVO',
 };

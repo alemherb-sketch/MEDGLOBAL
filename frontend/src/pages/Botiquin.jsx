@@ -3,7 +3,7 @@ import Select from 'react-select';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import {
-  Search, Plus, Trash2, Edit2, X, Filter, Package, Save, Layers, Eye
+  Search, Plus, Trash2, Edit2, X, Filter, Package, Save, Layers, Eye, MapPin, ExternalLink
 } from 'lucide-react';
 import { apiFetch, apiJson } from '../api';
 import {
@@ -219,7 +219,10 @@ const Botiquin = () => {
       area: b.area || AREAS[0],
       empresa_id: b.empresa_id ? String(b.empresa_id) : '',
       ubicacion: b.ubicacion || '',
-      numero_serie_placa: b.numero_serie_placa || '',
+      mapa_url: b.mapa_url || '',
+      vehiculo: b.vehiculo || b.numero_serie_placa || '',
+      marca: b.marca || '',
+      modelo: b.modelo || '',
       equipo: b.equipo || EQUIPOS[0],
       estado: b.estado || 'ACTIVO',
     });
@@ -242,7 +245,10 @@ const Botiquin = () => {
       area: formBotiquin.area,
       empresa_id: formBotiquin.empresa_id || null,
       ubicacion: formBotiquin.ubicacion || null,
-      numero_serie_placa: formBotiquin.numero_serie_placa || null,
+      mapa_url: (formBotiquin.mapa_url || '').trim() || null,
+      vehiculo: (formBotiquin.vehiculo || '').trim() || null,
+      marca: (formBotiquin.marca || '').trim() || null,
+      modelo: (formBotiquin.modelo || '').trim() || null,
       equipo: formBotiquin.equipo,
       estado: formBotiquin.estado || 'ACTIVO',
       fecha_creacion: formBotiquin.fecha_creacion
@@ -602,8 +608,24 @@ const Botiquin = () => {
                   <DetailField label="Tipo de equipo" span2>{viewBotiquin.tipo_equipo || '—'}</DetailField>
                   <DetailField label="Área">{viewBotiquin.area || '—'}</DetailField>
                   <DetailField label="Empresa">{viewBotiquin.empresa?.nombre || '—'}</DetailField>
-                  <DetailField label="Ubicación">{viewBotiquin.ubicacion || '—'}</DetailField>
-                  <DetailField label="Serie / Placa">{viewBotiquin.numero_serie_placa || '—'}</DetailField>
+                  <DetailField label="Ubicación">
+                    {viewBotiquin.ubicacion || '—'}
+                    {viewBotiquin.mapa_url && (
+                      <div style={{ marginTop: 6 }}>
+                        <a
+                          href={viewBotiquin.mapa_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: 'var(--primary-color, #60a5fa)', fontSize: '0.88rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <MapPin size={14} /> Ver en Maps
+                        </a>
+                      </div>
+                    )}
+                  </DetailField>
+                  <DetailField label="Vehículo">{viewBotiquin.vehiculo || viewBotiquin.numero_serie_placa || '—'}</DetailField>
+                  <DetailField label="Marca">{viewBotiquin.marca || '—'}</DetailField>
+                  <DetailField label="Modelo">{viewBotiquin.modelo || '—'}</DetailField>
                   <DetailField label="Equipo" span2>{viewBotiquin.equipo || '—'}</DetailField>
                 </div>
 
@@ -824,6 +846,7 @@ const Botiquin = () => {
             </div>
             <form onSubmit={saveBotiquin}>
               <div className="modal-body">
+                {/* 1-2: Código, Fecha creación */}
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <div className="form-group" style={{ flex: '1 1 180px' }}>
                     <label className="form-label">Código</label>
@@ -844,39 +867,8 @@ const Botiquin = () => {
                     />
                   </div>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Tipo de botiquín</label>
-                  <Select
-                    styles={selectStyles}
-                    options={tipoBotiquinOptions}
-                    placeholder="Buscar tipo de botiquín..."
-                    value={tipoBotiquinOptions.find(o => o.value === String(formBotiquin.tipo_botiquin_id || '')) || null}
-                    onChange={opt => setFormBotiquin({ ...formBotiquin, tipo_botiquin_id: opt ? opt.value : '' })}
-                    noOptionsMessage={() => 'Sin tipos. Cree uno en la pestaña Tipos de botiquín'}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Tipo de equipo de emergencia</label>
-                  <select
-                    className="form-control"
-                    required
-                    value={formBotiquin.tipo_equipo}
-                    onChange={e => setFormBotiquin({ ...formBotiquin, tipo_equipo: e.target.value })}
-                  >
-                    {TIPOS_EQUIPO_EMERGENCIA.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Área</label>
-                  <select
-                    className="form-control"
-                    required
-                    value={formBotiquin.area}
-                    onChange={e => setFormBotiquin({ ...formBotiquin, area: e.target.value })}
-                  >
-                    {AREAS.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </div>
+
+                {/* 3: Empresa */}
                 <div className="form-group">
                   <label className="form-label">Empresa</label>
                   <Select
@@ -889,23 +881,129 @@ const Botiquin = () => {
                     noOptionsMessage={() => 'Sin resultados'}
                   />
                 </div>
+
+                {/* 4: Vehículo + Marca + Modelo */}
+                <div className="form-group">
+                  <label className="form-label">Vehículo</label>
+                  <input
+                    className="form-control"
+                    value={formBotiquin.vehiculo}
+                    onChange={e => setFormBotiquin({ ...formBotiquin, vehiculo: e.target.value })}
+                    placeholder="Identificación o descripción del vehículo"
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <div className="form-group" style={{ flex: '1 1 180px' }}>
+                    <label className="form-label">Marca</label>
+                    <input
+                      className="form-control"
+                      value={formBotiquin.marca}
+                      onChange={e => setFormBotiquin({ ...formBotiquin, marca: e.target.value })}
+                      placeholder="Marca"
+                    />
+                  </div>
+                  <div className="form-group" style={{ flex: '1 1 180px' }}>
+                    <label className="form-label">Modelo</label>
+                    <input
+                      className="form-control"
+                      value={formBotiquin.modelo}
+                      onChange={e => setFormBotiquin({ ...formBotiquin, modelo: e.target.value })}
+                      placeholder="Modelo"
+                    />
+                  </div>
+                </div>
+
+                {/* 5: Ubicación + Maps */}
                 <div className="form-group">
                   <label className="form-label">Ubicación</label>
                   <input
                     className="form-control"
                     value={formBotiquin.ubicacion}
                     onChange={e => setFormBotiquin({ ...formBotiquin, ubicacion: e.target.value })}
-                    placeholder="Ubicación física del equipo"
+                    placeholder="Descripción de la ubicación física"
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Número de serie o placa</label>
-                  <input
-                    className="form-control"
-                    value={formBotiquin.numero_serie_placa}
-                    onChange={e => setFormBotiquin({ ...formBotiquin, numero_serie_placa: e.target.value })}
+                  <label className="form-label">Ubicación en Maps (enlace)</label>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'stretch' }}>
+                    <input
+                      className="form-control"
+                      style={{ flex: '1 1 220px' }}
+                      value={formBotiquin.mapa_url}
+                      onChange={e => setFormBotiquin({ ...formBotiquin, mapa_url: e.target.value })}
+                      placeholder="https://maps.google.com/... o pegar enlace de Maps"
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      title="Abrir Google Maps para buscar y copiar el enlace"
+                      onClick={() => {
+                        const q = encodeURIComponent(
+                          [formBotiquin.ubicacion, formBotiquin.empresa_id
+                            ? (empresaOptions.find(o => o.value === String(formBotiquin.empresa_id))?.label || '')
+                            : ''].filter(Boolean).join(' ') || 'Ubicación'
+                        );
+                        window.open(`https://www.google.com/maps/search/?api=1&query=${q}`, '_blank', 'noopener,noreferrer');
+                      }}
+                    >
+                      <MapPin size={16} /> Buscar en Maps
+                    </button>
+                    {formBotiquin.mapa_url && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        title="Abrir enlace guardado"
+                        onClick={() => window.open(formBotiquin.mapa_url, '_blank', 'noopener,noreferrer')}
+                      >
+                        <ExternalLink size={16} /> Abrir
+                      </button>
+                    )}
+                  </div>
+                  <p style={{ margin: '8px 0 0', fontSize: '0.82rem', opacity: 0.65 }}>
+                    Use «Buscar en Maps», copie el enlace de la ubicación y péguelo aquí.
+                  </p>
+                </div>
+
+                {/* 6: Tipo de botiquín */}
+                <div className="form-group">
+                  <label className="form-label">Tipo de botiquín</label>
+                  <Select
+                    styles={selectStyles}
+                    options={tipoBotiquinOptions}
+                    placeholder="Buscar tipo de botiquín..."
+                    value={tipoBotiquinOptions.find(o => o.value === String(formBotiquin.tipo_botiquin_id || '')) || null}
+                    onChange={opt => setFormBotiquin({ ...formBotiquin, tipo_botiquin_id: opt ? opt.value : '' })}
+                    noOptionsMessage={() => 'Sin tipos. Cree uno en la pestaña Tipos de botiquín'}
                   />
                 </div>
+
+                {/* 7: Tipo de equipo de emergencia */}
+                <div className="form-group">
+                  <label className="form-label">Tipo de equipo de emergencia</label>
+                  <select
+                    className="form-control"
+                    required
+                    value={formBotiquin.tipo_equipo}
+                    onChange={e => setFormBotiquin({ ...formBotiquin, tipo_equipo: e.target.value })}
+                  >
+                    {TIPOS_EQUIPO_EMERGENCIA.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+
+                {/* 8: Área */}
+                <div className="form-group">
+                  <label className="form-label">Área</label>
+                  <select
+                    className="form-control"
+                    required
+                    value={formBotiquin.area}
+                    onChange={e => setFormBotiquin({ ...formBotiquin, area: e.target.value })}
+                  >
+                    {AREAS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+
+                {/* 9: Equipo */}
                 <div className="form-group">
                   <label className="form-label">Equipo</label>
                   <select
@@ -917,6 +1015,8 @@ const Botiquin = () => {
                     {EQUIPOS.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
+
+                {/* 10: Estado */}
                 <div className="form-group">
                   <label className="form-label">Estado</label>
                   <select

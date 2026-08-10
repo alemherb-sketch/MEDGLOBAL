@@ -357,7 +357,11 @@ class BotiquinBase(BaseModel):
     area: str
     empresa_id: Optional[str] = None
     ubicacion: Optional[str] = None
+    mapa_url: Optional[str] = None
     numero_serie_placa: Optional[str] = None
+    vehiculo: Optional[str] = None
+    marca: Optional[str] = None
+    modelo: Optional[str] = None
     equipo: str
     estado: Optional[str] = "ACTIVO"
     fecha_creacion: Optional[datetime] = None
