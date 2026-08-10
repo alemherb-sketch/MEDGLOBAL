@@ -448,21 +448,27 @@ const Botiquin = () => {
             <thead>
               <tr>
                 <th>Código</th>
-                <th>Fecha creación</th>
-                <th>Tipo de botiquín</th>
-                <th>Tipo de equipo</th>
-                <th>Área</th>
+                <th>Fecha</th>
                 <th>Empresa</th>
-                <th>Estado</th>
+                <th>Vehículo</th>
+                <th>Ubicación</th>
+                <th>Tipo de botiquín</th>
                 <th style={{ width: 140 }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {botiquines.length === 0 && (
-                <tr><td colSpan={8} style={{ textAlign: 'center', opacity: 0.7 }}>Sin botiquines registrados</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: 'center', opacity: 0.7 }}>Sin botiquines registrados</td></tr>
               )}
               {botiquines.map(b => {
-                const activo = (b.estado || 'ACTIVO') === 'ACTIVO';
+                const vehiculoLabel = b.vehiculo
+                  || resumenVehiculo({
+                    marca: b.marca,
+                    modelo: b.modelo,
+                    serie: b.serie,
+                    placa: b.placa,
+                  })
+                  || '—';
                 return (
                   <tr key={b.id}>
                     <td>{b.codigo || '—'}</td>
@@ -471,15 +477,24 @@ const Botiquin = () => {
                         ? new Date(b.fecha_creacion).toLocaleDateString()
                         : (b.created_at ? new Date(b.created_at).toLocaleDateString() : '—')}
                     </td>
-                    <td>{b.tipo_botiquin?.nombre || '—'}</td>
-                    <td>{b.tipo_equipo}</td>
-                    <td>{b.area}</td>
                     <td>{b.empresa?.nombre || '—'}</td>
+                    <td>{vehiculoLabel}</td>
                     <td>
-                      <span style={estadoBadgeStyle(activo)}>
-                        {b.estado || 'ACTIVO'}
-                      </span>
+                      {b.ubicacion || '—'}
+                      {b.mapa_url ? (
+                        <a
+                          href={b.mapa_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Ver en Maps"
+                          style={{ marginLeft: 6, color: 'var(--primary-color, #60a5fa)' }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          Maps
+                        </a>
+                      ) : null}
                     </td>
+                    <td>{b.tipo_botiquin?.nombre || '—'}</td>
                     <td>
                       <div style={{ display: 'inline-flex', gap: 6 }}>
                         <button type="button" className="btn-icon" title="Ver" onClick={() => setViewBotiquin(b)}>
