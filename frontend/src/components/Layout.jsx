@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Home, Users, Settings, Pill, Stethoscope, Package, UserRoundPlus, Building2, BookOpen, LogOut, BriefcaseMedical } from 'lucide-react';
+import { Home, Users, Settings, Pill, Stethoscope, Package, UserRoundPlus, Building2, BookOpen, LogOut, BriefcaseMedical, ClipboardCheck } from 'lucide-react';
 import { logout } from '../api';
 import SyncStatus from './SyncStatus';
 
@@ -10,6 +10,7 @@ const Layout = () => {
     { path: '/', label: 'Dashboard', icon: <Home size={20} /> },
     { path: '/atenciones', label: 'Atenciones', icon: <Stethoscope size={20} /> },
     { path: '/botiquin', label: 'Botiquín', icon: <BriefcaseMedical size={20} /> },
+    { path: '/inspeccion', label: 'Inspección', icon: <ClipboardCheck size={20} /> },
     { path: '/consumo-medicamentos', label: 'Consumo Medicamentos', icon: <Pill size={20} /> },
     { path: '/medicamentos', label: 'Catálogo Medicamentos', icon: <Pill size={20} /> },
     { path: '/almacen', label: 'Almacén / Kardex', icon: <Package size={20} /> },
