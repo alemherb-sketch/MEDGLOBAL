@@ -313,9 +313,28 @@ const InspeccionBotiquin = () => {
       </tr>
     `).join('') || '<tr><td colspan="4" style="text-align:center">Sin insumos</td></tr>';
 
-    const imgs = (Array.isArray(ins.imagenes) ? ins.imagenes : [])
-      .map(u => `<img src="${escHtml(assetUrl(u))}" alt="Evidencia" />`)
-      .join('');
+    let imagenesLista = ins.imagenes;
+    if (typeof imagenesLista === 'string') {
+      try { imagenesLista = JSON.parse(imagenesLista); } catch { imagenesLista = []; }
+    }
+    if (!Array.isArray(imagenesLista)) imagenesLista = [];
+
+    // URL absoluta para que la ventana de impresión cargue bien desde el API
+    const absUrl = (path) => {
+      const u = assetUrl(path);
+      if (!u) return '';
+      if (/^https?:\/\//i.test(u) || u.startsWith('blob:') || u.startsWith('data:')) return u;
+      const origin = (API_URL && /^https?:\/\//i.test(API_URL))
+        ? API_URL.replace(/\/$/, '')
+        : window.location.origin;
+      return `${origin}${u.startsWith('/') ? u : `/${u}`}`;
+    };
+
+    const imgsHtml = imagenesLista.length
+      ? imagenesLista.map(u =>
+          `<figure class="img-card"><img src="${escHtml(absUrl(u))}" alt="Evidencia de inspección" /></figure>`
+        ).join('')
+      : '<p class="muted">Sin imágenes adjuntas en esta inspección.</p>';
 
     const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/>
       <title>Informe de Inspección</title>
@@ -323,6 +342,7 @@ const InspeccionBotiquin = () => {
         * { box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; color: #0f172a; margin: 28px; font-size: 13px; }
         h1 { margin: 0 0 4px; font-size: 20px; color: #0c4a6e; }
+        h3 { margin: 18px 0 8px; font-size: 14px; color: #0f172a; }
         .sub { color: #64748b; margin-bottom: 18px; }
         .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; margin-bottom: 18px; }
         .meta div { border-bottom: 1px solid #e2e8f0; padding: 6px 0; }
@@ -331,10 +351,40 @@ const InspeccionBotiquin = () => {
         th, td { border: 1px solid #cbd5e1; padding: 8px 10px; }
         th { background: #0ea5e9; color: #fff; text-align: left; }
         .obs { margin-top: 16px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
-        .imgs { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
-        .imgs img { width: 160px; height: 120px; object-fit: cover; border: 1px solid #cbd5e1; border-radius: 6px; }
+        .imgs { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+        .img-card { margin: 0; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #fff; }
+        .img-card img { display: block; width: 220px; height: 160px; object-fit: cover; }
+        .muted { color: #94a3b8; font-size: 12px; margin: 6px 0 0; }
+        .firma-wrap {
+          margin-top: 36px;
+          display: flex;
+          justify-content: flex-end;
+          page-break-inside: avoid;
+        }
+        .firma-box {
+          width: 280px;
+          text-align: center;
+        }
+        .firma-line {
+          height: 70px;
+          border-bottom: 1.5px solid #0f172a;
+          margin-bottom: 8px;
+        }
+        .firma-label {
+          font-size: 11px;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: .04em;
+          margin-bottom: 4px;
+        }
+        .firma-name { font-weight: 600; font-size: 13px; }
+        .firma-hint { font-size: 11px; color: #94a3b8; margin-top: 2px; }
         .footer { margin-top: 28px; font-size: 11px; color: #94a3b8; }
-        @media print { body { margin: 12mm; } .no-print { display: none !important; } }
+        @media print {
+          body { margin: 12mm; }
+          .no-print { display: none !important; }
+          .img-card img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
       </style></head><body>
       <div class="no-print" style="margin-bottom:16px">
         <button onclick="window.print()" style="padding:8px 16px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:600">
@@ -351,15 +401,41 @@ const InspeccionBotiquin = () => {
         <div><strong>Área</strong>${escHtml(bot?.area || '—')}</div>
         <div><strong>Ubicación</strong>${escHtml(bot?.ubicacion || '—')}</div>
       </div>
-      <h3 style="margin:0 0 6px">Lista de insumos</h3>
+      <h3>Lista de insumos</h3>
       <table>
         <thead><tr><th>Insumo</th><th style="width:70px">Cant.</th><th style="width:100px">Estado</th><th style="width:100px">Reposición</th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
       <div class="obs"><strong>Observaciones:</strong><br/>${escHtml(ins.observaciones || '—')}</div>
-      ${imgs ? `<h3 style="margin:18px 0 6px">Evidencias fotográficas</h3><div class="imgs">${imgs}</div>` : ''}
+      <h3>Imagen / evidencias adjuntas</h3>
+      <div class="imgs">${imgsHtml}</div>
+      <div class="firma-wrap">
+        <div class="firma-box">
+          <div class="firma-label">Firma del responsable</div>
+          <div class="firma-line"></div>
+          <div class="firma-name">${escHtml(responsable)}</div>
+          <div class="firma-hint">Responsable de la inspección</div>
+        </div>
+      </div>
       <p class="footer">MEDGLOBAL · Sistema de gestión médica · Inspección ${escHtml(ins.id || '')}</p>
-      <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 350); };</script>
+      <script>
+        function listoParaImprimir() {
+          var imgs = Array.prototype.slice.call(document.images || []);
+          if (!imgs.length) { setTimeout(function(){ window.print(); }, 200); return; }
+          var pendientes = imgs.length;
+          var done = function() {
+            pendientes -= 1;
+            if (pendientes <= 0) setTimeout(function(){ window.print(); }, 150);
+          };
+          imgs.forEach(function(img) {
+            if (img.complete) return done();
+            img.onload = done;
+            img.onerror = done;
+          });
+          setTimeout(function(){ window.print(); }, 4000);
+        }
+        window.onload = listoParaImprimir;
+      </script>
       </body></html>`;
 
     const w = window.open('', '_blank');
@@ -610,13 +686,12 @@ const InspeccionBotiquin = () => {
                 <th>Área</th>
                 <th>Empresa</th>
                 <th>Responsable</th>
-                <th>Insumos</th>
                 <th style={{ width: 140, textAlign: 'center' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {inspecciones.length === 0 && (
-                <tr><td colSpan={7} style={{ textAlign: 'center', opacity: 0.7 }}>Sin inspecciones</td></tr>
+                <tr><td colSpan={6} style={{ textAlign: 'center', opacity: 0.7 }}>Sin inspecciones</td></tr>
               )}
               {inspecciones.map(ins => (
                 <tr key={ins.id}>
@@ -631,13 +706,6 @@ const InspeccionBotiquin = () => {
                   <td>
                     {ins.responsable
                       ? `${ins.responsable.nombre || ''} ${ins.responsable.apellidos || ''}`.trim()
-                      : '—'}
-                  </td>
-                  <td>
-                    {(ins.insumos || []).length
-                      ? ins.insumos.map(i =>
-                          `${i.medicamento?.nombre || i.medicamento_id} (x${i.cantidad})`
-                        ).join(', ')
                       : '—'}
                   </td>
                   <td style={{ textAlign: 'center' }}>
