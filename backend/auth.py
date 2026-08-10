@@ -10,14 +10,15 @@ from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 import models
+import rutas
 from database import get_db
 
 logger = logging.getLogger(__name__)
 
 # Archivo donde se guarda la clave generada automaticamente cuando no hay
-# SECRET_KEY en el entorno. Va junto a la BD (mismo directorio de trabajo que
-# medglobal.db y sync_cursor.json) y NO se versiona.
-_SECRET_KEY_FILE = "secret_key.txt"
+# SECRET_KEY en el entorno. Va junto a la BD (misma carpeta que medglobal.db y
+# sync_cursor.json) y NO se versiona.
+_SECRET_KEY_FILE = rutas.datos("secret_key.txt")
 
 
 def _obtener_secret_key() -> str:

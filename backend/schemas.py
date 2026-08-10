@@ -1,6 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import List, Optional, Any, Dict
 from datetime import datetime
+import json
 
 # --- Autenticacion ---
 class UsuarioBase(BaseModel):
@@ -388,6 +389,8 @@ class Botiquin(BotiquinBase):
 class BotiquinInspeccionInsumoBase(BaseModel):
     medicamento_id: str
     cantidad: int = 1
+    estado: Optional[str] = "BUENO"
+    reposicion: Optional[str] = "NO"
 
 class BotiquinInspeccionInsumoCreate(BotiquinInspeccionInsumoBase):
     pass
@@ -401,15 +404,51 @@ class BotiquinInspeccionInsumo(BotiquinInspeccionInsumoBase):
         from_attributes = True
 
 
+def _parse_imagenes(v):
+    if v is None or v == '':
+        return []
+    if isinstance(v, list):
+        return [str(x) for x in v if x]
+    if isinstance(v, str):
+        try:
+            data = json.loads(v)
+            if isinstance(data, list):
+                return [str(x) for x in data if x]
+        except Exception:
+            return []
+    return []
+
+
 class BotiquinInspeccionBase(BaseModel):
     botiquin_id: str
     fecha: Optional[datetime] = None
     responsable_id: Optional[str] = None
     observaciones: Optional[str] = None
+    imagenes: Optional[List[str]] = []
     insumos: List[BotiquinInspeccionInsumoCreate] = []
+
+    @field_validator('imagenes', mode='before')
+    @classmethod
+    def _imgs(cls, v):
+        return _parse_imagenes(v)
 
 class BotiquinInspeccionCreate(BotiquinInspeccionBase):
     pass
+
+class BotiquinInspeccionUpdate(BaseModel):
+    botiquin_id: Optional[str] = None
+    fecha: Optional[datetime] = None
+    responsable_id: Optional[str] = None
+    observaciones: Optional[str] = None
+    imagenes: Optional[List[str]] = None
+    insumos: Optional[List[BotiquinInspeccionInsumoCreate]] = None
+
+    @field_validator('imagenes', mode='before')
+    @classmethod
+    def _imgs(cls, v):
+        if v is None:
+            return None
+        return _parse_imagenes(v)
 
 class BotiquinInspeccion(BaseModel):
     id: str
@@ -417,10 +456,16 @@ class BotiquinInspeccion(BaseModel):
     fecha: Optional[datetime] = None
     responsable_id: Optional[str] = None
     observaciones: Optional[str] = None
+    imagenes: Optional[List[str]] = []
     botiquin: Optional[Botiquin] = None
     responsable: Optional[PersonalSalud] = None
     insumos: List[BotiquinInspeccionInsumo] = []
     created_at: Optional[datetime] = None
+
+    @field_validator('imagenes', mode='before')
+    @classmethod
+    def _imgs(cls, v):
+        return _parse_imagenes(v)
 
     class Config:
         orm_mode = True

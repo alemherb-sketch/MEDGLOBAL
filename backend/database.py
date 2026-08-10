@@ -3,8 +3,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# Obtener URL de la variable de entorno, si no existe usa sqlite
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./medglobal.db")
+import rutas
+
+# Obtener URL de la variable de entorno, si no existe usa sqlite.
+# rutas.datos() decide donde: junto al .exe en la instalacion de carpeta, o la
+# carpeta de datos del usuario cuando es el ejecutable unico. Fuera del
+# ejecutable congelado devuelve "medglobal.db" a secas, o sea el directorio
+# actual, igual que siempre.
+DATABASE_URL = os.getenv("DATABASE_URL") or ("sqlite:///" + rutas.datos("medglobal.db"))
 
 # Si la URL es de render postgres://, SQLAlchemy necesita postgresql://
 if DATABASE_URL.startswith("postgres://"):

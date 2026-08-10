@@ -5,9 +5,10 @@ import 'react-datepicker/dist/react-datepicker.css';
 import * as XLSX from 'xlsx';
 import {
   Search, Plus, Trash2, X, ClipboardCheck, Download,
-  Filter, History, Save
+  Filter, History, Save, Eye, Edit2, FileText, ImagePlus
 } from 'lucide-react';
 import { apiFetch, apiJson } from '../api';
+import { API_URL } from '../config';
 import {
   TIPOS_EQUIPO_EMERGENCIA,
   AREAS,
@@ -15,6 +16,44 @@ import {
   selectStyles,
   labelMedicamento,
 } from './botiquinShared';
+
+const ESTADOS_INSUMO = [
+  { value: 'BUENO', label: 'Bueno' },
+  { value: 'REGULAR', label: 'Regular' },
+  { value: 'MALO', label: 'Malo' },
+  { value: 'VENCIDO', label: 'Vencido' },
+  { value: 'FALTANTE', label: 'Faltante' },
+];
+
+const REPOSICION_OPTS = [
+  { value: 'NO', label: 'No' },
+  { value: 'SI', label: 'Sí' },
+];
+
+const ESTADO_LABEL = Object.fromEntries(ESTADOS_INSUMO.map(e => [e.value, e.label]));
+
+const emptyInspeccionForm = () => ({
+  id: null,
+  botiquin_id: '',
+  responsable_id: '',
+  fecha: new Date(),
+  observaciones: '',
+  imagenes: [],
+  insumos: [],
+  mode: 'create', // create | edit | view
+});
+
+const assetUrl = (path) => {
+  if (!path) return '';
+  if (/^https?:\/\//i.test(path) || path.startsWith('blob:') || path.startsWith('data:')) return path;
+  return `${API_URL || ''}${path}`;
+};
+
+const escHtml = (s) => String(s ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
 
 const InspeccionBotiquin = () => {
   const [tab, setTab] = useState('inspecciones'); // inspecciones | reporte
@@ -30,16 +69,13 @@ const InspeccionBotiquin = () => {
   });
 
   const [modalInspeccion, setModalInspeccion] = useState(false);
-  const [formInspeccion, setFormInspeccion] = useState({
-    botiquin_id: '',
-    responsable_id: '',
-    fecha: new Date(),
-    observaciones: '',
-    insumos: [],
-  });
+  const [formInspeccion, setFormInspeccion] = useState(emptyInspeccionForm);
+  const [pendingImagenes, setPendingImagenes] = useState([]); // { key, file, preview }
+  const [guardando, setGuardando] = useState(false);
   const [insumoSelect, setInsumoSelect] = useState(null);
   const [insumoCantidad, setInsumoCantidad] = useState(1);
   const [cargandoInsumos, setCargandoInsumos] = useState(false);
+  const soloLectura = formInspeccion.mode === 'view';
 
   const [reporteFiltros, setReporteFiltros] = useState({
     empresa_id: '',
@@ -101,8 +137,21 @@ const InspeccionBotiquin = () => {
     (list || []).map(p => ({
       medicamento_id: String(p.medicamento_id),
       cantidad: p.cantidad || 1,
-      label: p.medicamento ? labelMedicamento(p.medicamento) : String(p.medicamento_id),
+      estado: (p.estado || 'BUENO').toUpperCase(),
+      reposicion: (p.reposicion || 'NO').toUpperCase() === 'SI' ? 'SI' : 'NO',
+      label: p.medicamento ? labelMedicamento(p.medicamento) : (p.label || String(p.medicamento_id)),
     }));
+
+  const updateInsumoField = (medicamento_id, field, value) => {
+    setFormInspeccion(prev => ({
+      ...prev,
+      insumos: prev.insumos.map(x =>
+        String(x.medicamento_id) === String(medicamento_id)
+          ? { ...x, [field]: value }
+          : x
+      ),
+    }));
+  };
 
   const loadCatalogos = () => {
     apiJson('/empresas/').then(setEmpresas).catch(() => setEmpresas([]));
@@ -158,16 +207,169 @@ const InspeccionBotiquin = () => {
 
   const openNewInspeccion = (botiquinId = '') => {
     setFormInspeccion({
+      ...emptyInspeccionForm(),
       botiquin_id: botiquinId ? String(botiquinId) : '',
-      responsable_id: '',
-      fecha: new Date(),
-      observaciones: '',
-      insumos: [],
     });
+    setPendingImagenes([]);
     setInsumoSelect(null);
     setInsumoCantidad(1);
     setModalInspeccion(true);
     if (botiquinId) cargarInsumosDeBotiquin(botiquinId);
+  };
+
+  const openViewInspeccion = (ins) => {
+    setFormInspeccion({
+      id: ins.id,
+      botiquin_id: String(ins.botiquin_id || ''),
+      responsable_id: ins.responsable_id ? String(ins.responsable_id) : '',
+      fecha: ins.fecha ? new Date(ins.fecha) : new Date(),
+      observaciones: ins.observaciones || '',
+      imagenes: Array.isArray(ins.imagenes) ? [...ins.imagenes] : [],
+      insumos: mapInsumosFromApi(ins.insumos),
+      mode: 'view',
+    });
+    setPendingImagenes([]);
+    setInsumoSelect(null);
+    setModalInspeccion(true);
+  };
+
+  const openEditInspeccion = (ins) => {
+    setFormInspeccion({
+      id: ins.id,
+      botiquin_id: String(ins.botiquin_id || ''),
+      responsable_id: ins.responsable_id ? String(ins.responsable_id) : '',
+      fecha: ins.fecha ? new Date(ins.fecha) : new Date(),
+      observaciones: ins.observaciones || '',
+      imagenes: Array.isArray(ins.imagenes) ? [...ins.imagenes] : [],
+      insumos: mapInsumosFromApi(ins.insumos),
+      mode: 'edit',
+    });
+    setPendingImagenes([]);
+    setInsumoSelect(null);
+    setInsumoCantidad(1);
+    setModalInspeccion(true);
+  };
+
+  const onSelectImagenes = (e) => {
+    const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'));
+    if (!files.length) return;
+    setPendingImagenes(prev => [
+      ...prev,
+      ...files.map(file => ({
+        key: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
+        file,
+        preview: URL.createObjectURL(file),
+      })),
+    ]);
+    e.target.value = '';
+  };
+
+  const removeImagenExistente = (url) => {
+    setFormInspeccion(prev => ({
+      ...prev,
+      imagenes: (prev.imagenes || []).filter(u => u !== url),
+    }));
+  };
+
+  const removeImagenPendiente = (key) => {
+    setPendingImagenes(prev => {
+      const item = prev.find(p => p.key === key);
+      if (item?.preview) URL.revokeObjectURL(item.preview);
+      return prev.filter(p => p.key !== key);
+    });
+  };
+
+  const subirImagenesPendientes = async () => {
+    const urls = [];
+    for (const item of pendingImagenes) {
+      const fd = new FormData();
+      fd.append('file', item.file);
+      const res = await apiFetch('/botiquin_inspecciones/upload-imagen', {
+        method: 'POST',
+        body: fd,
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      if (data?.url) urls.push(data.url);
+    }
+    return urls;
+  };
+
+  const imprimirInspeccion = (ins) => {
+    const bot = ins.botiquin;
+    const botLabel = bot
+      ? `${bot.codigo ? bot.codigo + ' · ' : ''}${bot.tipo_botiquin?.nombre || bot.tipo_equipo || ''}${bot.ubicacion ? ' · ' + bot.ubicacion : ''}`
+      : '—';
+    const responsable = ins.responsable
+      ? `${ins.responsable.nombre || ''} ${ins.responsable.apellidos || ''}`.trim()
+      : '—';
+    const fecha = ins.fecha ? new Date(ins.fecha).toLocaleString() : '—';
+    const filas = (ins.insumos || []).map(i => `
+      <tr>
+        <td>${escHtml(i.medicamento?.nombre || i.medicamento_id)}</td>
+        <td style="text-align:center">${escHtml(i.cantidad)}</td>
+        <td style="text-align:center">${escHtml(ESTADO_LABEL[i.estado] || i.estado || '—')}</td>
+        <td style="text-align:center">${i.reposicion === 'SI' ? 'Sí' : 'No'}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="4" style="text-align:center">Sin insumos</td></tr>';
+
+    const imgs = (Array.isArray(ins.imagenes) ? ins.imagenes : [])
+      .map(u => `<img src="${escHtml(assetUrl(u))}" alt="Evidencia" />`)
+      .join('');
+
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/>
+      <title>Informe de Inspección</title>
+      <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; color: #0f172a; margin: 28px; font-size: 13px; }
+        h1 { margin: 0 0 4px; font-size: 20px; color: #0c4a6e; }
+        .sub { color: #64748b; margin-bottom: 18px; }
+        .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; margin-bottom: 18px; }
+        .meta div { border-bottom: 1px solid #e2e8f0; padding: 6px 0; }
+        .meta strong { display: block; font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .03em; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        th, td { border: 1px solid #cbd5e1; padding: 8px 10px; }
+        th { background: #0ea5e9; color: #fff; text-align: left; }
+        .obs { margin-top: 16px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
+        .imgs { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+        .imgs img { width: 160px; height: 120px; object-fit: cover; border: 1px solid #cbd5e1; border-radius: 6px; }
+        .footer { margin-top: 28px; font-size: 11px; color: #94a3b8; }
+        @media print { body { margin: 12mm; } .no-print { display: none !important; } }
+      </style></head><body>
+      <div class="no-print" style="margin-bottom:16px">
+        <button onclick="window.print()" style="padding:8px 16px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:600">
+          Imprimir / Guardar PDF
+        </button>
+      </div>
+      <h1>MEDGLOBAL — Informe de Inspección de Botiquín</h1>
+      <p class="sub">Documento generado el ${escHtml(new Date().toLocaleString())}</p>
+      <div class="meta">
+        <div><strong>Fecha de inspección</strong>${escHtml(fecha)}</div>
+        <div><strong>Responsable</strong>${escHtml(responsable)}</div>
+        <div><strong>Botiquín</strong>${escHtml(botLabel)}</div>
+        <div><strong>Empresa</strong>${escHtml(bot?.empresa?.nombre || '—')}</div>
+        <div><strong>Área</strong>${escHtml(bot?.area || '—')}</div>
+        <div><strong>Ubicación</strong>${escHtml(bot?.ubicacion || '—')}</div>
+      </div>
+      <h3 style="margin:0 0 6px">Lista de insumos</h3>
+      <table>
+        <thead><tr><th>Insumo</th><th style="width:70px">Cant.</th><th style="width:100px">Estado</th><th style="width:100px">Reposición</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+      <div class="obs"><strong>Observaciones:</strong><br/>${escHtml(ins.observaciones || '—')}</div>
+      ${imgs ? `<h3 style="margin:18px 0 6px">Evidencias fotográficas</h3><div class="imgs">${imgs}</div>` : ''}
+      <p class="footer">MEDGLOBAL · Sistema de gestión médica · Inspección ${escHtml(ins.id || '')}</p>
+      <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 350); };</script>
+      </body></html>`;
+
+    const w = window.open('', '_blank');
+    if (!w) {
+      alert('Permita ventanas emergentes para generar el PDF.');
+      return;
+    }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
   };
 
   const addInsumoLinea = () => {
@@ -189,7 +391,13 @@ const InspeccionBotiquin = () => {
         ...prev,
         insumos: [
           ...prev.insumos,
-          { medicamento_id: insumoSelect.value, cantidad, label: insumoSelect.label },
+          {
+            medicamento_id: insumoSelect.value,
+            cantidad,
+            estado: 'BUENO',
+            reposicion: 'NO',
+            label: insumoSelect.label,
+          },
         ],
       };
     });
@@ -204,8 +412,9 @@ const InspeccionBotiquin = () => {
     }));
   };
 
-  const saveInspeccion = (e) => {
+  const saveInspeccion = async (e) => {
     e.preventDefault();
+    if (soloLectura) return;
     if (!formInspeccion.botiquin_id) {
       alert('Seleccione un botiquín');
       return;
@@ -214,30 +423,45 @@ const InspeccionBotiquin = () => {
       alert('Seleccione el responsable de la inspección');
       return;
     }
-    const payload = {
-      botiquin_id: formInspeccion.botiquin_id,
-      responsable_id: formInspeccion.responsable_id || null,
-      fecha: formInspeccion.fecha
-        ? new Date(formInspeccion.fecha).toISOString()
-        : new Date().toISOString(),
-      observaciones: formInspeccion.observaciones || null,
-      insumos: formInspeccion.insumos.map(i => ({
-        medicamento_id: i.medicamento_id,
-        cantidad: i.cantidad,
-      })),
-    };
+    setGuardando(true);
+    try {
+      const nuevasUrls = await subirImagenesPendientes();
+      const imagenes = [...(formInspeccion.imagenes || []), ...nuevasUrls];
+      const payload = {
+        botiquin_id: formInspeccion.botiquin_id,
+        responsable_id: formInspeccion.responsable_id || null,
+        fecha: formInspeccion.fecha
+          ? new Date(formInspeccion.fecha).toISOString()
+          : new Date().toISOString(),
+        observaciones: formInspeccion.observaciones || null,
+        imagenes,
+        insumos: formInspeccion.insumos.map(i => ({
+          medicamento_id: i.medicamento_id,
+          cantidad: i.cantidad,
+          estado: i.estado || 'BUENO',
+          reposicion: i.reposicion || 'NO',
+        })),
+      };
 
-    apiFetch('/botiquin_inspecciones/', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })
-      .then(async res => {
-        if (!res.ok) throw new Error(await res.text());
-        setModalInspeccion(false);
-        setTab('inspecciones');
-        loadInspecciones();
-      })
-      .catch(err => alert('Error al registrar inspección: ' + err.message));
+      const isEdit = formInspeccion.mode === 'edit' && formInspeccion.id;
+      const res = await apiFetch(
+        isEdit ? `/botiquin_inspecciones/${formInspeccion.id}` : '/botiquin_inspecciones/',
+        {
+          method: isEdit ? 'PUT' : 'POST',
+          body: JSON.stringify(payload),
+        }
+      );
+      if (!res.ok) throw new Error(await res.text());
+      pendingImagenes.forEach(p => p.preview && URL.revokeObjectURL(p.preview));
+      setPendingImagenes([]);
+      setModalInspeccion(false);
+      setTab('inspecciones');
+      loadInspecciones();
+    } catch (err) {
+      alert('Error al guardar inspección: ' + (err.message || err));
+    } finally {
+      setGuardando(false);
+    }
   };
 
   const deleteInspeccion = (id) => {
@@ -387,7 +611,7 @@ const InspeccionBotiquin = () => {
                 <th>Empresa</th>
                 <th>Responsable</th>
                 <th>Insumos</th>
-                <th style={{ width: 80 }}></th>
+                <th style={{ width: 140, textAlign: 'center' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -416,10 +640,21 @@ const InspeccionBotiquin = () => {
                         ).join(', ')
                       : '—'}
                   </td>
-                  <td>
-                    <button type="button" className="btn-icon btn-icon-danger" title="Eliminar" onClick={() => deleteInspeccion(ins.id)}>
-                      <Trash2 size={16} />
-                    </button>
+                  <td style={{ textAlign: 'center' }}>
+                    <div className="insp-actions">
+                      <button type="button" className="action-btn view" title="Ver" onClick={() => openViewInspeccion(ins)}>
+                        <Eye size={17} />
+                      </button>
+                      <button type="button" className="action-btn edit" title="Editar" onClick={() => openEditInspeccion(ins)}>
+                        <Edit2 size={17} />
+                      </button>
+                      <button type="button" className="action-btn pdf" title="PDF / Imprimir" onClick={() => imprimirInspeccion(ins)}>
+                        <FileText size={17} />
+                      </button>
+                      <button type="button" className="action-btn delete" title="Eliminar" onClick={() => deleteInspeccion(ins.id)}>
+                        <Trash2 size={17} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -567,24 +802,29 @@ const InspeccionBotiquin = () => {
 
       {modalInspeccion && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: 640 }}>
-            <div className="modal-header">
-              <h3>Registrar inspección</h3>
+          <div
+            className="modal-content"
+            style={{
+              maxWidth: 980,
+              width: '96%',
+              maxHeight: '94vh',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            <div className="modal-header" style={{ flexShrink: 0 }}>
+              <h3>
+                {formInspeccion.mode === 'view'
+                  ? 'Ver inspección'
+                  : formInspeccion.mode === 'edit'
+                    ? 'Editar inspección'
+                    : 'Registrar inspección'}
+              </h3>
               <button className="close-btn" type="button" onClick={() => setModalInspeccion(false)}><X size={24} /></button>
             </div>
-            <form onSubmit={saveInspeccion}>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label className="form-label">Botiquín</label>
-                  <Select
-                    styles={selectStyles}
-                    options={botiquinOptions}
-                    placeholder="Buscar botiquín..."
-                    value={botiquinOptions.find(o => o.value === formInspeccion.botiquin_id) || null}
-                    onChange={opt => cargarInsumosDeBotiquin(opt ? opt.value : '')}
-                    noOptionsMessage={() => 'Sin botiquines'}
-                  />
-                </div>
+            <form onSubmit={saveInspeccion} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
+              <div className="modal-body" style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
                 <div className="form-group">
                   <label className="form-label">Fecha (automática)</label>
                   <DatePicker
@@ -593,6 +833,27 @@ const InspeccionBotiquin = () => {
                     showTimeSelect
                     dateFormat="dd/MM/yyyy HH:mm"
                     className="form-control"
+                    disabled={soloLectura}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Botiquín</label>
+                  <Select
+                    styles={selectStyles}
+                    options={botiquinOptions}
+                    placeholder="Buscar botiquín..."
+                    value={botiquinOptions.find(o => o.value === formInspeccion.botiquin_id) || null}
+                    onChange={opt => {
+                      if (soloLectura) return;
+                      if (formInspeccion.mode === 'edit') {
+                        setFormInspeccion(prev => ({ ...prev, botiquin_id: opt ? opt.value : '' }));
+                        if (opt) cargarInsumosDeBotiquin(opt.value);
+                      } else {
+                        cargarInsumosDeBotiquin(opt ? opt.value : '');
+                      }
+                    }}
+                    isDisabled={soloLectura}
+                    noOptionsMessage={() => 'Sin botiquines'}
                   />
                 </div>
                 <div className="form-group">
@@ -602,7 +863,11 @@ const InspeccionBotiquin = () => {
                     options={personalOptions}
                     placeholder="Buscar personal de salud..."
                     value={personalOptions.find(o => o.value === formInspeccion.responsable_id) || null}
-                    onChange={opt => setFormInspeccion({ ...formInspeccion, responsable_id: opt ? opt.value : '' })}
+                    onChange={opt => {
+                      if (soloLectura) return;
+                      setFormInspeccion({ ...formInspeccion, responsable_id: opt ? opt.value : '' });
+                    }}
+                    isDisabled={soloLectura}
                     noOptionsMessage={() => 'Sin resultados'}
                   />
                 </div>
@@ -612,83 +877,110 @@ const InspeccionBotiquin = () => {
                     {cargandoInsumos && <span style={{ marginLeft: 8, opacity: 0.7, fontWeight: 400 }}>(cargando del tipo...)</span>}
                   </label>
                   <p style={{ margin: '0 0 10px', fontSize: '0.88rem', opacity: 0.7 }}>
-                    Se completan automáticamente según el tipo del botiquín seleccionado. Puede ajustar cantidades o agregar más.
+                    Se completan automáticamente según el tipo del botiquín seleccionado. Puede ajustar cantidades, estado o reposición.
                   </p>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'stretch' }}>
-                    <div style={{ flex: '1 1 240px' }}>
-                      <Select
-                        styles={selectStyles}
-                        options={insumoOptions}
-                        placeholder="Agregar insumo adicional..."
-                        value={insumoSelect}
-                        onChange={setInsumoSelect}
-                        noOptionsMessage={() => 'Sin resultados'}
-                      />
+                  {!soloLectura && (
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'stretch' }}>
+                      <div style={{ flex: '1 1 240px' }}>
+                        <Select
+                          styles={selectStyles}
+                          options={insumoOptions}
+                          placeholder="Agregar insumo adicional..."
+                          value={insumoSelect}
+                          onChange={setInsumoSelect}
+                          noOptionsMessage={() => 'Sin resultados'}
+                        />
+                      </div>
+                      <div style={{ width: 88 }}>
+                        <input
+                          type="number"
+                          min={1}
+                          className="form-control"
+                          value={insumoCantidad}
+                          onChange={e => setInsumoCantidad(e.target.value)}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={addInsumoLinea}
+                        disabled={!insumoSelect}
+                      >
+                        <Plus size={16} /> Agregar
+                      </button>
                     </div>
-                    <div style={{ width: 88 }}>
-                      <input
-                        type="number"
-                        min={1}
-                        className="form-control"
-                        value={insumoCantidad}
-                        onChange={e => setInsumoCantidad(e.target.value)}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={addInsumoLinea}
-                      disabled={!insumoSelect}
-                    >
-                      <Plus size={16} /> Agregar
-                    </button>
-                  </div>
+                  )}
                   {formInspeccion.insumos.length > 0 ? (
-                    <ul style={{ marginTop: 12, paddingLeft: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {formInspeccion.insumos.map(i => (
-                        <li
-                          key={i.medicamento_id}
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            gap: 12,
-                            padding: '10px 12px',
-                            borderRadius: 10,
-                            background: 'rgba(15, 23, 42, 0.45)',
-                            border: '1px solid var(--border-color)',
-                          }}
-                        >
-                          <span style={{ flex: 1 }}>{i.label}</span>
-                          <input
-                            type="number"
-                            min={1}
-                            className="form-control"
-                            style={{ width: 72 }}
-                            value={i.cantidad}
-                            onChange={e => {
-                              const cantidad = Math.max(1, parseInt(e.target.value, 10) || 1);
-                              setFormInspeccion(prev => ({
-                                ...prev,
-                                insumos: prev.insumos.map(x =>
-                                  String(x.medicamento_id) === String(i.medicamento_id)
-                                    ? { ...x, cantidad }
-                                    : x
-                                ),
-                              }));
-                            }}
-                          />
-                          <button
-                            type="button"
-                            className="btn-icon btn-icon-sm btn-icon-danger"
-                            title="Quitar insumo"
-                            onClick={() => removeInsumoLinea(i.medicamento_id)}
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="table-container" style={{ marginTop: 14, overflowX: 'auto' }}>
+                      <table className="data-table" style={{ width: '100%', minWidth: 720 }}>
+                        <thead>
+                          <tr>
+                            <th style={{ textAlign: 'left' }}>Insumo</th>
+                            <th style={{ width: 90 }}>Cant.</th>
+                            <th style={{ width: 140 }}>Estado</th>
+                            <th style={{ width: 120 }}>Reposición</th>
+                            {!soloLectura && <th style={{ width: 48 }} />}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {formInspeccion.insumos.map(i => (
+                            <tr key={i.medicamento_id}>
+                              <td style={{ textAlign: 'left', verticalAlign: 'middle' }}>{i.label}</td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  className="form-control"
+                                  style={{ width: 72, margin: '0 auto' }}
+                                  value={i.cantidad}
+                                  disabled={soloLectura}
+                                  onChange={e => {
+                                    const cantidad = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                    updateInsumoField(i.medicamento_id, 'cantidad', cantidad);
+                                  }}
+                                />
+                              </td>
+                              <td>
+                                <select
+                                  className="form-control"
+                                  value={i.estado || 'BUENO'}
+                                  disabled={soloLectura}
+                                  onChange={e => updateInsumoField(i.medicamento_id, 'estado', e.target.value)}
+                                >
+                                  {ESTADOS_INSUMO.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td>
+                                <select
+                                  className="form-control"
+                                  value={i.reposicion || 'NO'}
+                                  disabled={soloLectura}
+                                  onChange={e => updateInsumoField(i.medicamento_id, 'reposicion', e.target.value)}
+                                >
+                                  {REPOSICION_OPTS.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              </td>
+                              {!soloLectura && (
+                                <td style={{ textAlign: 'center' }}>
+                                  <button
+                                    type="button"
+                                    className="btn-icon btn-icon-sm btn-icon-danger"
+                                    title="Quitar insumo"
+                                    onClick={() => removeInsumoLinea(i.medicamento_id)}
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   ) : (
                     <p style={{ marginTop: 10, opacity: 0.6, fontSize: '0.9rem' }}>
                       {formInspeccion.botiquin_id
@@ -698,22 +990,94 @@ const InspeccionBotiquin = () => {
                   )}
                 </div>
                 <div className="form-group">
+                  <label className="form-label">Imágenes</label>
+                  {!soloLectura && (
+                    <label
+                      className="btn btn-secondary btn-sm"
+                      style={{ display: 'inline-flex', cursor: 'pointer', width: 'fit-content' }}
+                    >
+                      <ImagePlus size={16} /> Adjuntar imágenes
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        style={{ display: 'none' }}
+                        onChange={onSelectImagenes}
+                      />
+                    </label>
+                  )}
+                  <p style={{ margin: '8px 0 0', fontSize: '0.85rem', opacity: 0.65 }}>
+                    JPG, PNG, WEBP u otras imágenes (máx. 8 MB c/u).
+                  </p>
+                  {((formInspeccion.imagenes || []).length > 0 || pendingImagenes.length > 0) ? (
+                    <div className="insp-img-grid">
+                      {(formInspeccion.imagenes || []).map(url => (
+                        <div className="insp-img-thumb" key={url}>
+                          <img src={assetUrl(url)} alt="Adjunto" />
+                          {!soloLectura && (
+                            <button
+                              type="button"
+                              className="insp-img-remove"
+                              title="Quitar"
+                              onClick={() => removeImagenExistente(url)}
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {pendingImagenes.map(p => (
+                        <div className="insp-img-thumb" key={p.key}>
+                          <img src={p.preview} alt="Nueva" />
+                          <button
+                            type="button"
+                            className="insp-img-remove"
+                            title="Quitar"
+                            onClick={() => removeImagenPendiente(p.key)}
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    soloLectura && (
+                      <p style={{ marginTop: 8, opacity: 0.6, fontSize: '0.9rem' }}>Sin imágenes adjuntas.</p>
+                    )
+                  )}
+                </div>
+                <div className="form-group">
                   <label className="form-label">Observaciones</label>
                   <textarea
                     className="form-control"
                     rows={2}
                     value={formInspeccion.observaciones}
+                    disabled={soloLectura}
                     onChange={e => setFormInspeccion({ ...formInspeccion, observaciones: e.target.value })}
                   />
                 </div>
               </div>
-              <div className="modal-footer">
+              <div className="modal-footer" style={{ flexShrink: 0 }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setModalInspeccion(false)}>
-                  <X size={16} /> Cancelar
+                  <X size={16} /> {soloLectura ? 'Cerrar' : 'Cancelar'}
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  <Save size={16} /> Guardar inspección
-                </button>
+                {!soloLectura && (
+                  <button type="submit" className="btn btn-primary" disabled={guardando}>
+                    <Save size={16} /> {guardando ? 'Guardando...' : 'Guardar inspección'}
+                  </button>
+                )}
+                {soloLectura && formInspeccion.id && (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      const found = inspecciones.find(x => x.id === formInspeccion.id);
+                      if (found) imprimirInspeccion(found);
+                    }}
+                  >
+                    <FileText size={16} /> PDF
+                  </button>
+                )}
               </div>
             </form>
           </div>

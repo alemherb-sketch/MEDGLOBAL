@@ -418,6 +418,8 @@ class BotiquinInspeccion(Base):
     fecha = Column(DateTime, default=datetime.datetime.utcnow, index=True)
     responsable_id = Column(String(36), ForeignKey("personal_salud.id"), nullable=True, index=True)
     observaciones = Column(Text, nullable=True)
+    # JSON serializado: lista de rutas relativas (/media/inspecciones/...)
+    imagenes = Column(Text, nullable=True)
 
     botiquin = relationship("Botiquin", back_populates="inspecciones")
     responsable = relationship("PersonalSalud")
@@ -435,6 +437,8 @@ class BotiquinInspeccionInsumo(Base):
     inspeccion_id = Column(String(36), ForeignKey("botiquin_inspecciones.id"), index=True)
     medicamento_id = Column(String(36), ForeignKey("medicamentos.id"), index=True)
     cantidad = Column(Integer, default=1)
+    estado = Column(String(50), default="BUENO")  # BUENO, REGULAR, MALO, VENCIDO, FALTANTE
+    reposicion = Column(String(10), default="NO")  # SI | NO
 
     medicamento = relationship("Medicamento")
 
