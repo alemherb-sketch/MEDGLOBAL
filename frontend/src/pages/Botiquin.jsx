@@ -5,7 +5,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import * as XLSX from 'xlsx';
 import {
   Search, Plus, Trash2, Edit2, X, ClipboardCheck, Download,
-  Filter, Package, History, Save, Layers
+  Filter, Package, History, Save, Layers, Eye
 } from 'lucide-react';
 import { apiFetch, apiJson } from '../api';
 
@@ -93,6 +93,7 @@ const Botiquin = () => {
 
   const [modalBotiquin, setModalBotiquin] = useState(false);
   const [formBotiquin, setFormBotiquin] = useState(emptyBotiquin);
+  const [viewBotiquin, setViewBotiquin] = useState(null);
 
   const [modalTipo, setModalTipo] = useState(false);
   const [formTipo, setFormTipo] = useState(emptyTipo);
@@ -745,18 +746,17 @@ const Botiquin = () => {
                 <th>Tipo de equipo</th>
                 <th>Área</th>
                 <th>Empresa</th>
-                <th>Ubicación</th>
-                <th>Serie / Placa</th>
-                <th>Equipo</th>
                 <th>Estado</th>
-                <th style={{ width: 140 }}>Acciones</th>
+                <th style={{ width: 170 }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {botiquines.length === 0 && (
-                <tr><td colSpan={11} style={{ textAlign: 'center', opacity: 0.7 }}>Sin botiquines registrados</td></tr>
+                <tr><td colSpan={8} style={{ textAlign: 'center', opacity: 0.7 }}>Sin botiquines registrados</td></tr>
               )}
-              {botiquines.map(b => (
+              {botiquines.map(b => {
+                const activo = (b.estado || 'ACTIVO') === 'ACTIVO';
+                return (
                 <tr key={b.id}>
                   <td>{b.codigo || '—'}</td>
                   <td>
@@ -768,12 +768,25 @@ const Botiquin = () => {
                   <td>{b.tipo_equipo}</td>
                   <td>{b.area}</td>
                   <td>{b.empresa?.nombre || '—'}</td>
-                  <td>{b.ubicacion || '—'}</td>
-                  <td>{b.numero_serie_placa || '—'}</td>
-                  <td>{b.equipo}</td>
-                  <td>{b.estado}</td>
+                  <td>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '4px 10px',
+                      borderRadius: 999,
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      letterSpacing: '0.02em',
+                      background: activo ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                      color: activo ? 'var(--success-color)' : 'var(--danger-color)',
+                    }}>
+                      {b.estado || 'ACTIVO'}
+                    </span>
+                  </td>
                   <td>
                     <div style={{ display: 'inline-flex', gap: 6 }}>
+                      <button type="button" className="btn-icon" title="Ver" onClick={() => setViewBotiquin(b)}>
+                        <Eye size={16} />
+                      </button>
                       <button type="button" className="btn-icon" title="Inspeccionar" onClick={() => openNewInspeccion(b.id)}>
                         <ClipboardCheck size={16} />
                       </button>
@@ -786,7 +799,8 @@ const Botiquin = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1085,6 +1099,92 @@ const Botiquin = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ver Botiquín */}
+      {viewBotiquin && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: 640 }}>
+            <div className="modal-header">
+              <h3>Detalle del botiquín</h3>
+              <button className="close-btn" type="button" onClick={() => setViewBotiquin(null)}><X size={24} /></button>
+            </div>
+            <div className="modal-body">
+              {(() => {
+                const activo = (viewBotiquin.estado || 'ACTIVO') === 'ACTIVO';
+                const insumos = viewBotiquin.tipo_botiquin?.insumos || [];
+                return (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, fontSize: '0.95rem' }}>
+                      <div><strong>Código:</strong> {viewBotiquin.codigo || '—'}</div>
+                      <div>
+                        <strong>Estado:</strong>{' '}
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '2px 10px',
+                          borderRadius: 999,
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          background: activo ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                          color: activo ? 'var(--success-color)' : 'var(--danger-color)',
+                        }}>
+                          {viewBotiquin.estado || 'ACTIVO'}
+                        </span>
+                      </div>
+                      <div>
+                        <strong>Fecha de creación:</strong>{' '}
+                        {viewBotiquin.fecha_creacion
+                          ? new Date(viewBotiquin.fecha_creacion).toLocaleDateString()
+                          : (viewBotiquin.created_at ? new Date(viewBotiquin.created_at).toLocaleDateString() : '—')}
+                      </div>
+                      <div><strong>Tipo de botiquín:</strong> {viewBotiquin.tipo_botiquin?.nombre || '—'}</div>
+                      <div style={{ gridColumn: 'span 2' }}><strong>Tipo de equipo:</strong> {viewBotiquin.tipo_equipo || '—'}</div>
+                      <div><strong>Área:</strong> {viewBotiquin.area || '—'}</div>
+                      <div><strong>Empresa:</strong> {viewBotiquin.empresa?.nombre || '—'}</div>
+                      <div><strong>Ubicación:</strong> {viewBotiquin.ubicacion || '—'}</div>
+                      <div><strong>Serie / Placa:</strong> {viewBotiquin.numero_serie_placa || '—'}</div>
+                      <div style={{ gridColumn: 'span 2' }}><strong>Equipo:</strong> {viewBotiquin.equipo || '—'}</div>
+                    </div>
+                    <div style={{ marginTop: 18 }}>
+                      <strong>Insumos del tipo</strong>
+                      {insumos.length === 0 ? (
+                        <p style={{ marginTop: 8, opacity: 0.7 }}>Sin insumos definidos en el tipo.</p>
+                      ) : (
+                        <ul style={{ marginTop: 10, paddingLeft: 18 }}>
+                          {insumos.map(i => (
+                            <li key={i.id || i.medicamento_id} style={{ marginBottom: 4 }}>
+                              {i.medicamento
+                                ? labelMedicamento(i.medicamento)
+                                : (i.medicamento_id || '—')}
+                              {' × '}
+                              <strong>{i.cantidad || 1}</strong>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setViewBotiquin(null)}>
+                <X size={16} /> Cerrar
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  const b = viewBotiquin;
+                  setViewBotiquin(null);
+                  openEditBotiquin(b);
+                }}
+              >
+                <Edit2 size={16} /> Editar
+              </button>
+            </div>
           </div>
         </div>
       )}
