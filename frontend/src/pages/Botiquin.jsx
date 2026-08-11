@@ -454,14 +454,13 @@ const Botiquin = () => {
                 <th>Empresa</th>
                 <th>Vehículo</th>
                 <th>Ubicación</th>
-                <th>Tipo de botiquín</th>
                 <th>Última inspección</th>
                 <th style={{ width: 200 }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {botiquines.length === 0 && (
-                <tr><td colSpan={8} style={{ textAlign: 'center', opacity: 0.7 }}>Sin botiquines registrados</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: 'center', opacity: 0.7 }}>Sin botiquines registrados</td></tr>
               )}
               {botiquines.map(b => {
                 const vehiculoLabel = b.vehiculo
@@ -497,7 +496,6 @@ const Botiquin = () => {
                         </a>
                       ) : null}
                     </td>
-                    <td>{b.tipo_botiquin?.nombre || '—'}</td>
                     <td>
                       {b.ultima_inspeccion
                         ? new Date(b.ultima_inspeccion).toLocaleString()

@@ -737,7 +737,6 @@ const InspeccionBotiquin = () => {
                 <th>Empresa</th>
                 <th>Vehículo</th>
                 <th>Ubicación</th>
-                <th>Tipo de botiquín</th>
                 <th>Última inspección</th>
                 <th style={{ width: 180, textAlign: 'center' }}>Acciones</th>
               </tr>
@@ -745,7 +744,7 @@ const InspeccionBotiquin = () => {
             <tbody>
               {botiquinesFiltrados.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', opacity: 0.7 }}>
+                  <td colSpan={7} style={{ textAlign: 'center', opacity: 0.7 }}>
                     Sin botiquines registrados
                   </td>
                 </tr>
@@ -784,7 +783,6 @@ const InspeccionBotiquin = () => {
                         </a>
                       ) : null}
                     </td>
-                    <td>{b.tipo_botiquin?.nombre || b.tipo_equipo || '—'}</td>
                     <td>
                       {b.ultima_inspeccion
                         ? new Date(b.ultima_inspeccion).toLocaleString()
