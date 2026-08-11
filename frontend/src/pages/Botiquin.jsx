@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import {
-  Search, Plus, Trash2, Edit2, X, Filter, Package, Save, Layers, Eye, MapPin, ExternalLink
+  Search, Plus, Trash2, Edit2, X, Filter, Package, Save, Layers, Eye, MapPin, ExternalLink, ClipboardCheck
 } from 'lucide-react';
 import { apiFetch, apiJson } from '../api';
 import {
@@ -19,6 +20,7 @@ import {
 } from './botiquinShared';
 
 const Botiquin = () => {
+  const navigate = useNavigate();
   const [tab, setTab] = useState('botiquines'); // tipos | botiquines
   const [botiquines, setBotiquines] = useState([]);
   const [tiposBotiquin, setTiposBotiquin] = useState([]);
@@ -453,12 +455,13 @@ const Botiquin = () => {
                 <th>Vehículo</th>
                 <th>Ubicación</th>
                 <th>Tipo de botiquín</th>
-                <th style={{ width: 140 }}>Acciones</th>
+                <th>Última inspección</th>
+                <th style={{ width: 200 }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {botiquines.length === 0 && (
-                <tr><td colSpan={7} style={{ textAlign: 'center', opacity: 0.7 }}>Sin botiquines registrados</td></tr>
+                <tr><td colSpan={8} style={{ textAlign: 'center', opacity: 0.7 }}>Sin botiquines registrados</td></tr>
               )}
               {botiquines.map(b => {
                 const vehiculoLabel = b.vehiculo
@@ -496,7 +499,20 @@ const Botiquin = () => {
                     </td>
                     <td>{b.tipo_botiquin?.nombre || '—'}</td>
                     <td>
-                      <div style={{ display: 'inline-flex', gap: 6 }}>
+                      {b.ultima_inspeccion
+                        ? new Date(b.ultima_inspeccion).toLocaleString()
+                        : <span style={{ opacity: 0.55 }}>Sin inspección</span>}
+                    </td>
+                    <td>
+                      <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          title="Inspeccionar"
+                          onClick={() => navigate(`/inspeccion?botiquin_id=${encodeURIComponent(b.id)}`)}
+                        >
+                          <ClipboardCheck size={14} /> Inspeccionar
+                        </button>
                         <button type="button" className="btn-icon" title="Ver" onClick={() => setViewBotiquin(b)}>
                           <Eye size={16} />
                         </button>

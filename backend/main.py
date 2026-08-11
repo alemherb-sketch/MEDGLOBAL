@@ -1491,7 +1491,25 @@ def read_botiquines(
             | (models.Botiquin.tipo_equipo.ilike(like))
             | (models.Botiquin.equipo.ilike(like))
         )
-    return q.order_by(models.Botiquin.created_at.desc()).all()
+    bots = q.order_by(models.Botiquin.created_at.desc()).all()
+    if bots:
+        ids = [b.id for b in bots]
+        rows = (
+            db.query(
+                models.BotiquinInspeccion.botiquin_id,
+                func.max(models.BotiquinInspeccion.fecha).label("ultima"),
+            )
+            .filter(
+                models.BotiquinInspeccion.botiquin_id.in_(ids),
+                models.BotiquinInspeccion.is_deleted == False,
+            )
+            .group_by(models.BotiquinInspeccion.botiquin_id)
+            .all()
+        )
+        fechas = {r.botiquin_id: r.ultima for r in rows}
+        for b in bots:
+            setattr(b, "ultima_inspeccion", fechas.get(b.id))
+    return bots
 
 
 @app.post("/botiquines/", response_model=schemas.Botiquin)

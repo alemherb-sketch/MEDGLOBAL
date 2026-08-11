@@ -380,6 +380,8 @@ class Botiquin(BotiquinBase):
     tipo_botiquin: Optional[TipoBotiquin] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    # Fecha de la última inspección no eliminada (calculada, no es columna de BD)
+    ultima_inspeccion: Optional[datetime] = None
 
     class Config:
         orm_mode = True

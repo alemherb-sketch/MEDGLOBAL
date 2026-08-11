@@ -1,11 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Select from 'react-select';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import * as XLSX from 'xlsx';
 import {
   Search, Plus, Trash2, X, ClipboardCheck, Download,
-  Filter, History, Save, Eye, Edit2, FileText, ImagePlus
+  Filter, History, Save, Eye, Edit2, FileText, ImagePlus, Package
 } from 'lucide-react';
 import { apiFetch, apiJson } from '../api';
 import { API_URL } from '../config';
@@ -15,6 +16,7 @@ import {
   EQUIPOS,
   selectStyles,
   labelMedicamento,
+  resumenVehiculo,
 } from './botiquinShared';
 
 const ESTADOS_INSUMO = [
@@ -56,7 +58,9 @@ const escHtml = (s) => String(s ?? '')
   .replace(/"/g, '&quot;');
 
 const InspeccionBotiquin = () => {
-  const [tab, setTab] = useState('inspecciones'); // inspecciones | reporte
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autoOpenDone = useRef(false);
+  const [tab, setTab] = useState('botiquines'); // botiquines | historial | reporte
   const [botiquines, setBotiquines] = useState([]);
   const [inspecciones, setInspecciones] = useState([]);
   const [empresas, setEmpresas] = useState([]);
@@ -66,6 +70,12 @@ const InspeccionBotiquin = () => {
   const [filters, setFilters] = useState({
     search: '',
     empresa_id: '',
+  });
+
+  const [botFilters, setBotFilters] = useState({
+    search: '',
+    empresa_id: '',
+    estado: '',
   });
 
   const [modalInspeccion, setModalInspeccion] = useState(false);
@@ -170,13 +180,27 @@ const InspeccionBotiquin = () => {
       .catch(() => setInspecciones([]));
   };
 
+  const loadBotiquinesList = () => {
+    const params = new URLSearchParams();
+    if (botFilters.empresa_id) params.append('empresa_id', botFilters.empresa_id);
+    if (botFilters.estado) params.append('estado', botFilters.estado);
+    if (botFilters.search) params.append('search', botFilters.search);
+    const q = params.toString();
+    apiJson(`/botiquines/${q ? `?${q}` : ''}`)
+      .then(setBotiquines)
+      .catch(() => setBotiquines([]));
+  };
+
   useEffect(() => {
     loadCatalogos();
   }, []);
 
   useEffect(() => {
-    if (tab === 'inspecciones') loadInspecciones();
-  }, [tab, filters]);
+    if (tab === 'historial') loadInspecciones();
+    if (tab === 'botiquines') loadBotiquinesList();
+  }, [tab, filters, botFilters]);
+
+  const botiquinesFiltrados = useMemo(() => botiquines, [botiquines]);
 
   const cargarInsumosDeBotiquin = async (botiquinId) => {
     if (!botiquinId) {
@@ -216,6 +240,18 @@ const InspeccionBotiquin = () => {
     setModalInspeccion(true);
     if (botiquinId) cargarInsumosDeBotiquin(botiquinId);
   };
+
+  // Desde Botiquín → Inspeccionar: /inspeccion?botiquin_id=...
+  useEffect(() => {
+    const bid = searchParams.get('botiquin_id');
+    if (!bid || autoOpenDone.current) return;
+    autoOpenDone.current = true;
+    setTab('botiquines');
+    openNewInspeccion(bid);
+    const next = new URLSearchParams(searchParams);
+    next.delete('botiquin_id');
+    setSearchParams(next, { replace: true });
+  }, [searchParams]);
 
   const openViewInspeccion = (ins) => {
     setFormInspeccion({
@@ -531,8 +567,10 @@ const InspeccionBotiquin = () => {
       pendingImagenes.forEach(p => p.preview && URL.revokeObjectURL(p.preview));
       setPendingImagenes([]);
       setModalInspeccion(false);
-      setTab('inspecciones');
+      setTab('historial');
       loadInspecciones();
+      loadBotiquinesList();
+      loadCatalogos();
     } catch (err) {
       alert('Error al guardar inspección: ' + (err.message || err));
     } finally {
@@ -625,7 +663,8 @@ const InspeccionBotiquin = () => {
 
       <div className="flex gap-2 mb-4" style={{ flexWrap: 'wrap' }}>
         {[
-          { id: 'inspecciones', label: 'Inspecciones', icon: History },
+          { id: 'botiquines', label: 'Botiquines', icon: Package },
+          { id: 'historial', label: 'Historial', icon: History },
           { id: 'reporte', label: 'Consumo de insumos', icon: Download },
         ].map(t => (
           <button
@@ -640,7 +679,136 @@ const InspeccionBotiquin = () => {
         ))}
       </div>
 
-      {tab === 'inspecciones' && (
+      {tab === 'botiquines' && (
+        <div className="glass-panel mb-4" style={{ padding: 16 }}>
+          <div className="flex items-center mb-3" style={{ gap: 8 }}>
+            <Filter size={18} />
+            <strong>Filtros</strong>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Buscar</label>
+              <div style={{ position: 'relative' }}>
+                <Search size={16} style={{ position: 'absolute', left: 10, top: 12, opacity: 0.5 }} />
+                <input
+                  className="form-control"
+                  style={{ paddingLeft: 32 }}
+                  placeholder="Código, tipo, empresa..."
+                  value={botFilters.search}
+                  onChange={e => setBotFilters({ ...botFilters, search: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Empresa</label>
+              <Select
+                styles={selectStyles}
+                options={empresaOptions}
+                isClearable
+                placeholder="Buscar empresa..."
+                value={empresaOptions.find(o => o.value === botFilters.empresa_id) || null}
+                onChange={opt => setBotFilters({ ...botFilters, empresa_id: opt ? opt.value : '' })}
+                noOptionsMessage={() => 'Sin resultados'}
+              />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Estado</label>
+              <select
+                className="form-control"
+                value={botFilters.estado}
+                onChange={e => setBotFilters({ ...botFilters, estado: e.target.value })}
+              >
+                <option value="">Todos</option>
+                <option value="ACTIVO">Activo</option>
+                <option value="INACTIVO">Inactivo</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'botiquines' && (
+        <div className="glass-panel" style={{ overflowX: 'auto' }}>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Fecha</th>
+                <th>Empresa</th>
+                <th>Vehículo</th>
+                <th>Ubicación</th>
+                <th>Tipo de botiquín</th>
+                <th>Última inspección</th>
+                <th style={{ width: 180, textAlign: 'center' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {botiquinesFiltrados.length === 0 && (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: 'center', opacity: 0.7 }}>
+                    Sin botiquines registrados
+                  </td>
+                </tr>
+              )}
+              {botiquinesFiltrados.map(b => {
+                const vehiculoLabel = b.vehiculo
+                  || resumenVehiculo({
+                    marca: b.marca,
+                    modelo: b.modelo,
+                    serie: b.serie,
+                    placa: b.placa,
+                  })
+                  || '—';
+                return (
+                  <tr key={b.id}>
+                    <td>{b.codigo || '—'}</td>
+                    <td>
+                      {b.fecha_creacion
+                        ? new Date(b.fecha_creacion).toLocaleDateString()
+                        : (b.created_at ? new Date(b.created_at).toLocaleDateString() : '—')}
+                    </td>
+                    <td>{b.empresa?.nombre || '—'}</td>
+                    <td>{vehiculoLabel}</td>
+                    <td>
+                      {b.ubicacion || '—'}
+                      {b.mapa_url ? (
+                        <a
+                          href={b.mapa_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Ver en Maps"
+                          style={{ marginLeft: 6, color: 'var(--primary-color, #60a5fa)' }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          Maps
+                        </a>
+                      ) : null}
+                    </td>
+                    <td>{b.tipo_botiquin?.nombre || b.tipo_equipo || '—'}</td>
+                    <td>
+                      {b.ultima_inspeccion
+                        ? new Date(b.ultima_inspeccion).toLocaleString()
+                        : <span style={{ opacity: 0.55 }}>Sin inspección</span>}
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        title="Inspeccionar este botiquín"
+                        onClick={() => openNewInspeccion(b.id)}
+                      >
+                        <ClipboardCheck size={15} /> Inspeccionar
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {tab === 'historial' && (
         <div className="glass-panel mb-4" style={{ padding: 16 }}>
           <div className="flex items-center mb-3" style={{ gap: 8 }}>
             <Filter size={18} />
@@ -676,7 +844,7 @@ const InspeccionBotiquin = () => {
         </div>
       )}
 
-      {tab === 'inspecciones' && (
+      {tab === 'historial' && (
         <div className="glass-panel" style={{ overflowX: 'auto' }}>
           <table className="table">
             <thead>
