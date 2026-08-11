@@ -269,6 +269,49 @@ const InspeccionBotiquin = () => {
     setModalInspeccion(true);
   };
 
+  /** Última inspección del botiquín (para Ver / Editar / PDF / Eliminar desde el listado). */
+  const obtenerUltimaInspeccion = async (botiquinId) => {
+    try {
+      const list = await apiJson(`/botiquin_inspecciones/?botiquin_id=${encodeURIComponent(botiquinId)}`);
+      if (!list || !list.length) {
+        alert('Este botiquín no tiene inspecciones registradas.');
+        return null;
+      }
+      return list[0];
+    } catch (err) {
+      alert('No se pudo obtener la inspección: ' + (err.message || err));
+      return null;
+    }
+  };
+
+  const verUltimaInspeccion = async (botiquinId) => {
+    const ins = await obtenerUltimaInspeccion(botiquinId);
+    if (ins) openViewInspeccion(ins);
+  };
+
+  const editarUltimaInspeccion = async (botiquinId) => {
+    const ins = await obtenerUltimaInspeccion(botiquinId);
+    if (ins) openEditInspeccion(ins);
+  };
+
+  const pdfUltimaInspeccion = async (botiquinId) => {
+    const ins = await obtenerUltimaInspeccion(botiquinId);
+    if (ins) imprimirInspeccion(ins);
+  };
+
+  const eliminarUltimaInspeccion = async (botiquinId) => {
+    const ins = await obtenerUltimaInspeccion(botiquinId);
+    if (!ins) return;
+    if (!window.confirm('¿Eliminar la última inspección de este botiquín?')) return;
+    try {
+      await apiFetch(`/botiquin_inspecciones/${ins.id}`, { method: 'DELETE' });
+      loadBotiquinesList();
+      if (tab === 'historial') loadInspecciones();
+    } catch (err) {
+      alert('Error al eliminar: ' + (err.message || err));
+    }
+  };
+
   const openEditInspeccion = (ins) => {
     setFormInspeccion({
       id: ins.id,
@@ -738,7 +781,7 @@ const InspeccionBotiquin = () => {
                 <th>Vehículo</th>
                 <th>Ubicación</th>
                 <th>Última inspección</th>
-                <th style={{ width: 180, textAlign: 'center' }}>Acciones</th>
+                <th style={{ width: 260, textAlign: 'center' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -758,6 +801,7 @@ const InspeccionBotiquin = () => {
                     placa: b.placa,
                   })
                   || '—';
+                const tieneInspeccion = !!b.ultima_inspeccion;
                 return (
                   <tr key={b.id}>
                     <td>{b.codigo || '—'}</td>
@@ -784,19 +828,61 @@ const InspeccionBotiquin = () => {
                       ) : null}
                     </td>
                     <td>
-                      {b.ultima_inspeccion
+                      {tieneInspeccion
                         ? new Date(b.ultima_inspeccion).toLocaleString()
                         : <span style={{ opacity: 0.55 }}>Sin inspección</span>}
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        title="Inspeccionar este botiquín"
-                        onClick={() => openNewInspeccion(b.id)}
-                      >
-                        <ClipboardCheck size={15} /> Inspeccionar
-                      </button>
+                      <div className="insp-actions" style={{ justifyContent: 'center', flexWrap: 'wrap', gap: 4 }}>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          title="Nueva inspección"
+                          onClick={() => openNewInspeccion(b.id)}
+                        >
+                          <ClipboardCheck size={15} /> Inspeccionar
+                        </button>
+                        <button
+                          type="button"
+                          className="action-btn view"
+                          title={tieneInspeccion ? 'Ver última inspección' : 'Sin inspecciones'}
+                          disabled={!tieneInspeccion}
+                          style={{ opacity: tieneInspeccion ? 1 : 0.35 }}
+                          onClick={() => verUltimaInspeccion(b.id)}
+                        >
+                          <Eye size={17} />
+                        </button>
+                        <button
+                          type="button"
+                          className="action-btn edit"
+                          title={tieneInspeccion ? 'Editar última inspección' : 'Sin inspecciones'}
+                          disabled={!tieneInspeccion}
+                          style={{ opacity: tieneInspeccion ? 1 : 0.35 }}
+                          onClick={() => editarUltimaInspeccion(b.id)}
+                        >
+                          <Edit2 size={17} />
+                        </button>
+                        <button
+                          type="button"
+                          className="action-btn pdf"
+                          title={tieneInspeccion ? 'PDF / Reporte para firmar' : 'Sin inspecciones'}
+                          disabled={!tieneInspeccion}
+                          style={{ opacity: tieneInspeccion ? 1 : 0.35 }}
+                          onClick={() => pdfUltimaInspeccion(b.id)}
+                        >
+                          <FileText size={17} />
+                        </button>
+                        <button
+                          type="button"
+                          className="action-btn delete"
+                          title={tieneInspeccion ? 'Eliminar última inspección' : 'Sin inspecciones'}
+                          disabled={!tieneInspeccion}
+                          style={{ opacity: tieneInspeccion ? 1 : 0.35 }}
+                          onClick={() => eliminarUltimaInspeccion(b.id)}
+                        >
+                          <Trash2 size={17} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
