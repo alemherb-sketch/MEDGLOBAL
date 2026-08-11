@@ -2062,7 +2062,12 @@ def get_reporte_sistemas(
     if sistema_id:
         query = query.filter(models.Atencion.sistema_id == sistema_id)
     if empresa_id:
-        query = query.filter(models.Atencion.empresa_id == empresa_id)
+        # Una o varias empresas (ids separados por coma)
+        ids = [x.strip() for x in str(empresa_id).split(",") if x and str(x).strip()]
+        if len(ids) == 1:
+            query = query.filter(models.Atencion.empresa_id == ids[0])
+        elif len(ids) > 1:
+            query = query.filter(models.Atencion.empresa_id.in_(ids))
     if obra:
         query = query.join(models.Trabajador, models.Atencion.trabajador_id == models.Trabajador.id) \
             .filter(models.Trabajador.obra == obra)

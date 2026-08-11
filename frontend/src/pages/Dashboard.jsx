@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { apiJson } from '../api';
 import { Users, Stethoscope, Pill, AlertTriangle, Printer, CalendarRange, FileText } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import Select from 'react-select';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { selectStyles } from './botiquinShared';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#14b8a6'];
 
@@ -205,9 +207,17 @@ const Dashboard = () => {
     fecha_inicio: null,
     fecha_fin: null,
     sistema_id: '',
-    empresa_id: '',
+    empresa_ids: [], // multi-select de empresas
     obra: ''
   });
+
+  const empresaOptions = useMemo(
+    () => (allEmpresas || []).map(e => ({
+      value: String(e.id),
+      label: e.nombre || String(e.id),
+    })),
+    [allEmpresas]
+  );
 
   useEffect(() => {
     apiJson('/dashboard/kpis')
@@ -242,7 +252,9 @@ const Dashboard = () => {
     if (repSisFiltros.fecha_inicio) url += `fecha_inicio=${format(repSisFiltros.fecha_inicio, 'yyyy-MM-dd')}&`;
     if (repSisFiltros.fecha_fin) url += `fecha_fin=${format(repSisFiltros.fecha_fin, 'yyyy-MM-dd')}&`;
     if (repSisFiltros.sistema_id) url += `sistema_id=${repSisFiltros.sistema_id}&`;
-    if (repSisFiltros.empresa_id) url += `empresa_id=${repSisFiltros.empresa_id}&`;
+    if (repSisFiltros.empresa_ids?.length) {
+      url += `empresa_id=${repSisFiltros.empresa_ids.map(id => encodeURIComponent(id)).join(',')}&`;
+    }
     if (repSisFiltros.obra) url += `obra=${encodeURIComponent(repSisFiltros.obra)}`;
 
     apiJson(url)
@@ -617,17 +629,33 @@ const Dashboard = () => {
                   {allSistemas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                 </select>
               </div>
-              <div style={{ flex: '1 1 200px' }}>
+              <div style={{ flex: '1 1 240px', minWidth: 220 }}>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-color)', marginBottom: '8px' }}>Empresa Contratante</label>
-                <select 
-                  className="form-control" 
-                  value={repSisFiltros.empresa_id} 
-                  onChange={e => setRepSisFiltros({...repSisFiltros, empresa_id: e.target.value})}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <option value="">Todas las empresas...</option>
-                  {allEmpresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
-                </select>
+                <Select
+                  styles={{
+                    ...selectStyles,
+                    control: (base) => ({
+                      ...selectStyles.control(base),
+                      minHeight: 42,
+                    }),
+                    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                  }}
+                  menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                  menuPosition="fixed"
+                  isMulti
+                  isClearable
+                  isSearchable
+                  closeMenuOnSelect={false}
+                  hideSelectedOptions={false}
+                  options={empresaOptions}
+                  placeholder="Buscar y seleccionar empresas..."
+                  noOptionsMessage={() => 'Sin resultados'}
+                  value={empresaOptions.filter(o => (repSisFiltros.empresa_ids || []).includes(o.value))}
+                  onChange={(opts) => setRepSisFiltros({
+                    ...repSisFiltros,
+                    empresa_ids: (opts || []).map(o => o.value),
+                  })}
+                />
               </div>
               <div style={{ flex: '1 1 200px' }}>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-color)', marginBottom: '8px' }}>Obra</label>

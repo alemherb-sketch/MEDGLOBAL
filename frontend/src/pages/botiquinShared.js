@@ -32,6 +32,11 @@ export const selectStyles = {
   singleValue: (base) => ({ ...base, color: 'var(--text-color, #e2e8f0)' }),
   multiValue: (base) => ({ ...base, background: 'rgba(59,130,246,0.3)' }),
   multiValueLabel: (base) => ({ ...base, color: 'var(--text-color, #e2e8f0)' }),
+  multiValueRemove: (base) => ({
+    ...base,
+    color: '#94a3b8',
+    ':hover': { background: 'rgba(239,68,68,0.35)', color: '#fff' },
+  }),
   input: (base) => ({ ...base, color: 'var(--text-color, #e2e8f0)' }),
   placeholder: (base) => ({ ...base, color: '#94a3b8' }),
 };
