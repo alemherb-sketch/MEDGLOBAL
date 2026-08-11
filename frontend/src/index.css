@@ -558,6 +558,50 @@ h3 { font-size: 1.5rem; }
   white-space: nowrap;
 }
 
+.insp-actions-cell {
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.insp-actions--toolbar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  flex-wrap: nowrap;
+  padding: 2px 4px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.insp-actions--toolbar .action-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.insp-actions--toolbar .action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.insp-actions--toolbar .action-btn--primary {
+  background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+  color: #fff;
+  border-color: transparent;
+}
+
+.insp-actions--toolbar .action-btn--primary:hover {
+  filter: brightness(1.08);
+  background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+  color: #fff;
+}
+
 /* Filter Bar */
 .filter-bar {
   display: flex;

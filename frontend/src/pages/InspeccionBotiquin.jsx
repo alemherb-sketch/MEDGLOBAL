@@ -781,7 +781,7 @@ const InspeccionBotiquin = () => {
                 <th>Vehículo</th>
                 <th>Ubicación</th>
                 <th>Última inspección</th>
-                <th style={{ width: 260, textAlign: 'center' }}>Acciones</th>
+                <th style={{ width: 168, textAlign: 'center', whiteSpace: 'nowrap' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -832,55 +832,51 @@ const InspeccionBotiquin = () => {
                         ? new Date(b.ultima_inspeccion).toLocaleString()
                         : <span style={{ opacity: 0.55 }}>Sin inspección</span>}
                     </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <div className="insp-actions" style={{ justifyContent: 'center', flexWrap: 'wrap', gap: 4 }}>
+                    <td className="insp-actions-cell">
+                      <div className="insp-actions insp-actions--toolbar" role="group" aria-label="Acciones">
                         <button
                           type="button"
-                          className="btn btn-primary btn-sm"
+                          className="action-btn action-btn--primary"
                           title="Nueva inspección"
                           onClick={() => openNewInspeccion(b.id)}
                         >
-                          <ClipboardCheck size={15} /> Inspeccionar
+                          <ClipboardCheck size={16} />
                         </button>
                         <button
                           type="button"
                           className="action-btn view"
                           title={tieneInspeccion ? 'Ver última inspección' : 'Sin inspecciones'}
                           disabled={!tieneInspeccion}
-                          style={{ opacity: tieneInspeccion ? 1 : 0.35 }}
                           onClick={() => verUltimaInspeccion(b.id)}
                         >
-                          <Eye size={17} />
+                          <Eye size={16} />
                         </button>
                         <button
                           type="button"
                           className="action-btn edit"
                           title={tieneInspeccion ? 'Editar última inspección' : 'Sin inspecciones'}
                           disabled={!tieneInspeccion}
-                          style={{ opacity: tieneInspeccion ? 1 : 0.35 }}
                           onClick={() => editarUltimaInspeccion(b.id)}
                         >
-                          <Edit2 size={17} />
+                          <Edit2 size={16} />
                         </button>
                         <button
                           type="button"
                           className="action-btn pdf"
                           title={tieneInspeccion ? 'PDF / Reporte para firmar' : 'Sin inspecciones'}
                           disabled={!tieneInspeccion}
-                          style={{ opacity: tieneInspeccion ? 1 : 0.35 }}
                           onClick={() => pdfUltimaInspeccion(b.id)}
                         >
-                          <FileText size={17} />
+                          <FileText size={16} />
                         </button>
                         <button
                           type="button"
                           className="action-btn delete"
                           title={tieneInspeccion ? 'Eliminar última inspección' : 'Sin inspecciones'}
                           disabled={!tieneInspeccion}
-                          style={{ opacity: tieneInspeccion ? 1 : 0.35 }}
                           onClick={() => eliminarUltimaInspeccion(b.id)}
                         >
-                          <Trash2 size={17} />
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </td>
