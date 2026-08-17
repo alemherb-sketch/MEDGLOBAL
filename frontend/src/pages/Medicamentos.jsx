@@ -349,6 +349,7 @@ const Medicamentos = () => {
                     <tr>
                       <th>Fecha de Movimiento</th>
                       <th>Tipo</th>
+                      <th>Observación</th>
                       <th style={{textAlign: 'right'}}>Cantidad</th>
                       <th style={{textAlign: 'right'}}>Saldo Restante</th>
                     </tr>
@@ -366,6 +367,7 @@ const Medicamentos = () => {
                             <span style={{color: 'var(--danger-color)', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '500'}}><TrendingDown size={14}/> SALIDA</span>
                           )}
                         </td>
+                        <td>{k.observacion || '—'}</td>
                         <td style={{textAlign: 'right', fontWeight: 'bold', color: k.tipo_movimiento === 'INGRESO' ? '#16a34a' : 'var(--danger-color)'}}>
                           {k.tipo_movimiento === 'INGRESO' ? '+' : '-'}{k.cantidad}
                         </td>
@@ -374,7 +376,7 @@ const Medicamentos = () => {
                     ))}
                     {kardexData.length === 0 && (
                       <tr>
-                        <td colSpan="4" className="text-center text-muted py-4">No hay movimientos registrados para este medicamento.</td>
+                        <td colSpan="5" className="text-center text-muted py-4">No hay movimientos registrados para este medicamento.</td>
                       </tr>
                     )}
                   </tbody>

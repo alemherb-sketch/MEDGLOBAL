@@ -67,7 +67,11 @@ with engine.connect() as conn:
         except Exception:
             pass
 
-    columnas_kardex = ["lote VARCHAR(50)", "fecha_vencimiento VARCHAR(20)"]
+    columnas_kardex = [
+        "lote VARCHAR(50)",
+        "fecha_vencimiento VARCHAR(20)",
+        "observacion TEXT",
+    ]
     for col in columnas_kardex:
         try:
             with conn.begin():
@@ -1295,6 +1299,7 @@ def create_kardex(kardex: schemas.KardexCreate, db: Session = Depends(get_db), c
         saldo=db_med.stock_actual,
         lote=kardex.lote,
         fecha_vencimiento=kardex.fecha_vencimiento,
+        observacion=kardex.observacion,
     )
     db.add(db_kardex)
     db.commit()
@@ -1562,6 +1567,50 @@ def read_botiquin_insumos(id: str, db: Session = Depends(get_db), current_user: 
     if not db_bot:
         raise HTTPException(status_code=404, detail="Botiquín no encontrado")
     return _insumos_plantilla_botiquin(db, db_bot)
+
+
+@app.post("/botiquines/{id}/reponer", response_model=schemas.Kardex)
+def reponer_insumo_botiquin(
+    id: str,
+    reposicion: schemas.BotiquinReposicionCreate,
+    db: Session = Depends(get_db),
+    current_user: models.Usuario = Depends(auth.get_current_user),
+):
+    """Descuenta del almacén una reposición destinada a un botiquín."""
+    if reposicion.cantidad <= 0:
+        raise HTTPException(status_code=400, detail="La cantidad debe ser mayor a cero")
+
+    db_bot = db.query(models.Botiquin).filter(
+        models.Botiquin.id == id,
+        models.Botiquin.is_deleted == False,
+    ).first()
+    if not db_bot:
+        raise HTTPException(status_code=404, detail="Botiquín no encontrado")
+
+    db_med = db.query(models.Medicamento).filter(
+        models.Medicamento.id == reposicion.medicamento_id,
+        models.Medicamento.is_deleted == False,
+    ).first()
+    if not db_med:
+        raise HTTPException(status_code=404, detail="Medicamento no encontrado")
+    if db_med.stock_actual < reposicion.cantidad:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Stock insuficiente. Disponible: {db_med.stock_actual}",
+        )
+
+    db_med.stock_actual -= reposicion.cantidad
+    db_kardex = models.Kardex(
+        medicamento_id=db_med.id,
+        tipo_movimiento="SALIDA",
+        cantidad=reposicion.cantidad,
+        saldo=db_med.stock_actual,
+        observacion=f"Reposición botiquín {db_bot.codigo or db_bot.id}",
+    )
+    db.add(db_kardex)
+    db.commit()
+    db.refresh(db_kardex)
+    return db_kardex
 
 
 @app.put("/botiquines/{id}", response_model=schemas.Botiquin)

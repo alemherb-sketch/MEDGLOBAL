@@ -263,6 +263,7 @@ class Kardex(Base):
     saldo = Column(Integer)
     lote = Column(String(50), nullable=True)
     fecha_vencimiento = Column(String(20), nullable=True)
+    observacion = Column(Text, nullable=True)
 
     medicamento = relationship("Medicamento")
 

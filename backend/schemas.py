@@ -195,6 +195,7 @@ class KardexBase(BaseModel):
     cantidad: int
     lote: Optional[str] = None
     fecha_vencimiento: Optional[str] = None
+    observacion: Optional[str] = None
 
 class KardexCreate(KardexBase):
     pass
@@ -372,6 +373,11 @@ class BotiquinBase(BaseModel):
 
 class BotiquinCreate(BotiquinBase):
     pass
+
+
+class BotiquinReposicionCreate(BaseModel):
+    medicamento_id: str
+    cantidad: int
 
 
 class Botiquin(BotiquinBase):

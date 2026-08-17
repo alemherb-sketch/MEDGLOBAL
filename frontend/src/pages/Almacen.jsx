@@ -153,7 +153,7 @@ const Almacen = () => {
                 <th>Producto</th>
                 <th style={{width: '90px'}}>Tipo</th>
                 <th style={{width: '95px'}} title="Movimiento">Movim.</th>
-                <th style={{width: '135px'}} title="Lote / Vencimiento">Lote / Venc.</th>
+                <th style={{width: '170px'}} title="Lote, vencimiento u observación">Detalle</th>
                 <th style={{width: '65px', textAlign: 'right'}}>Cant.</th>
                 <th style={{width: '65px', textAlign: 'right'}}>Saldo</th>
               </tr>
@@ -179,10 +179,11 @@ const Almacen = () => {
                       )}
                     </td>
                     <td style={{fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
+                      {k.observacion && <div title={k.observacion}>{k.observacion}</div>}
                       {k.lote && <div>Lote: {k.lote}</div>}
                       {k.fecha_vencimiento ? (
                         <div className="text-muted">Vence: {k.fecha_vencimiento}</div>
-                      ) : (!k.lote && <span className="text-muted">—</span>)}
+                      ) : (!k.lote && !k.observacion && <span className="text-muted">—</span>)}
                     </td>
                     <td style={{textAlign: 'right', fontWeight: 'bold', color: k.tipo_movimiento === 'INGRESO' ? '#16a34a' : 'var(--danger-color)'}}>
                       {k.tipo_movimiento === 'INGRESO' ? '+' : '-'}{k.cantidad}
@@ -309,7 +310,7 @@ const Almacen = () => {
                     <tr>
                       <th>Fecha de Movimiento</th>
                       <th>Tipo</th>
-                      <th>Lote / Vencimiento</th>
+                      <th>Detalle</th>
                       <th style={{textAlign: 'right'}}>Cantidad</th>
                       <th style={{textAlign: 'right'}}>Saldo Restante</th>
                     </tr>
@@ -328,10 +329,11 @@ const Almacen = () => {
                           )}
                         </td>
                         <td style={{fontSize: '0.85rem'}}>
+                          {k.observacion && <div>{k.observacion}</div>}
                           {k.lote && <div>Lote: {k.lote}</div>}
                           {k.fecha_vencimiento ? (
                             <div className="text-muted">Vence: {k.fecha_vencimiento}</div>
-                          ) : (!k.lote && <span className="text-muted">—</span>)}
+                          ) : (!k.lote && !k.observacion && <span className="text-muted">—</span>)}
                         </td>
                         <td style={{textAlign: 'right', fontWeight: 'bold', color: k.tipo_movimiento === 'INGRESO' ? '#16a34a' : 'var(--danger-color)'}}>
                           {k.tipo_movimiento === 'INGRESO' ? '+' : '-'}{k.cantidad}

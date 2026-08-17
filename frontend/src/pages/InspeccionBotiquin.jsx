@@ -6,7 +6,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import * as XLSX from 'xlsx';
 import {
   Search, Trash2, X, ClipboardCheck, Download,
-  Filter, History, Save, Eye, Edit2, FileText, ImagePlus, Package
+  Filter, History, Save, Eye, Edit2, FileText, ImagePlus, Package, PackagePlus
 } from 'lucide-react';
 import { apiFetch, apiJson } from '../api';
 import { API_URL } from '../config';
@@ -76,6 +76,9 @@ const InspeccionBotiquin = () => {
   const [pendingImagenes, setPendingImagenes] = useState([]); // { key, file, preview }
   const [guardando, setGuardando] = useState(false);
   const [cargandoInsumos, setCargandoInsumos] = useState(false);
+  const [reposicionModal, setReposicionModal] = useState(null);
+  const [reposicionCantidad, setReposicionCantidad] = useState(1);
+  const [reponiendo, setReponiendo] = useState(false);
   const soloLectura = formInspeccion.mode === 'view';
 
   const [reporteFiltros, setReporteFiltros] = useState({
@@ -544,6 +547,64 @@ const InspeccionBotiquin = () => {
       alert('Error al guardar inspección: ' + (err.message || err));
     } finally {
       setGuardando(false);
+    }
+  };
+
+  const abrirReposicion = (insumo) => {
+    if (!formInspeccion.botiquin_id) {
+      alert('Seleccione un botiquín antes de reponer.');
+      return;
+    }
+    const botiquin = botiquines.find(
+      b => String(b.id) === String(formInspeccion.botiquin_id)
+    );
+    setReposicionModal({
+      ...insumo,
+      botiquin_codigo: botiquin?.codigo || formInspeccion.botiquin_id,
+    });
+    setReposicionCantidad(1);
+  };
+
+  const ejecutarReposicion = async () => {
+    const cantidad = parseInt(reposicionCantidad, 10);
+    if (!reposicionModal || !Number.isInteger(cantidad) || cantidad <= 0) {
+      alert('Ingrese una cantidad válida.');
+      return;
+    }
+
+    setReponiendo(true);
+    try {
+      const res = await apiFetch(
+        `/botiquines/${encodeURIComponent(formInspeccion.botiquin_id)}/reponer`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            medicamento_id: reposicionModal.medicamento_id,
+            cantidad,
+          }),
+        }
+      );
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.detail || 'No se pudo registrar la reposición');
+      }
+
+      setFormInspeccion(prev => ({
+        ...prev,
+        insumos: prev.insumos.map(i => (
+          String(i.medicamento_id) === String(reposicionModal.medicamento_id)
+            ? { ...i, reposicion: 'SI' }
+            : i
+        )),
+      }));
+      setReposicionModal(null);
+      alert(
+        `Reposición registrada. Se descontaron ${cantidad} unidad(es) del almacén para el botiquín ${reposicionModal.botiquin_codigo}.`
+      );
+    } catch (err) {
+      alert('Error al reponer: ' + (err.message || err));
+    } finally {
+      setReponiendo(false);
     }
   };
 
@@ -1149,7 +1210,24 @@ const InspeccionBotiquin = () => {
                                 {ESTADO_LABEL[i.estado] || i.estado || '—'}
                               </td>
                               <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-                                {(i.reposicion || 'NO') === 'SI' ? 'Sí' : 'No'}
+                                {soloLectura ? (
+                                  (i.reposicion || 'NO') === 'SI' ? 'Sí' : 'No'
+                                ) : (
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                    {(i.reposicion || 'NO') === 'SI' && (
+                                      <span style={{ color: '#22c55e', fontSize: '0.82rem', fontWeight: 600 }}>
+                                        Repuesto
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      className="btn btn-primary btn-sm"
+                                      onClick={() => abrirReposicion(i)}
+                                    >
+                                      <PackagePlus size={15} /> Reponer
+                                    </button>
+                                  </div>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -1255,6 +1333,66 @@ const InspeccionBotiquin = () => {
                 )}
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {reposicionModal && (
+        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+          <div className="modal-content" style={{ maxWidth: 480, width: '94%' }}>
+            <div className="modal-header">
+              <h3>Reponer insumo</h3>
+              <button
+                className="close-btn"
+                type="button"
+                onClick={() => !reponiendo && setReposicionModal(null)}
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div style={{ marginBottom: 16 }}>
+                <strong>{reposicionModal.label}</strong>
+                <p style={{ margin: '6px 0 0', color: 'var(--text-muted)' }}>
+                  Botiquín: {reposicionModal.botiquin_codigo}
+                </p>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Cantidad a reponer</label>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  className="form-control"
+                  value={reposicionCantidad}
+                  onChange={e => setReposicionCantidad(e.target.value)}
+                  autoFocus
+                  disabled={reponiendo}
+                />
+              </div>
+              <p style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-muted)' }}>
+                Al ejecutar se registrará inmediatamente una salida del almacén con la observación
+                {' '}“Reposición botiquín {reposicionModal.botiquin_codigo}”.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setReposicionModal(null)}
+                disabled={reponiendo}
+              >
+                <X size={16} /> Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={ejecutarReposicion}
+                disabled={reponiendo}
+              >
+                <PackagePlus size={16} /> {reponiendo ? 'Reponiendo...' : 'Ejecutar reposición'}
+              </button>
+            </div>
           </div>
         </div>
       )}
