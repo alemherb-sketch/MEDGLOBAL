@@ -19,14 +19,30 @@ import {
 } from './botiquinShared';
 
 const ESTADOS_INSUMO = [
-  { value: 'BUENO', label: 'Bueno' },
-  { value: 'REGULAR', label: 'Regular' },
-  { value: 'MALO', label: 'Malo' },
+  { value: 'CONFORME', label: 'Conforme' },
   { value: 'VENCIDO', label: 'Vencido' },
   { value: 'FALTANTE', label: 'Faltante' },
+  { value: 'DETERIORADO', label: 'Deteriorado' },
 ];
 
-const ESTADO_LABEL = Object.fromEntries(ESTADOS_INSUMO.map(e => [e.value, e.label]));
+// Los tres primeros son estados de inspecciones anteriores: se conservan para
+// que sus PDFs e historial sigan leyéndose, pero ya no se ofrecen al registrar.
+const ESTADO_LABEL = {
+  BUENO: 'Bueno',
+  REGULAR: 'Regular',
+  MALO: 'Malo',
+  ...Object.fromEntries(ESTADOS_INSUMO.map(e => [e.value, e.label])),
+};
+
+const ESTADO_EQUIVALENTE = { BUENO: 'CONFORME', REGULAR: 'DETERIORADO', MALO: 'DETERIORADO' };
+
+/** Deja el estado dentro de las opciones vigentes para que el desplegable
+ *  siempre muestre una selección válida. */
+const normalizarEstado = (estado) => {
+  const valor = (estado || '').toUpperCase();
+  if (ESTADOS_INSUMO.some(e => e.value === valor)) return valor;
+  return ESTADO_EQUIVALENTE[valor] || 'CONFORME';
+};
 
 const emptyInspeccionForm = () => ({
   id: null,
@@ -133,10 +149,21 @@ const InspeccionBotiquin = () => {
     (list || []).map(p => ({
       medicamento_id: String(p.medicamento_id),
       cantidad: p.cantidad || 1,
-      estado: (p.estado || 'BUENO').toUpperCase(),
+      estado: normalizarEstado(p.estado),
       reposicion: (p.reposicion || 'NO').toUpperCase() === 'SI' ? 'SI' : 'NO',
       label: p.medicamento ? labelMedicamento(p.medicamento) : (p.label || String(p.medicamento_id)),
     }));
+
+  const updateInsumoField = (medicamento_id, field, value) => {
+    setFormInspeccion(prev => ({
+      ...prev,
+      insumos: prev.insumos.map(i => (
+        String(i.medicamento_id) === String(medicamento_id)
+          ? { ...i, [field]: value }
+          : i
+      )),
+    }));
+  };
 
   const loadCatalogos = () => {
     apiJson('/empresas/').then(setEmpresas).catch(() => setEmpresas([]));
@@ -522,7 +549,7 @@ const InspeccionBotiquin = () => {
         insumos: formInspeccion.insumos.map(i => ({
           medicamento_id: i.medicamento_id,
           cantidad: i.cantidad,
-          estado: i.estado || 'BUENO',
+          estado: i.estado || 'CONFORME',
           reposicion: i.reposicion || 'NO',
         })),
       };
@@ -1188,7 +1215,7 @@ const InspeccionBotiquin = () => {
                     {cargandoInsumos && <span style={{ marginLeft: 8, opacity: 0.7, fontWeight: 400 }}>(cargando del tipo...)</span>}
                   </label>
                   <p style={{ margin: '0 0 10px', fontSize: '0.88rem', opacity: 0.7 }}>
-                    Se cargan automáticamente según el tipo del botiquín seleccionado (solo lectura).
+                    Los insumos y cantidades se cargan según el tipo del botiquín. Indique el estado de cada ítem.
                   </p>
                   {formInspeccion.insumos.length > 0 ? (
                     <div className="table-container" style={{ marginTop: 14, overflowX: 'auto' }}>
@@ -1197,7 +1224,7 @@ const InspeccionBotiquin = () => {
                           <tr>
                             <th style={{ textAlign: 'left' }}>Insumo</th>
                             <th style={{ width: 90 }}>Cant.</th>
-                            <th style={{ width: 120 }}>Estado</th>
+                            <th style={{ width: 160 }}>Estado</th>
                             <th style={{ width: 110 }}>Reposición</th>
                           </tr>
                         </thead>
@@ -1207,7 +1234,19 @@ const InspeccionBotiquin = () => {
                               <td style={{ textAlign: 'left', verticalAlign: 'middle' }}>{i.label}</td>
                               <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{i.cantidad}</td>
                               <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-                                {ESTADO_LABEL[i.estado] || i.estado || '—'}
+                                {soloLectura ? (
+                                  ESTADO_LABEL[i.estado] || i.estado || '—'
+                                ) : (
+                                  <select
+                                    className="form-control"
+                                    value={i.estado}
+                                    onChange={e => updateInsumoField(i.medicamento_id, 'estado', e.target.value)}
+                                  >
+                                    {ESTADOS_INSUMO.map(opt => (
+                                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                  </select>
+                                )}
                               </td>
                               <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
                                 {soloLectura ? (
