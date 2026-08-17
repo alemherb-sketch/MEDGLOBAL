@@ -5,6 +5,13 @@ import { Download, Printer, Search } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { apiJson } from '../api';
 
+/** «2026-07-31» → «31/07»: con muchos dias en el rango el encabezado completo
+ *  hace que la tabla no quepa a lo ancho. */
+const fechaCorta = (iso) => {
+  const partes = String(iso || '').split('-');
+  return partes.length === 3 ? `${partes[2]}/${partes[1]}` : iso;
+};
+
 const ConsumoMedicamentos = () => {
   const [empresas, setEmpresas] = useState([]);
   const [obras, setObras] = useState([]);
@@ -226,7 +233,7 @@ const ConsumoMedicamentos = () => {
             </div>
           )}
         </div>
-        <div className="dash-chart-body" style={{ overflowX: 'auto', padding: 0 }}>
+        <div className="dash-chart-body" style={{ overflowX: 'auto', maxWidth: '100%', padding: 0 }}>
           {reporte.medicamentos.length > 0 ? (
             <table className="table" style={{ minWidth: '100%', margin: 0, whiteSpace: 'nowrap' }}>
               <thead style={{ background: 'rgba(15, 23, 42, 0.9)' }}>
@@ -235,7 +242,7 @@ const ConsumoMedicamentos = () => {
                   <th>Medicamento</th>
                   <th>Presentación</th>
                   {reporte.rango_fechas.map(f => (
-                    <th key={f} style={{ textAlign: 'center' }}>{f}</th>
+                    <th key={f} style={{ textAlign: 'center', padding: '16px 8px' }} title={f}>{fechaCorta(f)}</th>
                   ))}
                   <th style={{ textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>Sub Total (Cant)</th>
                   <th style={{ textAlign: 'right' }}>Precio UND</th>
@@ -249,7 +256,7 @@ const ConsumoMedicamentos = () => {
                     <td style={{ fontWeight: '500' }}>{med.nombre}</td>
                     <td>{med.presentacion}</td>
                     {reporte.rango_fechas.map(f => (
-                      <td key={f} style={{ textAlign: 'center', color: med.consumos[f] ? '#fff' : 'var(--text-muted)' }}>
+                      <td key={f} style={{ textAlign: 'center', padding: '16px 8px', color: med.consumos[f] ? '#fff' : 'var(--text-muted)' }}>
                         {med.consumos[f] || 0}
                       </td>
                     ))}

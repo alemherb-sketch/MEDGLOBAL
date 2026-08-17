@@ -347,6 +347,10 @@ h3 { font-size: 1.5rem; }
   flex: 1;
   padding: 2rem 3rem;
   overflow-y: auto;
+  /* Sin esto el area crece hasta el ancho de la tabla mas larga (min-width
+     auto de un item flex) y los contenedores con overflow-x nunca activan su
+     propio scroll: las ultimas columnas quedan cortadas fuera de la pantalla. */
+  min-width: 0;
 }
 
 .nav-link {
