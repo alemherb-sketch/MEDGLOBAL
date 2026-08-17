@@ -206,8 +206,6 @@ const InspeccionBotiquin = () => {
       botiquin_id: botiquinId ? String(botiquinId) : '',
     });
     setPendingImagenes([]);
-    setInsumoSelect(null);
-    setInsumoCantidad(1);
     setModalInspeccion(true);
     if (botiquinId) cargarInsumosDeBotiquin(botiquinId);
   };
@@ -236,7 +234,6 @@ const InspeccionBotiquin = () => {
       mode: 'view',
     });
     setPendingImagenes([]);
-    setInsumoSelect(null);
     setModalInspeccion(true);
   };
 
@@ -295,8 +292,6 @@ const InspeccionBotiquin = () => {
       mode: 'edit',
     });
     setPendingImagenes([]);
-    setInsumoSelect(null);
-    setInsumoCantidad(1);
     setModalInspeccion(true);
   };
 
