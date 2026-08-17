@@ -5,7 +5,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import * as XLSX from 'xlsx';
 import {
-  Search, Plus, Trash2, X, ClipboardCheck, Download,
+  Search, Trash2, X, ClipboardCheck, Download,
   Filter, History, Save, Eye, Edit2, FileText, ImagePlus, Package
 } from 'lucide-react';
 import { apiFetch, apiJson } from '../api';
@@ -13,7 +13,6 @@ import { API_URL } from '../config';
 import {
   TIPOS_EQUIPO_EMERGENCIA,
   AREAS,
-  EQUIPOS,
   selectStyles,
   labelMedicamento,
   resumenVehiculo,
@@ -25,11 +24,6 @@ const ESTADOS_INSUMO = [
   { value: 'MALO', label: 'Malo' },
   { value: 'VENCIDO', label: 'Vencido' },
   { value: 'FALTANTE', label: 'Faltante' },
-];
-
-const REPOSICION_OPTS = [
-  { value: 'NO', label: 'No' },
-  { value: 'SI', label: 'Sí' },
 ];
 
 const ESTADO_LABEL = Object.fromEntries(ESTADOS_INSUMO.map(e => [e.value, e.label]));
@@ -65,7 +59,6 @@ const InspeccionBotiquin = () => {
   const [inspecciones, setInspecciones] = useState([]);
   const [empresas, setEmpresas] = useState([]);
   const [personal, setPersonal] = useState([]);
-  const [medicamentos, setMedicamentos] = useState([]);
 
   const [filters, setFilters] = useState({
     search: '',
@@ -82,17 +75,14 @@ const InspeccionBotiquin = () => {
   const [formInspeccion, setFormInspeccion] = useState(emptyInspeccionForm);
   const [pendingImagenes, setPendingImagenes] = useState([]); // { key, file, preview }
   const [guardando, setGuardando] = useState(false);
-  const [insumoSelect, setInsumoSelect] = useState(null);
-  const [insumoCantidad, setInsumoCantidad] = useState(1);
   const [cargandoInsumos, setCargandoInsumos] = useState(false);
   const soloLectura = formInspeccion.mode === 'view';
 
   const [reporteFiltros, setReporteFiltros] = useState({
     empresa_id: '',
     botiquin_id: '',
-    area: '',
-    tipo_equipo: '',
-    equipo: '',
+    areas: [],
+    tipos_equipo: [],
     fecha_inicio: null,
     fecha_fin: null,
   });
@@ -126,22 +116,15 @@ const InspeccionBotiquin = () => {
     [botiquines]
   );
 
-  const insumoOptions = useMemo(() => {
-    const list = medicamentos.filter(m => {
-      const t = (m.tipo || '').toUpperCase();
-      return t === 'INSUMO' || t === 'MEDICAMENTO' || t === 'OTROS' || !t;
-    });
-    list.sort((a, b) => {
-      const ai = (a.tipo || '').toUpperCase() === 'INSUMO' ? 0 : 1;
-      const bi = (b.tipo || '').toUpperCase() === 'INSUMO' ? 0 : 1;
-      if (ai !== bi) return ai - bi;
-      return (a.nombre || '').localeCompare(b.nombre || '');
-    });
-    return list.map(m => ({
-      value: String(m.id),
-      label: labelMedicamento(m),
-    }));
-  }, [medicamentos]);
+  const areaOptions = useMemo(
+    () => AREAS.map(a => ({ value: a, label: a })),
+    []
+  );
+
+  const tipoEquipoOptions = useMemo(
+    () => TIPOS_EQUIPO_EMERGENCIA.map(t => ({ value: t, label: t })),
+    []
+  );
 
   const mapInsumosFromApi = (list) =>
     (list || []).map(p => ({
@@ -152,21 +135,9 @@ const InspeccionBotiquin = () => {
       label: p.medicamento ? labelMedicamento(p.medicamento) : (p.label || String(p.medicamento_id)),
     }));
 
-  const updateInsumoField = (medicamento_id, field, value) => {
-    setFormInspeccion(prev => ({
-      ...prev,
-      insumos: prev.insumos.map(x =>
-        String(x.medicamento_id) === String(medicamento_id)
-          ? { ...x, [field]: value }
-          : x
-      ),
-    }));
-  };
-
   const loadCatalogos = () => {
     apiJson('/empresas/').then(setEmpresas).catch(() => setEmpresas([]));
     apiJson('/personal_salud/').then(setPersonal).catch(() => setPersonal([]));
-    apiJson('/medicamentos/').then(setMedicamentos).catch(() => setMedicamentos([]));
     apiJson('/botiquines/').then(setBotiquines).catch(() => setBotiquines([]));
   };
 
@@ -527,46 +498,6 @@ const InspeccionBotiquin = () => {
     w.document.close();
   };
 
-  const addInsumoLinea = () => {
-    if (!insumoSelect) return;
-    const cantidad = Math.max(1, parseInt(insumoCantidad, 10) || 1);
-    setFormInspeccion(prev => {
-      const existing = prev.insumos.find(i => String(i.medicamento_id) === String(insumoSelect.value));
-      if (existing) {
-        return {
-          ...prev,
-          insumos: prev.insumos.map(i =>
-            String(i.medicamento_id) === String(insumoSelect.value)
-              ? { ...i, cantidad: i.cantidad + cantidad }
-              : i
-          ),
-        };
-      }
-      return {
-        ...prev,
-        insumos: [
-          ...prev.insumos,
-          {
-            medicamento_id: insumoSelect.value,
-            cantidad,
-            estado: 'BUENO',
-            reposicion: 'NO',
-            label: insumoSelect.label,
-          },
-        ],
-      };
-    });
-    setInsumoSelect(null);
-    setInsumoCantidad(1);
-  };
-
-  const removeInsumoLinea = (medicamento_id) => {
-    setFormInspeccion(prev => ({
-      ...prev,
-      insumos: prev.insumos.filter(i => String(i.medicamento_id) !== String(medicamento_id)),
-    }));
-  };
-
   const saveInspeccion = async (e) => {
     e.preventDefault();
     if (soloLectura) return;
@@ -631,14 +562,20 @@ const InspeccionBotiquin = () => {
     setLoadingReporte(true);
     try {
       const params = new URLSearchParams();
-      Object.entries(reporteFiltros).forEach(([k, v]) => {
-        if (!v) return;
-        if (k === 'fecha_inicio' || k === 'fecha_fin') {
-          params.append(k, v.toISOString().split('T')[0]);
-        } else {
-          params.append(k, v);
-        }
-      });
+      if (reporteFiltros.empresa_id) params.append('empresa_id', reporteFiltros.empresa_id);
+      if (reporteFiltros.botiquin_id) params.append('botiquin_id', reporteFiltros.botiquin_id);
+      if ((reporteFiltros.areas || []).length) {
+        params.append('area', reporteFiltros.areas.join(','));
+      }
+      if ((reporteFiltros.tipos_equipo || []).length) {
+        params.append('tipo_equipo', reporteFiltros.tipos_equipo.join(','));
+      }
+      if (reporteFiltros.fecha_inicio) {
+        params.append('fecha_inicio', reporteFiltros.fecha_inicio.toISOString().split('T')[0]);
+      }
+      if (reporteFiltros.fecha_fin) {
+        params.append('fecha_fin', reporteFiltros.fecha_fin.toISOString().split('T')[0]);
+      }
       const data = await apiJson(`/reportes/consumo-insumos-botiquin?${params.toString()}`);
       setReporte(data);
     } catch (err) {
@@ -655,9 +592,8 @@ const InspeccionBotiquin = () => {
     const aoa = [
       ['Reporte de Consumo de Insumos de Botiquín'],
       ['Empresa: ' + (empresa ? empresa.nombre : 'Todas')],
-      ['Área: ' + (reporteFiltros.area || 'Todas')],
-      ['Tipo equipo: ' + (reporteFiltros.tipo_equipo || 'Todos')],
-      ['Equipo: ' + (reporteFiltros.equipo || 'Todos')],
+      ['Área: ' + ((reporteFiltros.areas || []).length ? reporteFiltros.areas.join(', ') : 'Todas')],
+      ['Tipo equipo: ' + ((reporteFiltros.tipos_equipo || []).length ? reporteFiltros.tipos_equipo.join(', ') : 'Todos')],
       [],
       ['Código', 'Insumo', 'Presentación', 'Tipo', ...reporte.rango_fechas, 'Cantidad', 'P. Unit.', 'Total (S/.)'],
     ];
@@ -812,21 +748,7 @@ const InspeccionBotiquin = () => {
                     </td>
                     <td>{b.empresa?.nombre || '—'}</td>
                     <td>{vehiculoLabel}</td>
-                    <td>
-                      {b.ubicacion || '—'}
-                      {b.mapa_url ? (
-                        <a
-                          href={b.mapa_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          title="Ver en Maps"
-                          style={{ marginLeft: 6, color: 'var(--primary-color, #60a5fa)' }}
-                          onClick={e => e.stopPropagation()}
-                        >
-                          Maps
-                        </a>
-                      ) : null}
-                    </td>
+                    <td>{b.ubicacion || '—'}</td>
                     <td>
                       {tieneInspeccion
                         ? new Date(b.ultima_inspeccion).toLocaleString()
@@ -1007,24 +929,41 @@ const InspeccionBotiquin = () => {
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Área</label>
-                <select className="form-control" value={reporteFiltros.area} onChange={e => setReporteFiltros({ ...reporteFiltros, area: e.target.value })}>
-                  <option value="">Todas</option>
-                  {AREAS.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
+                <Select
+                  styles={selectStyles}
+                  isMulti
+                  isClearable
+                  isSearchable
+                  closeMenuOnSelect={false}
+                  hideSelectedOptions={false}
+                  options={areaOptions}
+                  placeholder="Todas..."
+                  noOptionsMessage={() => 'Sin resultados'}
+                  value={areaOptions.filter(o => (reporteFiltros.areas || []).includes(o.value))}
+                  onChange={(opts) => setReporteFiltros({
+                    ...reporteFiltros,
+                    areas: (opts || []).map(o => o.value),
+                  })}
+                />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Tipo de equipo</label>
-                <select className="form-control" value={reporteFiltros.tipo_equipo} onChange={e => setReporteFiltros({ ...reporteFiltros, tipo_equipo: e.target.value })}>
-                  <option value="">Todos</option>
-                  {TIPOS_EQUIPO_EMERGENCIA.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Equipo</label>
-                <select className="form-control" value={reporteFiltros.equipo} onChange={e => setReporteFiltros({ ...reporteFiltros, equipo: e.target.value })}>
-                  <option value="">Todos</option>
-                  {EQUIPOS.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
+                <Select
+                  styles={selectStyles}
+                  isMulti
+                  isClearable
+                  isSearchable
+                  closeMenuOnSelect={false}
+                  hideSelectedOptions={false}
+                  options={tipoEquipoOptions}
+                  placeholder="Todos..."
+                  noOptionsMessage={() => 'Sin resultados'}
+                  value={tipoEquipoOptions.filter(o => (reporteFiltros.tipos_equipo || []).includes(o.value))}
+                  onChange={(opts) => setReporteFiltros({
+                    ...reporteFiltros,
+                    tipos_equipo: (opts || []).map(o => o.value),
+                  })}
+                />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Desde</label>
@@ -1193,105 +1132,30 @@ const InspeccionBotiquin = () => {
                     {cargandoInsumos && <span style={{ marginLeft: 8, opacity: 0.7, fontWeight: 400 }}>(cargando del tipo...)</span>}
                   </label>
                   <p style={{ margin: '0 0 10px', fontSize: '0.88rem', opacity: 0.7 }}>
-                    Se completan automáticamente según el tipo del botiquín seleccionado. Puede ajustar cantidades, estado o reposición.
+                    Se cargan automáticamente según el tipo del botiquín seleccionado (solo lectura).
                   </p>
-                  {!soloLectura && (
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'stretch' }}>
-                      <div style={{ flex: '1 1 240px' }}>
-                        <Select
-                          styles={selectStyles}
-                          options={insumoOptions}
-                          placeholder="Agregar insumo adicional..."
-                          value={insumoSelect}
-                          onChange={setInsumoSelect}
-                          noOptionsMessage={() => 'Sin resultados'}
-                        />
-                      </div>
-                      <div style={{ width: 88 }}>
-                        <input
-                          type="number"
-                          min={1}
-                          className="form-control"
-                          value={insumoCantidad}
-                          onChange={e => setInsumoCantidad(e.target.value)}
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        onClick={addInsumoLinea}
-                        disabled={!insumoSelect}
-                      >
-                        <Plus size={16} /> Agregar
-                      </button>
-                    </div>
-                  )}
                   {formInspeccion.insumos.length > 0 ? (
                     <div className="table-container" style={{ marginTop: 14, overflowX: 'auto' }}>
-                      <table className="data-table" style={{ width: '100%', minWidth: 720 }}>
+                      <table className="data-table" style={{ width: '100%', minWidth: 560 }}>
                         <thead>
                           <tr>
                             <th style={{ textAlign: 'left' }}>Insumo</th>
                             <th style={{ width: 90 }}>Cant.</th>
-                            <th style={{ width: 140 }}>Estado</th>
-                            <th style={{ width: 120 }}>Reposición</th>
-                            {!soloLectura && <th style={{ width: 48 }} />}
+                            <th style={{ width: 120 }}>Estado</th>
+                            <th style={{ width: 110 }}>Reposición</th>
                           </tr>
                         </thead>
                         <tbody>
                           {formInspeccion.insumos.map(i => (
                             <tr key={i.medicamento_id}>
                               <td style={{ textAlign: 'left', verticalAlign: 'middle' }}>{i.label}</td>
-                              <td>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  className="form-control"
-                                  style={{ width: 72, margin: '0 auto' }}
-                                  value={i.cantidad}
-                                  disabled={soloLectura}
-                                  onChange={e => {
-                                    const cantidad = Math.max(1, parseInt(e.target.value, 10) || 1);
-                                    updateInsumoField(i.medicamento_id, 'cantidad', cantidad);
-                                  }}
-                                />
+                              <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>{i.cantidad}</td>
+                              <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                                {ESTADO_LABEL[i.estado] || i.estado || '—'}
                               </td>
-                              <td>
-                                <select
-                                  className="form-control"
-                                  value={i.estado || 'BUENO'}
-                                  disabled={soloLectura}
-                                  onChange={e => updateInsumoField(i.medicamento_id, 'estado', e.target.value)}
-                                >
-                                  {ESTADOS_INSUMO.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                  ))}
-                                </select>
+                              <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                                {(i.reposicion || 'NO') === 'SI' ? 'Sí' : 'No'}
                               </td>
-                              <td>
-                                <select
-                                  className="form-control"
-                                  value={i.reposicion || 'NO'}
-                                  disabled={soloLectura}
-                                  onChange={e => updateInsumoField(i.medicamento_id, 'reposicion', e.target.value)}
-                                >
-                                  {REPOSICION_OPTS.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                  ))}
-                                </select>
-                              </td>
-                              {!soloLectura && (
-                                <td style={{ textAlign: 'center' }}>
-                                  <button
-                                    type="button"
-                                    className="btn-icon btn-icon-sm btn-icon-danger"
-                                    title="Quitar insumo"
-                                    onClick={() => removeInsumoLinea(i.medicamento_id)}
-                                  >
-                                    <Trash2 size={15} />
-                                  </button>
-                                </td>
-                              )}
                             </tr>
                           ))}
                         </tbody>

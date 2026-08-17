@@ -51,6 +51,7 @@ export const emptyBotiquin = {
   empresa_id: '',
   ubicacion: '',
   mapa_url: '',
+  vehiculo: '',
   marca: '',
   modelo: '',
   serie: '',

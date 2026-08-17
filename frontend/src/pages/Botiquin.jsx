@@ -4,7 +4,7 @@ import Select from 'react-select';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import {
-  Search, Plus, Trash2, Edit2, X, Filter, Package, Save, Layers, Eye, MapPin, ExternalLink, ClipboardCheck
+  Search, Plus, Trash2, Edit2, X, Filter, Package, Save, Layers, Eye, ClipboardCheck
 } from 'lucide-react';
 import { apiFetch, apiJson } from '../api';
 import {
@@ -222,11 +222,19 @@ const Botiquin = () => {
       area: b.area || AREAS[0],
       empresa_id: b.empresa_id ? String(b.empresa_id) : '',
       ubicacion: b.ubicacion || '',
-      mapa_url: b.mapa_url || '',
-      marca: b.marca || '',
-      modelo: b.modelo || '',
-      serie: b.serie || '',
-      placa: b.placa || '',
+      mapa_url: '',
+      vehiculo: b.vehiculo
+        || resumenVehiculo({
+          marca: b.marca,
+          modelo: b.modelo,
+          serie: b.serie,
+          placa: b.placa,
+        })
+        || '',
+      marca: '',
+      modelo: '',
+      serie: '',
+      placa: '',
       equipo: b.equipo || EQUIPOS[0],
       estado: b.estado || 'ACTIVO',
     });
@@ -242,10 +250,6 @@ const Botiquin = () => {
     const isEdit = formBotiquin.id != null;
     const url = isEdit ? `/botiquines/${formBotiquin.id}` : '/botiquines/';
     const method = isEdit ? 'PUT' : 'POST';
-    const marca = (formBotiquin.marca || '').trim() || null;
-    const modelo = (formBotiquin.modelo || '').trim() || null;
-    const serie = (formBotiquin.serie || '').trim() || null;
-    const placa = (formBotiquin.placa || '').trim() || null;
     const data = {
       codigo: (formBotiquin.codigo || '').trim() || null,
       tipo_botiquin_id: formBotiquin.tipo_botiquin_id || null,
@@ -253,12 +257,12 @@ const Botiquin = () => {
       area: formBotiquin.area,
       empresa_id: formBotiquin.empresa_id || null,
       ubicacion: formBotiquin.ubicacion || null,
-      mapa_url: (formBotiquin.mapa_url || '').trim() || null,
-      marca,
-      modelo,
-      serie,
-      placa,
-      vehiculo: resumenVehiculo({ marca, modelo, serie, placa }) || null,
+      mapa_url: null,
+      marca: null,
+      modelo: null,
+      serie: null,
+      placa: null,
+      vehiculo: (formBotiquin.vehiculo || '').trim() || null,
       equipo: formBotiquin.equipo,
       estado: formBotiquin.estado || 'ACTIVO',
       fecha_creacion: formBotiquin.fecha_creacion
@@ -481,21 +485,7 @@ const Botiquin = () => {
                     </td>
                     <td>{b.empresa?.nombre || '—'}</td>
                     <td>{vehiculoLabel}</td>
-                    <td>
-                      {b.ubicacion || '—'}
-                      {b.mapa_url ? (
-                        <a
-                          href={b.mapa_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          title="Ver en Maps"
-                          style={{ marginLeft: 6, color: 'var(--primary-color, #60a5fa)' }}
-                          onClick={e => e.stopPropagation()}
-                        >
-                          Maps
-                        </a>
-                      ) : null}
-                    </td>
+                    <td>{b.ubicacion || '—'}</td>
                     <td>
                       {b.ultima_inspeccion
                         ? new Date(b.ultima_inspeccion).toLocaleString()
@@ -645,21 +635,7 @@ const Botiquin = () => {
                   <DetailField label="Tipo de equipo" span2>{viewBotiquin.tipo_equipo || '—'}</DetailField>
                   <DetailField label="Área">{viewBotiquin.area || '—'}</DetailField>
                   <DetailField label="Empresa">{viewBotiquin.empresa?.nombre || '—'}</DetailField>
-                  <DetailField label="Ubicación">
-                    {viewBotiquin.ubicacion || '—'}
-                    {viewBotiquin.mapa_url && (
-                      <div style={{ marginTop: 6 }}>
-                        <a
-                          href={viewBotiquin.mapa_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ color: 'var(--primary-color, #60a5fa)', fontSize: '0.88rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                        >
-                          <MapPin size={14} /> Ver en Maps
-                        </a>
-                      </div>
-                    )}
-                  </DetailField>
+                  <DetailField label="Ubicación">{viewBotiquin.ubicacion || '—'}</DetailField>
                   <DetailField label="Vehículo">
                     {viewBotiquin.vehiculo
                       || resumenVehiculo({
@@ -670,10 +646,6 @@ const Botiquin = () => {
                       })
                       || '—'}
                   </DetailField>
-                  <DetailField label="Marca">{viewBotiquin.marca || '—'}</DetailField>
-                  <DetailField label="Modelo">{viewBotiquin.modelo || '—'}</DetailField>
-                  <DetailField label="Serie">{viewBotiquin.serie || '—'}</DetailField>
-                  <DetailField label="Placa">{viewBotiquin.placa || '—'}</DetailField>
                   <DetailField label="Equipo" span2>{viewBotiquin.equipo || '—'}</DetailField>
                 </div>
 
@@ -930,61 +902,18 @@ const Botiquin = () => {
                   />
                 </div>
 
-                {/* 4: Vehículo (resumen) + Marca, Modelo, Serie, Placa */}
+                {/* 4: Vehículo (texto libre) */}
                 <div className="form-group">
                   <label className="form-label">Vehículo</label>
                   <input
                     className="form-control"
-                    value={resumenVehiculo(formBotiquin)}
-                    readOnly
-                    placeholder="Se genera con marca, modelo, serie y placa"
-                    style={{ opacity: 0.9, cursor: 'default' }}
-                    title="Se completa automáticamente"
+                    value={formBotiquin.vehiculo || ''}
+                    onChange={e => setFormBotiquin({ ...formBotiquin, vehiculo: e.target.value })}
+                    placeholder="Ej. Toyota Hilux · Serie … · Placa …"
                   />
-                  <p style={{ margin: '6px 0 0', fontSize: '0.82rem', opacity: 0.65 }}>
-                    Se genera automáticamente con marca, modelo, serie y placa.
-                  </p>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label">Marca</label>
-                    <input
-                      className="form-control"
-                      value={formBotiquin.marca}
-                      onChange={e => setFormBotiquin({ ...formBotiquin, marca: e.target.value })}
-                      placeholder="Marca"
-                    />
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label">Modelo</label>
-                    <input
-                      className="form-control"
-                      value={formBotiquin.modelo}
-                      onChange={e => setFormBotiquin({ ...formBotiquin, modelo: e.target.value })}
-                      placeholder="Modelo"
-                    />
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label">Serie</label>
-                    <input
-                      className="form-control"
-                      value={formBotiquin.serie}
-                      onChange={e => setFormBotiquin({ ...formBotiquin, serie: e.target.value })}
-                      placeholder="N° de serie"
-                    />
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label">Placa</label>
-                    <input
-                      className="form-control"
-                      value={formBotiquin.placa}
-                      onChange={e => setFormBotiquin({ ...formBotiquin, placa: e.target.value })}
-                      placeholder="Placa"
-                    />
-                  </div>
                 </div>
 
-                {/* 5: Ubicación + Maps */}
+                {/* 5: Ubicación */}
                 <div className="form-group">
                   <label className="form-label">Ubicación</label>
                   <input
@@ -993,46 +922,6 @@ const Botiquin = () => {
                     onChange={e => setFormBotiquin({ ...formBotiquin, ubicacion: e.target.value })}
                     placeholder="Descripción de la ubicación física"
                   />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Ubicación en Maps (enlace)</label>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'stretch' }}>
-                    <input
-                      className="form-control"
-                      style={{ flex: '1 1 220px' }}
-                      value={formBotiquin.mapa_url}
-                      onChange={e => setFormBotiquin({ ...formBotiquin, mapa_url: e.target.value })}
-                      placeholder="https://maps.google.com/... o pegar enlace de Maps"
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      title="Abrir Google Maps para buscar y copiar el enlace"
-                      onClick={() => {
-                        const q = encodeURIComponent(
-                          [formBotiquin.ubicacion, formBotiquin.empresa_id
-                            ? (empresaOptions.find(o => o.value === String(formBotiquin.empresa_id))?.label || '')
-                            : ''].filter(Boolean).join(' ') || 'Ubicación'
-                        );
-                        window.open(`https://www.google.com/maps/search/?api=1&query=${q}`, '_blank', 'noopener,noreferrer');
-                      }}
-                    >
-                      <MapPin size={16} /> Buscar en Maps
-                    </button>
-                    {formBotiquin.mapa_url && (
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        title="Abrir enlace guardado"
-                        onClick={() => window.open(formBotiquin.mapa_url, '_blank', 'noopener,noreferrer')}
-                      >
-                        <ExternalLink size={16} /> Abrir
-                      </button>
-                    )}
-                  </div>
-                  <p style={{ margin: '8px 0 0', fontSize: '0.82rem', opacity: 0.65 }}>
-                    Use «Buscar en Maps», copie el enlace de la ubicación y péguelo aquí.
-                  </p>
                 </div>
 
                 {/* 6: Tipo de botiquín */}

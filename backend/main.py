@@ -1440,12 +1440,17 @@ def _resumen_vehiculo(marca=None, modelo=None, serie=None, placa=None) -> Option
 
 
 def _aplicar_resumen_vehiculo(data: dict) -> dict:
+    """Si vienen marca/modelo/serie/placa arma el resumen; si no, respeta vehiculo libre."""
     marca = data.get("marca")
     modelo = data.get("modelo")
     serie = data.get("serie")
     placa = data.get("placa")
-    data["vehiculo"] = _resumen_vehiculo(marca, modelo, serie, placa)
-    # Compatibilidad con listados/busquedas antiguas
+    resumen = _resumen_vehiculo(marca, modelo, serie, placa)
+    if resumen:
+        data["vehiculo"] = resumen
+    else:
+        libre = (data.get("vehiculo") or "").strip() if data.get("vehiculo") else ""
+        data["vehiculo"] = libre or None
     if serie or placa:
         data["numero_serie_placa"] = " / ".join(p for p in (serie, placa) if p)
     return data
@@ -1841,11 +1846,23 @@ def get_reporte_consumo_insumos_botiquin(
     if botiquin_id:
         q = q.filter(models.Botiquin.id == botiquin_id)
     if area:
-        q = q.filter(models.Botiquin.area == area)
+        areas = [x.strip() for x in str(area).split(",") if x and str(x).strip()]
+        if len(areas) == 1:
+            q = q.filter(models.Botiquin.area == areas[0])
+        elif len(areas) > 1:
+            q = q.filter(models.Botiquin.area.in_(areas))
     if tipo_equipo:
-        q = q.filter(models.Botiquin.tipo_equipo == tipo_equipo)
+        tipos = [x.strip() for x in str(tipo_equipo).split(",") if x and str(x).strip()]
+        if len(tipos) == 1:
+            q = q.filter(models.Botiquin.tipo_equipo == tipos[0])
+        elif len(tipos) > 1:
+            q = q.filter(models.Botiquin.tipo_equipo.in_(tipos))
     if equipo:
-        q = q.filter(models.Botiquin.equipo == equipo)
+        equipos = [x.strip() for x in str(equipo).split(",") if x and str(x).strip()]
+        if len(equipos) == 1:
+            q = q.filter(models.Botiquin.equipo == equipos[0])
+        elif len(equipos) > 1:
+            q = q.filter(models.Botiquin.equipo.in_(equipos))
 
     resultados = q.all()
     from collections import defaultdict
