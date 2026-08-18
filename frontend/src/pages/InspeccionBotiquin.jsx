@@ -5,7 +5,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import * as XLSX from 'xlsx';
 import {
-  Search, Trash2, X, ClipboardCheck, Download,
+  Search, Trash2, X, ClipboardCheck, Download, Printer,
   Filter, History, Save, Eye, Edit2, FileText, ImagePlus, Package, PackagePlus
 } from 'lucide-react';
 import { apiFetch, apiJson } from '../api';
@@ -79,6 +79,8 @@ const InspeccionBotiquin = () => {
   const [filters, setFilters] = useState({
     search: '',
     empresa_id: '',
+    fecha_inicio: null,
+    fecha_fin: null,
   });
 
   const [botFilters, setBotFilters] = useState({
@@ -175,6 +177,12 @@ const InspeccionBotiquin = () => {
     const params = new URLSearchParams();
     if (filters.empresa_id) params.append('empresa_id', filters.empresa_id);
     if (filters.search) params.append('search', filters.search);
+    if (filters.fecha_inicio) {
+      params.append('fecha_inicio', filters.fecha_inicio.toISOString().split('T')[0]);
+    }
+    if (filters.fecha_fin) {
+      params.append('fecha_fin', filters.fecha_fin.toISOString().split('T')[0]);
+    }
     const q = params.toString();
     apiJson(`/botiquin_inspecciones/${q ? `?${q}` : ''}`)
       .then(setInspecciones)
@@ -523,6 +531,148 @@ const InspeccionBotiquin = () => {
     w.document.close();
   };
 
+  const imprimirReporteGeneral = () => {
+    if (!inspecciones.length) {
+      alert('No hay inspecciones para los filtros aplicados.');
+      return;
+    }
+
+    const empresaSel = empresas.find(e => String(e.id) === String(filters.empresa_id));
+    const fInicio = filters.fecha_inicio
+      ? filters.fecha_inicio.toLocaleDateString()
+      : '';
+    const fFin = filters.fecha_fin
+      ? filters.fecha_fin.toLocaleDateString()
+      : '';
+    const periodo = (fInicio && fFin)
+      ? `${fInicio} al ${fFin}`
+      : (fInicio ? `Desde ${fInicio}` : (fFin ? `Hasta ${fFin}` : 'Todas las fechas'));
+    const filtroEmpresa = empresaSel ? empresaSel.nombre : 'Todas las empresas';
+    const filtroBusqueda = filters.search ? filters.search : '—';
+
+    const botiquinesUnicos = new Set(
+      inspecciones.map(ins => ins.botiquin_id).filter(Boolean)
+    ).size;
+
+    const conteo = { CONFORME: 0, VENCIDO: 0, FALTANTE: 0, DETERIORADO: 0, reposiciones: 0, totalInsumos: 0 };
+    inspecciones.forEach(ins => {
+      (ins.insumos || []).forEach(i => {
+        conteo.totalInsumos += 1;
+        const e = normalizarEstado(i.estado);
+        if (conteo[e] !== undefined) conteo[e] += 1;
+        if ((i.reposicion || '').toUpperCase() === 'SI') conteo.reposiciones += 1;
+      });
+    });
+    const noConformes = conteo.VENCIDO + conteo.FALTANTE + conteo.DETERIORADO;
+
+    const filas = inspecciones.map((ins, idx) => {
+      const bot = ins.botiquin;
+      const botLabel = bot
+        ? `${bot.codigo ? bot.codigo + ' · ' : ''}${bot.tipo_botiquin?.nombre || bot.tipo_equipo || ''}${bot.ubicacion ? ' · ' + bot.ubicacion : ''}`
+        : '—';
+      const responsable = ins.responsable
+        ? `${ins.responsable.nombre || ''} ${ins.responsable.apellidos || ''}`.trim()
+        : '—';
+      const fecha = ins.fecha ? new Date(ins.fecha).toLocaleString() : '—';
+      const insumos = ins.insumos || [];
+      const nNoConf = insumos.filter(i => normalizarEstado(i.estado) !== 'CONFORME').length;
+      const nRepo = insumos.filter(i => (i.reposicion || '').toUpperCase() === 'SI').length;
+      return `
+        <tr>
+          <td class="num">${idx + 1}</td>
+          <td>${escHtml(fecha)}</td>
+          <td>${escHtml(botLabel)}</td>
+          <td>${escHtml(bot?.area || '—')}</td>
+          <td>${escHtml(bot?.empresa?.nombre || '—')}</td>
+          <td>${escHtml(responsable)}</td>
+          <td style="text-align:center">${insumos.length}</td>
+          <td style="text-align:center">${nNoConf}</td>
+          <td style="text-align:center">${nRepo}</td>
+          <td>${escHtml(ins.observaciones || '—')}</td>
+        </tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/>
+      <title>Reporte General de Inspección</title>
+      <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; color: #0f172a; margin: 24px; font-size: 12px; }
+        h1 { margin: 0 0 4px; font-size: 20px; color: #0c4a6e; }
+        h3 { margin: 18px 0 8px; font-size: 13px; color: #0f172a; }
+        .sub { color: #64748b; margin-bottom: 16px; }
+        .meta { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 16px; margin-bottom: 16px; }
+        .meta div { border-bottom: 1px solid #e2e8f0; padding: 6px 0; }
+        .meta strong { display: block; font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: .03em; }
+        .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 12px 0 18px; }
+        .kpi { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; background: #f8fafc; }
+        .kpi span { display: block; font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: .04em; }
+        .kpi strong { display: block; font-size: 20px; margin-top: 4px; color: #0c4a6e; }
+        .kpi.warn strong { color: #b91c1c; }
+        table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+        th, td { border: 1px solid #cbd5e1; padding: 6px 8px; vertical-align: top; }
+        th { background: #0ea5e9; color: #fff; text-align: left; font-size: 11px; }
+        td.num { text-align: center; width: 28px; color: #64748b; }
+        tbody tr:nth-child(even) td { background: #f8fafc; }
+        .footer { margin-top: 22px; font-size: 11px; color: #94a3b8; }
+        @media print {
+          body { margin: 10mm; }
+          .no-print { display: none !important; }
+          .kpi { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          tr { page-break-inside: avoid; }
+        }
+      </style></head><body>
+      <div class="no-print" style="margin-bottom:16px">
+        <button onclick="window.print()" style="padding:8px 16px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:600">
+          Imprimir / Guardar PDF
+        </button>
+      </div>
+      <h1>MEDGLOBAL — Reporte General de Inspección</h1>
+      <p class="sub">Documento generado el ${escHtml(new Date().toLocaleString())}</p>
+      <div class="meta">
+        <div><strong>Periodo</strong>${escHtml(periodo)}</div>
+        <div><strong>Empresa</strong>${escHtml(filtroEmpresa)}</div>
+        <div><strong>Búsqueda</strong>${escHtml(filtroBusqueda)}</div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><span>Inspecciones</span><strong>${inspecciones.length}</strong></div>
+        <div class="kpi"><span>Botiquines</span><strong>${botiquinesUnicos}</strong></div>
+        <div class="kpi"><span>Insumos revisados</span><strong>${conteo.totalInsumos}</strong></div>
+        <div class="kpi warn"><span>No conformes</span><strong>${noConformes}</strong></div>
+        <div class="kpi"><span>Reposiciones</span><strong>${conteo.reposiciones}</strong></div>
+      </div>
+      <h3>Detalle de inspecciones</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Fecha</th>
+            <th>Botiquín</th>
+            <th>Área</th>
+            <th>Empresa</th>
+            <th>Responsable</th>
+            <th>Ítems</th>
+            <th>No conf.</th>
+            <th>Rep.</th>
+            <th>Observaciones</th>
+          </tr>
+        </thead>
+        <tbody>${filas}</tbody>
+      </table>
+      <p class="footer">MEDGLOBAL · Sistema de gestión médica · Reporte general según filtros aplicados</p>
+      <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 250); };</script>
+      </body></html>`;
+
+    const w = window.open('', '_blank');
+    if (!w) {
+      alert('Permita ventanas emergentes para generar el PDF.');
+      return;
+    }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  };
+
   const saveInspeccion = async (e) => {
     e.preventDefault();
     if (soloLectura) return;
@@ -717,6 +867,17 @@ const InspeccionBotiquin = () => {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {tab === 'historial' && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={imprimirReporteGeneral}
+              disabled={!inspecciones.length}
+              title="Imprime el listado de inspecciones según los filtros actuales"
+            >
+              <Printer size={18} /> Reporte general
+            </button>
+          )}
           <button type="button" className="btn btn-primary" onClick={() => openNewInspeccion()}>
             <ClipboardCheck size={18} /> Registrar inspección
           </button>
@@ -895,9 +1056,19 @@ const InspeccionBotiquin = () => {
 
       {tab === 'historial' && (
         <div className="glass-panel mb-4" style={{ padding: 16 }}>
-          <div className="flex items-center mb-3" style={{ gap: 8 }}>
-            <Filter size={18} />
-            <strong>Filtros</strong>
+          <div className="flex items-center mb-3" style={{ gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+            <div className="flex items-center" style={{ gap: 8 }}>
+              <Filter size={18} />
+              <strong>Filtros</strong>
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={imprimirReporteGeneral}
+              disabled={!inspecciones.length}
+            >
+              <Printer size={16} /> Imprimir reporte general
+            </button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
             <div className="form-group" style={{ margin: 0 }}>
@@ -923,6 +1094,35 @@ const InspeccionBotiquin = () => {
                 value={empresaOptions.find(o => o.value === filters.empresa_id) || null}
                 onChange={opt => setFilters({ ...filters, empresa_id: opt ? opt.value : '' })}
                 noOptionsMessage={() => 'Sin resultados'}
+              />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Desde</label>
+              <DatePicker
+                selected={filters.fecha_inicio}
+                onChange={d => setFilters({ ...filters, fecha_inicio: d })}
+                selectsStart
+                startDate={filters.fecha_inicio}
+                endDate={filters.fecha_fin}
+                dateFormat="dd/MM/yyyy"
+                className="form-control"
+                isClearable
+                placeholderText="Fecha inicio"
+              />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Hasta</label>
+              <DatePicker
+                selected={filters.fecha_fin}
+                onChange={d => setFilters({ ...filters, fecha_fin: d })}
+                selectsEnd
+                startDate={filters.fecha_inicio}
+                endDate={filters.fecha_fin}
+                minDate={filters.fecha_inicio}
+                dateFormat="dd/MM/yyyy"
+                className="form-control"
+                isClearable
+                placeholderText="Fecha fin"
               />
             </div>
           </div>
