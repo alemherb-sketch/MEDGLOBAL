@@ -565,6 +565,24 @@ const InspeccionBotiquin = () => {
     });
     const noConformes = conteo.VENCIDO + conteo.FALTANTE + conteo.DETERIORADO;
 
+    const absUrl = (path) => {
+      const u = assetUrl(path);
+      if (!u) return '';
+      if (/^https?:\/\//i.test(u) || u.startsWith('blob:') || u.startsWith('data:')) return u;
+      const origin = (API_URL && /^https?:\/\//i.test(API_URL))
+        ? API_URL.replace(/\/$/, '')
+        : window.location.origin;
+      return `${origin}${u.startsWith('/') ? u : `/${u}`}`;
+    };
+
+    const listarImagenes = (imagenes) => {
+      let lista = imagenes;
+      if (typeof lista === 'string') {
+        try { lista = JSON.parse(lista); } catch { lista = []; }
+      }
+      return Array.isArray(lista) ? lista.filter(Boolean) : [];
+    };
+
     const filas = inspecciones.map((ins, idx) => {
       const bot = ins.botiquin;
       const botLabel = bot
@@ -577,6 +595,10 @@ const InspeccionBotiquin = () => {
       const insumos = ins.insumos || [];
       const nNoConf = insumos.filter(i => normalizarEstado(i.estado) !== 'CONFORME').length;
       const nRepo = insumos.filter(i => (i.reposicion || '').toUpperCase() === 'SI').length;
+      const fotos = listarImagenes(ins.imagenes);
+      const evidenciaHtml = fotos.length
+        ? fotos.map(u => `<img src="${escHtml(absUrl(u))}" alt="Evidencia" />`).join('')
+        : '<span class="muted">Sin foto</span>';
       return `
         <tr>
           <td class="num">${idx + 1}</td>
@@ -589,6 +611,7 @@ const InspeccionBotiquin = () => {
           <td style="text-align:center">${nNoConf}</td>
           <td style="text-align:center">${nRepo}</td>
           <td>${escHtml(ins.observaciones || '—')}</td>
+          <td class="evid">${evidenciaHtml}</td>
         </tr>`;
     }).join('');
 
@@ -613,12 +636,20 @@ const InspeccionBotiquin = () => {
         th { background: #0ea5e9; color: #fff; text-align: left; font-size: 11px; }
         td.num { text-align: center; width: 28px; color: #64748b; }
         tbody tr:nth-child(even) td { background: #f8fafc; }
+        .evid { width: 140px; }
+        .evid img {
+          width: 88px; height: 66px; object-fit: cover;
+          border: 1px solid #cbd5e1; border-radius: 4px;
+          display: inline-block; margin: 2px;
+        }
+        .muted { color: #94a3b8; font-size: 11px; }
         .footer { margin-top: 22px; font-size: 11px; color: #94a3b8; }
         @media print {
           body { margin: 10mm; }
           .no-print { display: none !important; }
           .kpi { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .evid img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           tr { page-break-inside: avoid; }
         }
       </style></head><body>
@@ -655,12 +686,30 @@ const InspeccionBotiquin = () => {
             <th>No conf.</th>
             <th>Rep.</th>
             <th>Observaciones</th>
+            <th>Evidencia</th>
           </tr>
         </thead>
         <tbody>${filas}</tbody>
       </table>
       <p class="footer">MEDGLOBAL · Sistema de gestión médica · Reporte general según filtros aplicados</p>
-      <script>window.onload = function(){ setTimeout(function(){ window.print(); }, 250); };</script>
+      <script>
+        function listoParaImprimir() {
+          var imgs = Array.prototype.slice.call(document.images || []);
+          if (!imgs.length) { setTimeout(function(){ window.print(); }, 200); return; }
+          var pendientes = imgs.length;
+          var done = function() {
+            pendientes -= 1;
+            if (pendientes <= 0) setTimeout(function(){ window.print(); }, 150);
+          };
+          imgs.forEach(function(img) {
+            if (img.complete) return done();
+            img.onload = done;
+            img.onerror = done;
+          });
+          setTimeout(function(){ window.print(); }, 6000);
+        }
+        window.onload = listoParaImprimir;
+      </script>
       </body></html>`;
 
     const w = window.open('', '_blank');
