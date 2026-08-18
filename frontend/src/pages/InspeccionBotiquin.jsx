@@ -67,6 +67,13 @@ const escHtml = (s) => String(s ?? '')
   .replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
+/** El glass-panel recorta el popper (overflow + backdrop-filter). El portal lo saca. */
+const datePickerPortalProps = {
+  portalId: 'datepicker-portal',
+  wrapperClassName: 'date-picker-wrapper',
+  popperPlacement: 'bottom-start',
+};
+
 const InspeccionBotiquin = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const autoOpenDone = useRef(false);
@@ -1104,7 +1111,7 @@ const InspeccionBotiquin = () => {
       )}
 
       {tab === 'historial' && (
-        <div className="glass-panel mb-4" style={{ padding: 16 }}>
+        <div className="glass-panel mb-4" style={{ padding: 16, overflow: 'visible' }}>
           <div className="flex items-center mb-3" style={{ gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
             <div className="flex items-center" style={{ gap: 8 }}>
               <Filter size={18} />
@@ -1148,6 +1155,7 @@ const InspeccionBotiquin = () => {
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Desde</label>
               <DatePicker
+                {...datePickerPortalProps}
                 selected={filters.fecha_inicio}
                 onChange={d => setFilters({ ...filters, fecha_inicio: d })}
                 selectsStart
@@ -1162,6 +1170,7 @@ const InspeccionBotiquin = () => {
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Hasta</label>
               <DatePicker
+                {...datePickerPortalProps}
                 selected={filters.fecha_fin}
                 onChange={d => setFilters({ ...filters, fecha_fin: d })}
                 selectsEnd
@@ -1235,7 +1244,7 @@ const InspeccionBotiquin = () => {
 
       {tab === 'reporte' && (
         <div>
-          <div className="glass-panel mb-4" style={{ padding: 16 }}>
+          <div className="glass-panel mb-4" style={{ padding: 16, overflow: 'visible' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Empresa</label>
@@ -1300,6 +1309,7 @@ const InspeccionBotiquin = () => {
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Desde</label>
                 <DatePicker
+                  {...datePickerPortalProps}
                   selected={reporteFiltros.fecha_inicio}
                   onChange={d => setReporteFiltros({ ...reporteFiltros, fecha_inicio: d })}
                   dateFormat="dd/MM/yyyy"
@@ -1311,6 +1321,7 @@ const InspeccionBotiquin = () => {
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Hasta</label>
                 <DatePicker
+                  {...datePickerPortalProps}
                   selected={reporteFiltros.fecha_fin}
                   onChange={d => setReporteFiltros({ ...reporteFiltros, fecha_fin: d })}
                   dateFormat="dd/MM/yyyy"
@@ -1415,6 +1426,7 @@ const InspeccionBotiquin = () => {
                 <div className="form-group">
                   <label className="form-label">Fecha (automática)</label>
                   <DatePicker
+                    {...datePickerPortalProps}
                     selected={formInspeccion.fecha}
                     onChange={d => setFormInspeccion({ ...formInspeccion, fecha: d || new Date() })}
                     showTimeSelect

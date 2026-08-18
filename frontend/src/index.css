@@ -1030,7 +1030,11 @@ h3 { font-size: 1.5rem; }
   }
 }
 
-.date-picker-wrapper { width: 100%; display: block; position: relative; z-index: 999; }
+.date-picker-wrapper { width: 100%; display: block; }
 .date-picker-wrapper input { width: 100%; }
 
-.react-datepicker-popper { z-index: 9999 !important; }
+#datepicker-portal {
+  position: relative;
+  z-index: 10000;
+}
+.react-datepicker-popper { z-index: 10000 !important; }
