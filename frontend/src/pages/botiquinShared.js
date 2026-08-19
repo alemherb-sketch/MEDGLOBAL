@@ -9,6 +9,7 @@ export const TIPOS_EQUIPO_EMERGENCIA = [
 ];
 
 export const AREAS = ['Mina', 'Planta'];
+export const UBICACIONES = ['Mina', 'Planta'];
 
 export const EQUIPOS = [
   'Botiquín de emergencia',
@@ -47,9 +48,9 @@ export const emptyBotiquin = {
   fecha_creacion: new Date(),
   tipo_botiquin_id: '',
   tipo_equipo: TIPOS_EQUIPO_EMERGENCIA[0],
-  area: AREAS[0],
+  area: '',
   empresa_id: '',
-  ubicacion: '',
+  ubicacion: UBICACIONES[0],
   mapa_url: '',
   vehiculo: '',
   marca: '',

@@ -375,7 +375,7 @@ class Botiquin(Base):
     codigo = Column(String(50), unique=True, nullable=True, index=True)
     tipo_botiquin_id = Column(String(36), ForeignKey("tipos_botiquin.id"), nullable=True, index=True)
     tipo_equipo = Column(String(120), index=True)  # Botiquin area, vehiculo, etc.
-    area = Column(String(50), index=True)  # Mina, Planta
+    area = Column(String(150), index=True)
     empresa_id = Column(String(36), ForeignKey("empresas.id"), nullable=True, index=True)
     ubicacion = Column(String(250), nullable=True)
     mapa_url = Column(String(500), nullable=True)  # Enlace Google Maps u otro mapa

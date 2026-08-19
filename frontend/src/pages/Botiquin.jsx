@@ -9,7 +9,7 @@ import {
 import { apiFetch, apiJson } from '../api';
 import {
   TIPOS_EQUIPO_EMERGENCIA,
-  AREAS,
+  UBICACIONES,
   EQUIPOS,
   selectStyles,
   emptyBotiquin,
@@ -31,6 +31,7 @@ const Botiquin = () => {
     search: '',
     tipo_equipo: '',
     area: '',
+    ubicacion: '',
     empresa_id: '',
     equipo: '',
     estado: '',
@@ -219,7 +220,7 @@ const Botiquin = () => {
       fecha_creacion: b.fecha_creacion ? new Date(b.fecha_creacion) : (b.created_at ? new Date(b.created_at) : new Date()),
       tipo_botiquin_id: b.tipo_botiquin_id ? String(b.tipo_botiquin_id) : '',
       tipo_equipo: b.tipo_equipo || TIPOS_EQUIPO_EMERGENCIA[0],
-      area: b.area || AREAS[0],
+      area: b.area || '',
       empresa_id: b.empresa_id ? String(b.empresa_id) : '',
       ubicacion: b.ubicacion || '',
       mapa_url: '',
@@ -247,6 +248,14 @@ const Botiquin = () => {
       alert('Seleccione un tipo de botiquín');
       return;
     }
+    if (!(formBotiquin.ubicacion || '').trim()) {
+      alert('Seleccione la ubicación');
+      return;
+    }
+    if (!(formBotiquin.area || '').trim()) {
+      alert('Digite el área');
+      return;
+    }
     const isEdit = formBotiquin.id != null;
     const url = isEdit ? `/botiquines/${formBotiquin.id}` : '/botiquines/';
     const method = isEdit ? 'PUT' : 'POST';
@@ -254,7 +263,7 @@ const Botiquin = () => {
       codigo: (formBotiquin.codigo || '').trim() || null,
       tipo_botiquin_id: formBotiquin.tipo_botiquin_id || null,
       tipo_equipo: formBotiquin.tipo_equipo,
-      area: formBotiquin.area,
+      area: (formBotiquin.area || '').trim(),
       empresa_id: formBotiquin.empresa_id || null,
       ubicacion: formBotiquin.ubicacion || null,
       mapa_url: null,
@@ -368,11 +377,20 @@ const Botiquin = () => {
               </select>
             </div>
             <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Área</label>
-              <select className="form-control" value={filters.area} onChange={e => setFilters({ ...filters, area: e.target.value })}>
+              <label className="form-label">Ubicación</label>
+              <select className="form-control" value={filters.ubicacion} onChange={e => setFilters({ ...filters, ubicacion: e.target.value })}>
                 <option value="">Todas</option>
-                {AREAS.map(o => <option key={o} value={o}>{o}</option>)}
+                {UBICACIONES.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Área</label>
+              <input
+                className="form-control"
+                placeholder="Filtrar por área..."
+                value={filters.area}
+                onChange={e => setFilters({ ...filters, area: e.target.value })}
+              />
             </div>
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Empresa</label>
@@ -916,12 +934,15 @@ const Botiquin = () => {
                 {/* 5: Ubicación */}
                 <div className="form-group">
                   <label className="form-label">Ubicación</label>
-                  <input
+                  <select
                     className="form-control"
+                    required
                     value={formBotiquin.ubicacion}
                     onChange={e => setFormBotiquin({ ...formBotiquin, ubicacion: e.target.value })}
-                    placeholder="Descripción de la ubicación física"
-                  />
+                  >
+                    <option value="">Seleccione...</option>
+                    {UBICACIONES.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
                 </div>
 
                 {/* 6: Tipo de botiquín */}
@@ -953,14 +974,14 @@ const Botiquin = () => {
                 {/* 8: Área */}
                 <div className="form-group">
                   <label className="form-label">Área</label>
-                  <select
+                  <input
                     className="form-control"
                     required
+                    maxLength={150}
                     value={formBotiquin.area}
                     onChange={e => setFormBotiquin({ ...formBotiquin, area: e.target.value })}
-                  >
-                    {AREAS.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
+                    placeholder="Digite el área"
+                  />
                 </div>
 
                 {/* 9: Equipo */}

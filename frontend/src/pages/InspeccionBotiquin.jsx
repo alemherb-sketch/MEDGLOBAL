@@ -12,7 +12,7 @@ import { apiFetch, apiJson } from '../api';
 import { API_URL } from '../config';
 import {
   TIPOS_EQUIPO_EMERGENCIA,
-  AREAS,
+  UBICACIONES,
   selectStyles,
   labelMedicamento,
   resumenVehiculo,
@@ -109,7 +109,7 @@ const InspeccionBotiquin = () => {
   const [reporteFiltros, setReporteFiltros] = useState({
     empresa_id: '',
     botiquin_id: '',
-    areas: [],
+    ubicaciones: [],
     tipos_equipo: [],
     fecha_inicio: null,
     fecha_fin: null,
@@ -144,8 +144,8 @@ const InspeccionBotiquin = () => {
     [botiquines]
   );
 
-  const areaOptions = useMemo(
-    () => AREAS.map(a => ({ value: a, label: a })),
+  const ubicacionOptions = useMemo(
+    () => UBICACIONES.map(a => ({ value: a, label: a })),
     []
   );
 
@@ -853,8 +853,8 @@ const InspeccionBotiquin = () => {
       const params = new URLSearchParams();
       if (reporteFiltros.empresa_id) params.append('empresa_id', reporteFiltros.empresa_id);
       if (reporteFiltros.botiquin_id) params.append('botiquin_id', reporteFiltros.botiquin_id);
-      if ((reporteFiltros.areas || []).length) {
-        params.append('area', reporteFiltros.areas.join(','));
+      if ((reporteFiltros.ubicaciones || []).length) {
+        params.append('ubicacion', reporteFiltros.ubicaciones.join(','));
       }
       if ((reporteFiltros.tipos_equipo || []).length) {
         params.append('tipo_equipo', reporteFiltros.tipos_equipo.join(','));
@@ -881,7 +881,7 @@ const InspeccionBotiquin = () => {
     const aoa = [
       ['Reporte de Consumo de Insumos de Botiquín'],
       ['Empresa: ' + (empresa ? empresa.nombre : 'Todas')],
-      ['Área: ' + ((reporteFiltros.areas || []).length ? reporteFiltros.areas.join(', ') : 'Todas')],
+      ['Ubicación: ' + ((reporteFiltros.ubicaciones || []).length ? reporteFiltros.ubicaciones.join(', ') : 'Todas')],
       ['Tipo equipo: ' + ((reporteFiltros.tipos_equipo || []).length ? reporteFiltros.tipos_equipo.join(', ') : 'Todos')],
       [],
       ['Código', 'Insumo', 'Presentación', 'Tipo', ...reporte.rango_fechas, 'Cantidad', 'P. Unit.', 'Total (S/.)'],
@@ -1269,7 +1269,7 @@ const InspeccionBotiquin = () => {
                 />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Área</label>
+                <label className="form-label">Ubicación</label>
                 <Select
                   styles={selectStyles}
                   isMulti
@@ -1277,13 +1277,13 @@ const InspeccionBotiquin = () => {
                   isSearchable
                   closeMenuOnSelect={false}
                   hideSelectedOptions={false}
-                  options={areaOptions}
+                  options={ubicacionOptions}
                   placeholder="Todas..."
                   noOptionsMessage={() => 'Sin resultados'}
-                  value={areaOptions.filter(o => (reporteFiltros.areas || []).includes(o.value))}
+                  value={ubicacionOptions.filter(o => (reporteFiltros.ubicaciones || []).includes(o.value))}
                   onChange={(opts) => setReporteFiltros({
                     ...reporteFiltros,
-                    areas: (opts || []).map(o => o.value),
+                    ubicaciones: (opts || []).map(o => o.value),
                   })}
                 />
               </div>

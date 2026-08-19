@@ -114,6 +114,12 @@ with engine.connect() as conn:
     except Exception:
         pass
 
+    try:
+        with conn.begin():
+            conn.execute(text("ALTER TABLE botiquines ALTER COLUMN area TYPE VARCHAR(150)"))
+    except Exception:
+        pass
+
 app = FastAPI(title="MEDGLOBAL API")
 
 # Configure CORS
@@ -1466,6 +1472,7 @@ def _aplicar_resumen_vehiculo(data: dict) -> dict:
 def read_botiquines(
     tipo_equipo: Optional[str] = None,
     area: Optional[str] = None,
+    ubicacion: Optional[str] = None,
     empresa_id: Optional[str] = None,
     equipo: Optional[str] = None,
     estado: Optional[str] = None,
@@ -1478,7 +1485,9 @@ def read_botiquines(
     if tipo_equipo:
         q = q.filter(models.Botiquin.tipo_equipo == tipo_equipo)
     if area:
-        q = q.filter(models.Botiquin.area == area)
+        q = q.filter(models.Botiquin.area.ilike(f"%{area}%"))
+    if ubicacion:
+        q = q.filter(models.Botiquin.ubicacion == ubicacion)
     if empresa_id:
         q = q.filter(models.Botiquin.empresa_id == empresa_id)
     if equipo:
@@ -1872,6 +1881,7 @@ def get_reporte_consumo_insumos_botiquin(
     empresa_id: Optional[str] = None,
     botiquin_id: Optional[str] = None,
     area: Optional[str] = None,
+    ubicacion: Optional[str] = None,
     tipo_equipo: Optional[str] = None,
     equipo: Optional[str] = None,
     db: Session = Depends(get_db),
@@ -1897,9 +1907,15 @@ def get_reporte_consumo_insumos_botiquin(
     if area:
         areas = [x.strip() for x in str(area).split(",") if x and str(x).strip()]
         if len(areas) == 1:
-            q = q.filter(models.Botiquin.area == areas[0])
+            q = q.filter(models.Botiquin.area.ilike(f"%{areas[0]}%"))
         elif len(areas) > 1:
             q = q.filter(models.Botiquin.area.in_(areas))
+    if ubicacion:
+        ubicaciones = [x.strip() for x in str(ubicacion).split(",") if x and str(x).strip()]
+        if len(ubicaciones) == 1:
+            q = q.filter(models.Botiquin.ubicacion == ubicaciones[0])
+        elif len(ubicaciones) > 1:
+            q = q.filter(models.Botiquin.ubicacion.in_(ubicaciones))
     if tipo_equipo:
         tipos = [x.strip() for x in str(tipo_equipo).split(",") if x and str(x).strip()]
         if len(tipos) == 1:
