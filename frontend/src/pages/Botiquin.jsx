@@ -17,6 +17,7 @@ import {
   labelMedicamento,
   estadoBadgeStyle,
   resumenVehiculo,
+  sortBotiquinesByCodigoDesc,
 } from './botiquinShared';
 
 const Botiquin = () => {
@@ -98,7 +99,7 @@ const Botiquin = () => {
     });
     const q = params.toString();
     apiJson(`/botiquines/${q ? `?${q}` : ''}`)
-      .then(setBotiquines)
+      .then(data => setBotiquines(sortBotiquinesByCodigoDesc(data)))
       .catch(() => setBotiquines([]));
   };
 
@@ -476,13 +477,14 @@ const Botiquin = () => {
                 <th>Empresa</th>
                 <th>Vehículo</th>
                 <th>Ubicación</th>
+                <th>Área</th>
                 <th>Última inspección</th>
                 <th style={{ width: 200 }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {botiquines.length === 0 && (
-                <tr><td colSpan={7} style={{ textAlign: 'center', opacity: 0.7 }}>Sin botiquines registrados</td></tr>
+                <tr><td colSpan={8} style={{ textAlign: 'center', opacity: 0.7 }}>Sin botiquines registrados</td></tr>
               )}
               {botiquines.map(b => {
                 const vehiculoLabel = b.vehiculo
@@ -504,6 +506,7 @@ const Botiquin = () => {
                     <td>{b.empresa?.nombre || '—'}</td>
                     <td>{vehiculoLabel}</td>
                     <td>{b.ubicacion || '—'}</td>
+                    <td>{b.area || '—'}</td>
                     <td>
                       {b.ultima_inspeccion
                         ? new Date(b.ultima_inspeccion).toLocaleString()

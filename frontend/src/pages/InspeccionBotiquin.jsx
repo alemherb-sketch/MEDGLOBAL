@@ -16,6 +16,7 @@ import {
   selectStyles,
   labelMedicamento,
   resumenVehiculo,
+  sortBotiquinesByCodigoDesc,
 } from './botiquinShared';
 
 const ESTADOS_INSUMO = [
@@ -177,7 +178,7 @@ const InspeccionBotiquin = () => {
   const loadCatalogos = () => {
     apiJson('/empresas/').then(setEmpresas).catch(() => setEmpresas([]));
     apiJson('/personal_salud/').then(setPersonal).catch(() => setPersonal([]));
-    apiJson('/botiquines/').then(setBotiquines).catch(() => setBotiquines([]));
+    apiJson('/botiquines/').then(data => setBotiquines(sortBotiquinesByCodigoDesc(data))).catch(() => setBotiquines([]));
   };
 
   const loadInspecciones = () => {
@@ -203,7 +204,7 @@ const InspeccionBotiquin = () => {
     if (botFilters.search) params.append('search', botFilters.search);
     const q = params.toString();
     apiJson(`/botiquines/${q ? `?${q}` : ''}`)
-      .then(setBotiquines)
+      .then(data => setBotiquines(sortBotiquinesByCodigoDesc(data)))
       .catch(() => setBotiquines([]));
   };
 
@@ -216,7 +217,10 @@ const InspeccionBotiquin = () => {
     if (tab === 'botiquines') loadBotiquinesList();
   }, [tab, filters, botFilters]);
 
-  const botiquinesFiltrados = useMemo(() => botiquines, [botiquines]);
+  const botiquinesFiltrados = useMemo(
+    () => sortBotiquinesByCodigoDesc(botiquines),
+    [botiquines]
+  );
 
   const cargarInsumosDeBotiquin = async (botiquinId) => {
     if (!botiquinId) {
@@ -1016,6 +1020,7 @@ const InspeccionBotiquin = () => {
                 <th>Empresa</th>
                 <th>Vehículo</th>
                 <th>Ubicación</th>
+                <th>Área</th>
                 <th>Última inspección</th>
                 <th style={{ width: 168, textAlign: 'center', whiteSpace: 'nowrap' }}>Acciones</th>
               </tr>
@@ -1023,7 +1028,7 @@ const InspeccionBotiquin = () => {
             <tbody>
               {botiquinesFiltrados.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', opacity: 0.7 }}>
+                  <td colSpan={8} style={{ textAlign: 'center', opacity: 0.7 }}>
                     Sin botiquines registrados
                   </td>
                 </tr>
@@ -1049,6 +1054,7 @@ const InspeccionBotiquin = () => {
                     <td>{b.empresa?.nombre || '—'}</td>
                     <td>{vehiculoLabel}</td>
                     <td>{b.ubicacion || '—'}</td>
+                    <td>{b.area || '—'}</td>
                     <td>
                       {tieneInspeccion
                         ? new Date(b.ultima_inspeccion).toLocaleString()

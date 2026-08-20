@@ -1467,6 +1467,14 @@ def _aplicar_resumen_vehiculo(data: dict) -> dict:
     return data
 
 
+def _orden_codigo_botiquin(bot):
+    """Mayor a menor por el número del código (BS-10 antes que BS-07)."""
+    codigo = (getattr(bot, "codigo", None) or "").strip()
+    m = re.search(r"(\d+)$", codigo)
+    numero = int(m.group(1)) if m else -1
+    return (numero, codigo.lower())
+
+
 # --- Botiquin ---
 @app.get("/botiquines/", response_model=List[schemas.Botiquin])
 def read_botiquines(
@@ -1510,7 +1518,8 @@ def read_botiquines(
             | (models.Botiquin.tipo_equipo.ilike(like))
             | (models.Botiquin.equipo.ilike(like))
         )
-    bots = q.order_by(models.Botiquin.created_at.desc()).all()
+    bots = q.all()
+    bots.sort(key=_orden_codigo_botiquin, reverse=True)
     if bots:
         ids = [b.id for b in bots]
         rows = (

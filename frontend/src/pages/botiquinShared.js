@@ -86,6 +86,30 @@ export const labelMedicamento = (m) => {
   return `${m.codigo || '—'} · ${m.nombre}${m.presentacion ? ` (${m.presentacion})` : ''}${m.tipo ? ` [${m.tipo}]` : ''}`;
 };
 
+/** Sufijo numérico de un código (BS-07 → 7). */
+export function codigoNumericSuffix(codigo) {
+  if (!codigo) return null;
+  const m = String(codigo).trim().match(/(\d+)$/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+/** Mayor a menor por código: BS-10 > BS-9 > BS-07; sin número por texto DESC; vacíos al final. */
+export function sortBotiquinesByCodigoDesc(list) {
+  return [...(list || [])].sort((a, b) => {
+    const ca = (a?.codigo || '').trim();
+    const cb = (b?.codigo || '').trim();
+    if (!ca && !cb) return 0;
+    if (!ca) return 1;
+    if (!cb) return -1;
+    const na = codigoNumericSuffix(ca);
+    const nb = codigoNumericSuffix(cb);
+    if (na != null && nb != null && na !== nb) return nb - na;
+    if (na != null && nb == null) return -1;
+    if (na == null && nb != null) return 1;
+    return cb.localeCompare(ca, undefined, { numeric: true, sensitivity: 'base' });
+  });
+}
+
 export const estadoBadgeStyle = (activo) => ({
   display: 'inline-block',
   padding: '4px 10px',
