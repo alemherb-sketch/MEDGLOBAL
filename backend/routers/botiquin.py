@@ -314,8 +314,14 @@ def crear_botiquin(botiquin: schemas.BotiquinCreate, db: SesionDB):
     datos = _validar_tipo(db, botiquin.model_dump())
     codigo = (datos.get("codigo") or "").strip()
     datos["codigo"] = codigo or siguiente_codigo(db, models.Botiquin, "codigo", "BOT")
+    # solo_vigentes: a diferencia del resto de codigos del sistema, este NO
+    # tiene indice UNIQUE en la base (la columna se agrego con ALTER TABLE ADD
+    # COLUMN, que no lo crea). Borrar un botiquin y volver a darlo de alta con
+    # el mismo codigo es un uso normal y hay varios casos asi en produccion:
+    # mirar tambien las filas borradas rechazaria esa alta.
     crud.rechazar_duplicado(db, models.Botiquin, models.Botiquin.codigo, datos["codigo"],
-                            "Ya existe un botiquín con ese código")
+                            "Ya existe un botiquín activo con ese código",
+                            solo_vigentes=True)
     if not datos.get("fecha_creacion"):
         datos["fecha_creacion"] = ahora_utc()
     datos = _aplicar_resumen_vehiculo(datos)
@@ -360,7 +366,8 @@ def editar_botiquin(id: str, botiquin: schemas.BotiquinCreate, db: SesionDB):
     if datos.get("codigo") is not None:
         datos["codigo"] = (datos["codigo"] or "").strip() or fila.codigo
         crud.rechazar_duplicado(db, models.Botiquin, models.Botiquin.codigo, datos["codigo"],
-                                "Ya existe un botiquín con ese código", excluir_id=id)
+                                "Ya existe un botiquín activo con ese código",
+                                excluir_id=id, solo_vigentes=True)
     crud.aplicar_campos(fila, _aplicar_resumen_vehiculo(datos))
     db.commit()
     db.refresh(fila)

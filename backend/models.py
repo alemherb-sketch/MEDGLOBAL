@@ -297,7 +297,16 @@ class Botiquin(MarcasDeAuditoria, Base):
     """Equipo de emergencia o botiquin, en un area, un vehiculo o una instalacion."""
     __tablename__ = "botiquines"
     id = Id()
-    codigo = Column(String(50), unique=True, nullable=True, index=True)
+    # Sin unique= a proposito, y es el unico codigo del sistema que no lo lleva.
+    # La columna se agrego a una tabla que ya existia (migraciones.py), y un
+    # ALTER TABLE ADD COLUMN no crea el indice: la base en produccion nunca
+    # tuvo esa restriccion. Declararla aqui hacia que una instalacion NUEVA
+    # naciera con un esquema mas estricto que el del servidor, y al sincronizar
+    # los botiquines que comparten codigo (uno borrado y otro vivo, de dar de
+    # baja y volver a crear) chocaban contra el indice: la fila se descartaba
+    # como conflicto y el equipo se quedaba sin ese botiquin. La unicidad entre
+    # los botiquines VIGENTES la exige el endpoint, que es donde esta la regla.
+    codigo = Column(String(50), nullable=True, index=True)
     tipo_botiquin_id = Column(String(36), ForeignKey("tipos_botiquin.id"), nullable=True, index=True)
     tipo_equipo = Column(String(120), index=True)  # botiquin de area, de vehiculo, etc.
     area = Column(String(150), index=True)
