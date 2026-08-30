@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { apiFetch, apiJson } from '../api';
-import { Search, Plus, Trash2, Edit2, Upload, FileSpreadsheet, X } from 'lucide-react';
+import { Search, Plus, Trash2, Edit2, FileSpreadsheet, X } from 'lucide-react';
 
 const DiagnosticosCie10 = () => {
   const [diagnosticos, setDiagnosticos] = useState([]);

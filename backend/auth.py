@@ -1,7 +1,7 @@
 import logging
 import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import bcrypt
 from fastapi import Depends, HTTPException, status
@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 import models
 import rutas
 from database import get_db
+from servicios.tiempo import ahora_utc
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ def hash_password(password: str) -> str:
 
 
 def create_access_token(username: str) -> str:
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = ahora_utc() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     return jwt.encode({"sub": username, "exp": expire}, SECRET_KEY, algorithm=ALGORITHM)
 
 

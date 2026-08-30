@@ -1,8 +1,11 @@
 """Cliente de sincronizacion para el modo de escritorio (Fase 3).
 
-Corre en un hilo de fondo dentro de app_desktop.py. Habla con el servidor
-central (el VPS) usando los mismos endpoints /sync/cambios y /sync/subir
-que ya construyo y verifico la Fase 2.
+La sincronizacion es MANUAL: solo corre cuando alguien aprieta "Sincronizar
+ahora" en la aplicacion (POST /sync/ahora). No hay ningun ciclo de fondo que
+suba o baje datos por su cuenta, asi que mientras nadie apriete el boton esta
+PC no habla con el servidor y trabaja 100% con su base local. Habla con el
+servidor central (el VPS) usando los mismos endpoints /sync/cambios y
+/sync/subir que ya construyo y verifico la Fase 2.
 
 Si SYNC_SERVER_URL, SYNC_USERNAME o SYNC_PASSWORD no estan configurados,
 todo aqui queda inactivo — la app sigue funcionando 100% local, exactamente
@@ -23,32 +26,32 @@ import os
 import json
 import sqlite3
 import threading
-import time
 from datetime import datetime
 
 import requests
 from sqlalchemy.orm import sessionmaker
 
 import models
+import rutas
 from database import engine
-from main import SYNCABLE_MODELS, _row_to_sync_dict, _apply_sync_fields
+from servicios.tiempo import ahora_utc
+from servicios.sincronizacion import (
+    SYNCABLE_MODELS,
+    aplicar_campos as _apply_sync_fields,
+    fila_a_dict as _row_to_sync_dict,
+)
 
 logger = logging.getLogger(__name__)
 
 SYNC_SERVER_URL = os.getenv("SYNC_SERVER_URL")  # ej. https://api.medglobal.erpgest.com.pe
 SYNC_USERNAME = os.getenv("SYNC_USERNAME")
 SYNC_PASSWORD = os.getenv("SYNC_PASSWORD")
-SYNC_INTERVAL_SEGUNDOS = int(os.getenv("SYNC_INTERVAL_SEGUNDOS", "30"))
 
-# Timeouts generosos: una sincronizacion manual despues de varios dias sin
-# internet puede mover miles de filas de una sola vez, y cortarla a los 30
-# segundos obligaria a reintentar el ciclo entero.
+# Timeouts generosos: una sincronizacion despues de varios dias sin internet
+# puede mover miles de filas de una sola vez, y cortarla a los 30 segundos
+# obligaria a apretar el boton otra vez y repetir el ciclo entero.
 PUSH_TIMEOUT_SEGUNDOS = int(os.getenv("SYNC_PUSH_TIMEOUT", "300"))
 PULL_TIMEOUT_SEGUNDOS = int(os.getenv("SYNC_PULL_TIMEOUT", "300"))
-# El chequeo de conexion tenia 5 segundos: en una PC de la clinica con
-# internet lento eso alcanzaba para que el indicador dijera "sin conexion"
-# aunque el servidor estuviera perfectamente accesible.
-CONEXION_TIMEOUT_SEGUNDOS = int(os.getenv("SYNC_CONEXION_TIMEOUT", "20"))
 LOGIN_TIMEOUT_SEGUNDOS = int(os.getenv("SYNC_LOGIN_TIMEOUT", "30"))
 
 # Cuantas filas como maximo van en cada peticion de subida. El servidor
@@ -57,30 +60,47 @@ LOGIN_TIMEOUT_SEGUNDOS = int(os.getenv("SYNC_LOGIN_TIMEOUT", "30"))
 # base remota. Ver _armar_lotes.
 LOTE_FILAS = int(os.getenv("SYNC_LOTE_FILAS", "300"))
 
-# Tope de la espera entre reintentos automaticos tras fallos seguidos.
-ESPERA_MAXIMA_SEGUNDOS = int(os.getenv("SYNC_ESPERA_MAXIMA", "600"))
-
-_CURSOR_FILE = "sync_cursor.json"
+_CURSOR_FILE = None  # legacy; usar _cursor_file()
+_CARPETA_RESPALDOS = None  # legacy; usar _carpeta_respaldos()
 
 # Respaldos de la base local previos a cada sincronizacion. Se conservan los
 # ultimos RESPALDOS_A_CONSERVAR y se van rotando.
-_CARPETA_RESPALDOS = "respaldos"
 RESPALDOS_A_CONSERVAR = int(os.getenv("SYNC_RESPALDOS", "10"))
 
-# Serializa los ciclos de sincronizacion. El hilo de fondo y el boton
-# "Sincronizar ahora" comparten este lock: sin el, dos ciclos simultaneos
-# podrian empujar las mismas filas dos veces y, sobre todo, escribir el
-# archivo de cursores uno encima del otro dejando un punto de sincronizacion
-# incoherente.
+# Serializa los ciclos de sincronizacion. Aunque la sincronizacion sea manual,
+# uvicorn atiende cada peticion en su propio hilo: dos clics seguidos, o el
+# mismo boton apretado desde dos pestanas del navegador, entran a la vez. Sin
+# este lock esos dos ciclos empujarian las mismas filas dos veces y, sobre
+# todo, escribirian el archivo de cursores uno encima del otro dejando un punto
+# de sincronizacion incoherente.
 _lock = threading.Lock()
 
 LocalSession = sessionmaker(bind=engine)
 
-# Estado compartido entre el hilo de fondo (que lo escribe) y el endpoint
-# GET /sync/estado (que lo lee) -- no hace falta un lock porque cada campo
-# se reemplaza en una sola asignacion atomica (GIL), nunca se muta en su
-# lugar.
+# Lo que muestra el indicador de la barra lateral. Lo escribe cada
+# sincronizacion manual y lo lee el endpoint GET /sync/estado -- no hace falta
+# un lock porque cada campo se reemplaza en una sola asignacion atomica (GIL),
+# nunca se muta en su lugar.
+#
+# "desactivado" = esta instalacion no tiene sincronizacion (el frontend
+# entonces no muestra ni el indicador ni el boton). "manual" = configurada y
+# esperando que alguien apriete el boton; los demas estados son el resultado
+# del ultimo intento.
 _estado = {"estado": "desactivado", "ultima_sincronizacion": None, "ultimo_error": None}
+
+
+def _cursor_file():
+    """Ruta del cursor en el momento del uso (no al importar).
+
+    Si se resolviera al importar el modulo, quedaria fijada a un directorio y
+    luego un test o MEDGLOBAL_DATOS distinto leeria/escribira en otro sitio:
+    el cursor no avanzaria donde corresponde o se pisaria el de otra carpeta.
+    """
+    return rutas.datos("sync_cursor.json")
+
+
+def _carpeta_respaldos():
+    return rutas.datos("respaldos")
 
 
 def obtener_estado():
@@ -117,10 +137,10 @@ def _leer_cursores():
     justamente lo que recupera los cambios que el bug habia dejado sin subir;
     el servidor los aplica de forma idempotente por id.
     """
-    if not os.path.exists(_CURSOR_FILE):
+    if not os.path.exists(_cursor_file()):
         return None, None
     try:
-        with open(_CURSOR_FILE) as f:
+        with open(_cursor_file()) as f:
             datos = json.load(f)
     except (OSError, json.JSONDecodeError):
         return None, None
@@ -129,7 +149,7 @@ def _leer_cursores():
 
 
 def _guardar_cursores(last_pulled_at, last_pushed_at):
-    with open(_CURSOR_FILE, "w") as f:
+    with open(_cursor_file(), "w") as f:
         json.dump(
             {
                 "last_pulled_at": last_pulled_at,
@@ -169,9 +189,10 @@ def _respaldar_base_local():
         return None
 
     try:
-        os.makedirs(_CARPETA_RESPALDOS, exist_ok=True)
+        carpeta = _carpeta_respaldos()
+        os.makedirs(carpeta, exist_ok=True)
         marca = datetime.now().strftime("%Y%m%d-%H%M%S")
-        destino = os.path.join(_CARPETA_RESPALDOS, f"medglobal-{marca}.db")
+        destino = os.path.join(carpeta, f"medglobal-{marca}.db")
 
         origen_conn = sqlite3.connect(ruta_base)
         try:
@@ -193,30 +214,12 @@ def _respaldar_base_local():
 def _rotar_respaldos():
     """Deja solo los RESPALDOS_A_CONSERVAR mas recientes, para que la carpeta
     no crezca sin limite en una PC de la clinica."""
-    respaldos = sorted(glob.glob(os.path.join(_CARPETA_RESPALDOS, "medglobal-*.db")))
+    respaldos = sorted(glob.glob(os.path.join(_carpeta_respaldos(), "medglobal-*.db")))
     for viejo in respaldos[:-RESPALDOS_A_CONSERVAR] if RESPALDOS_A_CONSERVAR > 0 else []:
         try:
             os.remove(viejo)
         except OSError:
             pass
-
-
-def esta_en_linea():
-    if not SYNC_SERVER_URL:
-        return False
-    try:
-        r = requests.get(f"{SYNC_SERVER_URL}/docs", timeout=CONEXION_TIMEOUT_SEGUNDOS)
-        if r.status_code != 200:
-            logger.warning("Chequeo de conexion: %s/docs respondio %s", SYNC_SERVER_URL, r.status_code)
-            return False
-        return True
-    except requests.RequestException as e:
-        # Con el detalle: sin esto, "sin conexion" podia ser un DNS que no
-        # resuelve, un certificado que no valida, un proxy o simplemente que
-        # no hay internet, y no habia forma de distinguirlos desde la PC.
-        logger.warning("Chequeo de conexion fallido contra %s: %s: %s",
-                       SYNC_SERVER_URL, type(e).__name__, e)
-        return False
 
 
 def _login():
@@ -282,9 +285,9 @@ def _armar_lotes(db, since_local):
     casi 16.000 filas (el catalogo CIE-10 solo ya trae 15.040), y el servidor
     confirma fila por fila: una sola peticion se convertia en ~16.000
     escrituras seguidas contra la base. El worker quedaba ocupado varios
-    minutos, el siguiente ciclo de sincronizacion (cada 30 segundos) se
-    encontraba el servidor sin responder y cortaba por timeout, y como el
-    cursor no avanza ante un fallo, el ciclo siguiente volvia a intentar las
+    minutos, el siguiente ciclo (en esa epoca la sincronizacion era automatica
+    cada 30 segundos) se encontraba el servidor sin responder y cortaba por
+    timeout, y como el cursor no avanza ante un fallo, volvia a intentar las
     mismas 16.000 filas. La sincronizacion no terminaba nunca y de paso dejaba
     al servidor sin atender al resto.
 
@@ -429,16 +432,14 @@ def sincronizar_ahora(origen="manual"):
 
     Nunca lanza excepciones: siempre devuelve un dict con 'ok' y, cuando
     ok=False, un 'motivo' estable que la interfaz traduce a un mensaje para el
-    usuario. Que no lance es importante para el hilo de fondo, que no tiene su
-    propio try/except: una excepcion que se escapara de aca mataria el hilo
-    para siempre y esa instalacion no volveria a sincronizar hasta reiniciar
-    la app.
+    usuario. Asi el que aprieta el boton siempre recibe una respuesta que dice
+    que paso, en vez de un error 500 sin explicacion.
 
     Garantias para no perder informacion:
 
-      - Un solo ciclo a la vez (_lock). Si el usuario aprieta el boton
-        mientras el ciclo automatico esta corriendo, no se solapan dos push
-        ni se pisa el archivo de cursores a medio escribir.
+      - Un solo ciclo a la vez (_lock). Si el boton se aprieta dos veces, o
+        desde dos pestanas, no se solapan dos push ni se pisa el archivo de
+        cursores a medio escribir.
       - Antes de tocar nada se hace un respaldo de la base local, porque el
         pull puede borrar filas locales al resolver colisiones de columnas
         unique (ver _limpiar_colisiones_locales).
@@ -469,7 +470,7 @@ def sincronizar_ahora(origen="manual"):
             # usuario guarde mientras el push esta en vuelo queda por encima de
             # este corte y entra en el ciclo siguiente, en vez de caer en el hueco
             # entre "ya la filtre" y "ya avance el cursor".
-            marca_local = datetime.utcnow().isoformat()
+            marca_local = ahora_utc().isoformat()
             subidos, conflictos = _empujar_cambios(token, since_local, since_servidor, db)
             nuevo_cursor, bajados = _traer_cambios(token, since_servidor, db)
             _guardar_cursores(nuevo_cursor, marca_local)
@@ -495,11 +496,6 @@ def sincronizar_ahora(origen="manual"):
         _lock.release()
 
 
-def sincronizar_una_vez():
-    """Compatibilidad: la version booleana que usa el hilo de fondo."""
-    return sincronizar_ahora(origen="automatico")["ok"]
-
-
 # Mensajes que ve el usuario en el indicador de la barra lateral. Las claves
 # son los 'motivo' que devuelve sincronizar_ahora.
 _MENSAJE_POR_MOTIVO = {
@@ -512,19 +508,21 @@ _MENSAJE_POR_MOTIVO = {
 
 
 def _actualizar_estado(resultado):
-    """Refleja el resultado de un ciclo en el indicador que lee /sync/estado.
-    Lo llaman tanto el hilo de fondo como el boton manual, para que apretar el
-    boton actualice el indicador en el acto."""
+    """Refleja el resultado de un ciclo en el indicador que lee /sync/estado,
+    para que apretar el boton actualice el indicador en el acto.
+
+    Como no hay ciclo de fondo, este indicador ya no dice si HAY conexion en
+    este momento: dice como termino la ultima sincronizacion que se pidio."""
     if resultado.get("motivo") == "en_curso":
         return  # otro ciclo esta corriendo y ya reportara su propio resultado
 
     if resultado.get("ok"):
         _estado["estado"] = "en_linea"
-        # +"Z": datetime.utcnow().isoformat() no incluye marca de zona
+        # +"Z": ahora_utc().isoformat() no incluye marca de zona
         # horaria, y new Date(...) en JS interpreta un ISO sin zona como hora
         # LOCAL, no UTC -- sin la Z el indicador del frontend mostraba la
         # ultima sync como si hubiera sido en el futuro.
-        _estado["ultima_sincronizacion"] = datetime.utcnow().isoformat() + "Z"
+        _estado["ultima_sincronizacion"] = ahora_utc().isoformat() + "Z"
         _estado["ultimo_error"] = None
     elif resultado.get("motivo") == "sin_conexion":
         _estado["estado"] = "fuera_de_linea"
@@ -535,11 +533,18 @@ def _actualizar_estado(resultado):
         )
 
 
-def iniciar_hilo_sincronizacion():
-    """Arranca el ciclo de sync en segundo plano. No hace nada si SYNC_* no
-    esta configurado — la app sigue 100% local sin cambio de comportamiento."""
+def preparar_sincronizacion_manual():
+    """Deja el indicador listo al arrancar la app. NO sincroniza ni arranca
+    ningun hilo: la sincronizacion ocurre unicamente cuando alguien aprieta
+    "Sincronizar ahora".
+
+    Si SYNC_* no esta configurado no hace nada y el estado queda en
+    "desactivado", con lo que el frontend no muestra ni el indicador ni el
+    boton — la app sigue siendo 100% local, igual que siempre."""
     if not sync_habilitado():
         return
+
+    _estado["estado"] = "manual"
 
     # El cursor persistido ya es, en los hechos, la hora del ultimo pull
     # exitoso -- lo usamos para que "ultima sincronizacion" no aparezca en
@@ -548,25 +553,3 @@ def iniciar_hilo_sincronizacion():
     _cursor_inicial, _ = _leer_cursores()
     if _cursor_inicial:
         _estado["ultima_sincronizacion"] = _cursor_inicial + "Z"
-
-    def loop():
-        fallos_seguidos = 0
-        while True:
-            if esta_en_linea():
-                resultado = sincronizar_ahora(origen="automatico")
-                _actualizar_estado(resultado)
-                fallos_seguidos = 0 if resultado.get("ok") else fallos_seguidos + 1
-            else:
-                _estado["estado"] = "fuera_de_linea"
-                fallos_seguidos += 1
-
-            # Espera creciente tras fallos seguidos. Sin esto, un ciclo que
-            # falla se reintenta cada 30 segundos indefinidamente: si lo que
-            # falla es un envio pesado que dejo al servidor ocupado, cada
-            # reintento lo vuelve a cargar y el problema se realimenta en vez
-            # de resolverse. Se corta en ESPERA_MAXIMA para que una PC que
-            # estuvo sin internet toda la noche no tarde horas en reconectar.
-            espera = min(SYNC_INTERVAL_SEGUNDOS * (2 ** min(fallos_seguidos, 5)), ESPERA_MAXIMA_SEGUNDOS)
-            time.sleep(espera if fallos_seguidos else SYNC_INTERVAL_SEGUNDOS)
-
-    threading.Thread(target=loop, daemon=True).start()

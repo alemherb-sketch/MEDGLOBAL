@@ -129,8 +129,11 @@ def test_cursores_leen_el_formato_viejo(tmp_path, monkeypatch):
     subido."""
     import json
 
+    import rutas
     import sync_client
 
+    monkeypatch.setenv("MEDGLOBAL_DATOS", str(tmp_path))
+    monkeypatch.setattr(rutas, "CARPETA_DATOS", str(tmp_path))
     monkeypatch.chdir(tmp_path)
     (tmp_path / "sync_cursor.json").write_text(json.dumps({"last_synced_at": "2026-01-01T10:00:00"}))
 

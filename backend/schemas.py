@@ -73,7 +73,6 @@ class Empresa(EmpresaBase):
     updated_at: Optional[datetime] = None
     class Config:
         from_attributes = True
-        orm_mode = True
 # --- Trabajador ---
 class TrabajadorBase(BaseModel):
     nombre: str
@@ -117,7 +116,6 @@ class Trabajador(TrabajadorBase):
     updated_at: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 # --- Sistemas de Atencion ---
@@ -131,7 +129,6 @@ class Clasificacion(ClasificacionBase):
     id: str
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 # --- Diagnosticos CIE10 ---
@@ -146,7 +143,6 @@ class DiagnosticoCie10Create(DiagnosticoCie10Base):
 class DiagnosticoCie10(DiagnosticoCie10Base):
     id: str
     class Config:
-        orm_mode = True
         from_attributes = True
 
 class PaginatedDiagnosticos(BaseModel):
@@ -163,7 +159,6 @@ class Sistema(SistemaBase):
     id: str
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 # --- Medicamento ---
@@ -185,7 +180,6 @@ class Medicamento(MedicamentoBase):
     stock_actual: int
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 # --- Kardex ---
@@ -207,7 +201,6 @@ class Kardex(KardexBase):
     medicamento: Optional[Medicamento] = None
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 # --- Personal de Salud ---
@@ -227,7 +220,6 @@ class PersonalSalud(PersonalSaludBase):
     id: str
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 # --- Atencion ---
@@ -240,7 +232,9 @@ class AtencionMedicamentoCreate(AtencionMedicamentoBase):
 
 class AtencionMedicamento(AtencionMedicamentoBase):
     id: str
-    medicamento: Medicamento
+    # Ver la nota en Cita: si el medicamento ya no existe, la atencion
+    # entera debe poder listarse igual.
+    medicamento: Optional[Medicamento] = None
     class Config:
         from_attributes = True
 
@@ -327,7 +321,6 @@ class TipoBotiquinInsumo(TipoBotiquinInsumoBase):
     medicamento: Optional[Medicamento] = None
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 
@@ -348,7 +341,6 @@ class TipoBotiquin(TipoBotiquinBase):
     updated_at: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 
@@ -390,7 +382,6 @@ class Botiquin(BotiquinBase):
     ultima_inspeccion: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 
@@ -408,7 +399,6 @@ class BotiquinInspeccionInsumo(BotiquinInspeccionInsumoBase):
     medicamento: Optional[Medicamento] = None
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 
@@ -476,7 +466,6 @@ class BotiquinInspeccion(BaseModel):
         return _parse_imagenes(v)
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 
@@ -493,11 +482,14 @@ class CitaCreate(CitaBase):
 
 class Cita(CitaBase):
     id: str
-    paciente: Trabajador
-    personal_salud: PersonalSalud
+    # Opcionales en la RESPUESTA aunque sean obligatorios al crear: FastAPI
+    # valida la lista completa y una sola cita con el paciente o el
+    # profesional en NULL (dato viejo, o importado a medias) hacia fallar
+    # GET /citas/ entero con un 500, dejando la agenda vacia sin aviso.
+    paciente: Optional[Trabajador] = None
+    personal_salud: Optional[PersonalSalud] = None
 
     class Config:
-        orm_mode = True
         from_attributes = True
 
 # --- Sincronizacion ---

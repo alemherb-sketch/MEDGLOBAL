@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MEDGLOBAL — Admin de licencias</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a222c;
+      --border: #2a3544;
+      --text: #e8eef4;
+      --muted: #8b9bb0;
+      --accent: #2f80ed;
+      --ok: #27ae60;
+      --danger: #e74c3c;
+      --warn: #f39c12;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #1c2a3d, var(--bg));
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { font-size: 1.4rem; margin: 0 0 4px; }
+    .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 24px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+    .stat strong { display: block; font-size: 1.6rem; }
+    .stat span { color: var(--muted); font-size: 0.8rem; }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 4px; }
+    input, textarea, select {
+      width: 100%;
+      background: #0d1218;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font: inherit;
+      margin-bottom: 12px;
+    }
+    textarea { min-height: 72px; font-family: ui-monospace, Consolas, monospace; font-size: 0.85rem; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .row > * { flex: 1 1 180px; }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font: inherit;
+      cursor: pointer;
+      background: linear-gradient(90deg, #2f80ed, #6c5ce7);
+      color: white;
+      font-weight: 600;
+    }
+    button.secondary { background: #2a3544; }
+    button.danger { background: #8b2942; }
+    button:disabled { opacity: 0.5; cursor: wait; }
+    .msg { font-size: 0.9rem; margin-top: 8px; }
+    .msg.err { color: var(--danger); }
+    .msg.ok { color: var(--ok); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-weight: 500; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: #243042;
+    }
+    .badge.ok { background: #1e3d2f; color: #6ee7a8; }
+    .badge.bad { background: #3d1e1e; color: #f5a3a3; }
+    .codigo {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 0.72rem;
+      word-break: break-all;
+      background: #0d1218;
+      border-radius: 6px;
+      padding: 8px;
+      max-height: 80px;
+      overflow: auto;
+    }
+    .hidden { display: none !important; }
+    #loginBox { max-width: 400px; margin: 12vh auto; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="loginBox" class="card">
+      <h1>Admin de licencias</h1>
+      <p class="sub">MEDGLOBAL Escritorio — emita y revoque licencias de forma remota</p>
+      <label>Token de administrador</label>
+      <input id="tokenIn" type="password" placeholder="LICENCIAS_ADMIN_TOKEN" autocomplete="current-password" />
+      <button id="btnLogin">Entrar</button>
+      <div id="loginMsg" class="msg"></div>
+    </div>
+
+    <div id="appBox" class="hidden">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+        <div>
+          <h1>MEDGLOBAL — Licencias</h1>
+          <p class="sub">Gestión remota de PCs de escritorio autorizadas</p>
+        </div>
+        <button class="secondary" id="btnSalir">Salir</button>
+      </div>
+
+      <div class="card">
+        <div class="grid" id="stats"></div>
+      </div>
+
+      <div class="card">
+        <h2 style="font-size:1.05rem; margin:0 0 12px;">Emitir licencia</h2>
+        <div class="row">
+          <div>
+            <label>Cliente / clínica</label>
+            <input id="cliente" placeholder="Clínica Norte" />
+          </div>
+          <div>
+            <label>Días de vigencia (0 = sin caducidad)</label>
+            <input id="dias" type="number" value="365" min="0" />
+          </div>
+          <div>
+            <label>Cupo máx. PCs (si no lista IDs)</label>
+            <input id="maxPcs" type="number" value="1" min="0" />
+          </div>
+        </div>
+        <label>Machine ID (uno por línea o separados por coma) — recomendado</label>
+        <textarea id="machines" placeholder="B5BA24D1622A28C6059A0EEA7190CBC8"></textarea>
+        <label>Notas internas</label>
+        <input id="notas" placeholder="Opcional" />
+        <button id="btnEmitir">Generar licencia</button>
+        <div id="emitMsg" class="msg"></div>
+        <div id="codigoBox" class="hidden" style="margin-top:12px;">
+          <label>Código generado (copiar completo a la PC)</label>
+          <div class="codigo" id="codigoOut"></div>
+          <button class="secondary" id="btnCopiar" style="margin-top:8px;">Copiar código</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2 style="font-size:1.05rem; margin:0;">Licencias emitidas</h2>
+          <button class="secondary" id="btnRefresh">Actualizar</button>
+        </div>
+        <div style="overflow-x:auto; margin-top:12px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Estado</th>
+                <th>PCs</th>
+                <th>Expira</th>
+                <th>Emitida</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tabla"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let TOKEN = localStorage.getItem("mg_lic_admin") || "";
+
+    async function api(path, opts = {}) {
+      const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+      if (TOKEN) headers["Authorization"] = "Bearer " + TOKEN;
+      const r = await fetch(path, { ...opts, headers });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || data.detalle || ("Error " + r.status));
+      return data;
+    }
+
+    function showApp(on) {
+      $("loginBox").classList.toggle("hidden", on);
+      $("appBox").classList.toggle("hidden", !on);
+    }
+
+    async function login() {
+      $("loginMsg").textContent = "";
+      try {
+        const t = $("tokenIn").value.trim();
+        const data = await api("/api/login", { method: "POST", body: JSON.stringify({ token: t }) });
+        TOKEN = data.token;
+        localStorage.setItem("mg_lic_admin", TOKEN);
+        showApp(true);
+        await refresh();
+      } catch (e) {
+        $("loginMsg").className = "msg err";
+        $("loginMsg").textContent = e.message;
+      }
+    }
+
+    function parseMachines(text) {
+      return text.split(/[\n,;]+/).map((s) => s.trim().toUpperCase()).filter(Boolean);
+    }
+
+    async function emitir() {
+      $("emitMsg").textContent = "";
+      $("codigoBox").classList.add("hidden");
+      try {
+        const body = {
+          cliente: $("cliente").value.trim(),
+          dias: Number($("dias").value || 0),
+          max_pcs: Number($("maxPcs").value || 0),
+          machines: parseMachines($("machines").value),
+          notas: $("notas").value.trim(),
+        };
+        if (!body.cliente) throw new Error("Indique el cliente.");
+        $("btnEmitir").disabled = true;
+        const data = await api("/api/emitir", { method: "POST", body: JSON.stringify(body) });
+        $("emitMsg").className = "msg ok";
+        $("emitMsg").textContent = data.detalle;
+        $("codigoOut").textContent = data.codigo;
+        $("codigoBox").classList.remove("hidden");
+        await refresh();
+      } catch (e) {
+        $("emitMsg").className = "msg err";
+        $("emitMsg").textContent = e.message;
+      } finally {
+        $("btnEmitir").disabled = false;
+      }
+    }
+
+    async function revocar(id) {
+      if (!confirm("¿Revocar esta licencia? Las PCs con chequeo online quedarán bloqueadas.")) return;
+      try {
+        await api("/api/revocar", { method: "POST", body: JSON.stringify({ licencia_id: id }) });
+        await refresh();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    async function verCodigo(id) {
+      try {
+        const data = await api("/api/licencia/" + id + "/codigo");
+        $("codigoOut").textContent = data.codigo;
+        $("codigoBox").classList.remove("hidden");
+        $("codigoBox").scrollIntoView({ behavior: "smooth" });
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    function fmtDate(s) {
+      if (!s) return "—";
+      try { return new Date(s).toLocaleDateString(); } catch { return s; }
+    }
+
+    async function refresh() {
+      const r = await api("/api/resumen");
+      $("stats").innerHTML = [
+        ["Licencias", r.licencias_total],
+        ["Activas", r.licencias_activas],
+        ["Revocadas", r.licencias_revocadas],
+        ["PCs registradas", r.pcs_activadas],
+      ].map(([k, v]) => `<div class="stat"><strong>${v}</strong><span>${k}</span></div>`).join("");
+
+      if (!r.tiene_privada) {
+        $("emitMsg").className = "msg err";
+        $("emitMsg").textContent = "Falta licencia_privada.pem en el servidor. No se pueden emitir.";
+      }
+
+      const list = await api("/api/licencias");
+      const tb = $("tabla");
+      tb.innerHTML = "";
+      for (const L of list.licencias) {
+        const tr = document.createElement("tr");
+        const badge = L.revocada
+          ? '<span class="badge bad">Revocada</span>'
+          : '<span class="badge ok">Activa</span>';
+        const pcs = `${L.pcs_activas || 0} / ${L.max_pcs}`;
+        const machines = (L.machines || []).join("<br>") || "<span style='color:var(--muted)'>cupo libre</span>";
+        tr.innerHTML = `
+          <td><strong>${escapeHtml(L.cliente)}</strong><div style="color:var(--muted);font-size:0.75rem">${L.licencia_id.slice(0,8)}…</div>
+            <div style="margin-top:4px;font-size:0.78rem">${machines}</div></td>
+          <td>${badge}</td>
+          <td>${pcs}</td>
+          <td>${fmtDate(L.expira)}</td>
+          <td>${fmtDate(L.emitida)}</td>
+          <td>
+            <button class="secondary" data-code="${L.licencia_id}" style="margin:2px;padding:6px 10px;font-size:0.8rem">Código</button>
+            ${L.revocada ? "" : `<button class="danger" data-rev="${L.licencia_id}" style="margin:2px;padding:6px 10px;font-size:0.8rem">Revocar</button>`}
+          </td>`;
+        tb.appendChild(tr);
+      }
+      tb.querySelectorAll("[data-rev]").forEach((b) => b.onclick = () => revocar(b.dataset.rev));
+      tb.querySelectorAll("[data-code]").forEach((b) => b.onclick = () => verCodigo(b.dataset.code));
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+    }
+
+    $("btnLogin").onclick = login;
+    $("tokenIn").onkeydown = (e) => { if (e.key === "Enter") login(); };
+    $("btnEmitir").onclick = emitir;
+    $("btnRefresh").onclick = () => refresh().catch((e) => alert(e.message));
+    $("btnCopiar").onclick = async () => {
+      try {
+        await navigator.clipboard.writeText($("codigoOut").textContent);
+        $("btnCopiar").textContent = "Copiado";
+        setTimeout(() => $("btnCopiar").textContent = "Copiar código", 1500);
+      } catch { alert("No se pudo copiar"); }
+    };
+    $("btnSalir").onclick = () => {
+      TOKEN = "";
+      localStorage.removeItem("mg_lic_admin");
+      showApp(false);
+    };
+
+    if (TOKEN) {
+      showApp(true);
+      refresh().catch(() => {
+        TOKEN = "";
+        localStorage.removeItem("mg_lic_admin");
+        showApp(false);
+      });
+    }
+  </script>
+</body>
+</html>

@@ -44,5 +44,9 @@ def test_reponer_botiquin_rechaza_stock_insuficiente(client):
     })
 
     assert respuesta.status_code == 400
-    assert respuesta.json()["detail"] == "Stock insuficiente. Disponible: 2"
+    # El mensaje nombra el producto y el faltante: cuando una atencion
+    # dispensa varios items, "Stock insuficiente" a secas no decia cual.
+    detalle = respuesta.json()["detail"]
+    assert detalle.startswith("Stock insuficiente")
+    assert "se piden 3 y hay 2" in detalle
     assert client.get("/medicamentos/").json()[0]["stock_actual"] == 2

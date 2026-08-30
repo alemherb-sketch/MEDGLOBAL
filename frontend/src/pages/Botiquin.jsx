@@ -6,7 +6,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import {
   Search, Plus, Trash2, Edit2, X, Filter, Package, Save, Layers, Eye, ClipboardCheck
 } from 'lucide-react';
-import { apiFetch, apiJson } from '../api';
+import { apiFetch, apiJson, mensajeDeError } from '../api';
 import {
   TIPOS_EQUIPO_EMERGENCIA,
   UBICACIONES,
@@ -192,7 +192,7 @@ const Botiquin = () => {
     };
     apiFetch(url, { method, body: JSON.stringify(data) })
       .then(async res => {
-        if (!res.ok) throw new Error(await res.text());
+        if (!res.ok) throw new Error(await mensajeDeError(res));
         setModalTipo(false);
         loadTipos();
       })
@@ -203,7 +203,7 @@ const Botiquin = () => {
     if (!window.confirm('¿Eliminar este tipo de botiquín?')) return;
     apiFetch(`/tipos_botiquin/${id}`, { method: 'DELETE' })
       .then(async res => {
-        if (!res.ok) throw new Error(await res.text());
+        if (!res.ok) throw new Error(await mensajeDeError(res));
         loadTipos();
       })
       .catch(err => alert('Error al eliminar: ' + err.message));
@@ -282,7 +282,7 @@ const Botiquin = () => {
 
     apiFetch(url, { method, body: JSON.stringify(data) })
       .then(async res => {
-        if (!res.ok) throw new Error(await res.text());
+        if (!res.ok) throw new Error(await mensajeDeError(res));
         setModalBotiquin(false);
         loadBotiquines();
         loadTipos();

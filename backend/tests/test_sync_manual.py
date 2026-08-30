@@ -21,6 +21,12 @@ def sync_configurado(monkeypatch, tmp_path):
     monkeypatch.setattr(sync_client, "SYNC_USERNAME", "equipo")
     monkeypatch.setattr(sync_client, "SYNC_PASSWORD", "clave")
     monkeypatch.setattr(sync_client, "_login", lambda: ("token-valido", None, None))
+    # Aislar cursor y respaldos: sin esto un MEDGLOBAL_DATOS del entorno del
+    # desarrollador (o de una prueba anterior) lee/escribe la carpeta real
+    # del usuario y no el tmp_path del test.
+    monkeypatch.setenv("MEDGLOBAL_DATOS", str(tmp_path))
+    import rutas
+    monkeypatch.setattr(rutas, "CARPETA_DATOS", str(tmp_path))
     monkeypatch.chdir(tmp_path)
     return tmp_path
 
@@ -177,8 +183,9 @@ def test_el_pull_puede_reordenar_valores_unicos_entre_filas(sync_configurado, db
 
 
 def test_no_deja_correr_dos_sincronizaciones_a_la_vez(sync_configurado, monkeypatch):
-    """El ciclo automatico corre cada 30 segundos; si el usuario aprieta el
-    boton justo en ese momento, los dos ciclos empujarian las mismas filas y
+    """Una sincronizacion tarda: es normal que el usuario vuelva a apretar el
+    boton, o que lo apriete desde otra pestana. Uvicorn atiende cada peticion
+    en su propio hilo, asi que los dos ciclos empujarian las mismas filas y
     escribirian el archivo de cursores uno encima del otro."""
     empezo = threading.Event()
     puede_terminar = threading.Event()
@@ -191,7 +198,7 @@ def test_no_deja_correr_dos_sincronizaciones_a_la_vez(sync_configurado, monkeypa
     monkeypatch.setattr(sync_client, "_empujar_cambios", push_lento)
     monkeypatch.setattr(sync_client, "_traer_cambios", lambda *a, **kw: ("2026-01-01T00:00:00", 0))
 
-    hilo = threading.Thread(target=sync_client.sincronizar_ahora, args=("automatico",))
+    hilo = threading.Thread(target=sync_client.sincronizar_ahora, args=("manual",))
     hilo.start()
     assert empezo.wait(timeout=5), "el primer ciclo no arranco"
 
@@ -289,14 +296,65 @@ def test_sin_credenciales_no_se_intenta_sincronizar(monkeypatch, tmp_path):
     assert sync_client.sincronizar_ahora(origen="manual") == {"ok": False, "motivo": "no_configurado"}
 
 
+def _estado_limpio(monkeypatch):
+    monkeypatch.setattr(sync_client, "_estado", {
+        "estado": "desactivado", "ultima_sincronizacion": None, "ultimo_error": None,
+    })
+
+
+def test_arrancar_la_aplicacion_no_sincroniza_sola(sync_configurado, monkeypatch):
+    """El punto de este modo: los datos salen de esta PC unicamente cuando
+    alguien aprieta el boton. Antes habia un hilo de fondo que sincronizaba
+    solo cada 30 segundos, y sin este test nada impide que vuelva sin que nadie
+    se de cuenta."""
+    _estado_limpio(monkeypatch)
+
+    def no_deberia_correr(*a, **kw):
+        raise AssertionError("se sincronizo sin que nadie apretara el boton")
+
+    monkeypatch.setattr(sync_client, "sincronizar_ahora", no_deberia_correr)
+
+    hilos_antes = threading.active_count()
+    sync_client.preparar_sincronizacion_manual()
+
+    assert threading.active_count() == hilos_antes, "quedo un hilo sincronizando de fondo"
+    # Y el indicador queda visible en modo manual: si quedara en "desactivado"
+    # el frontend esconderia tambien el boton y no habria como sincronizar.
+    assert sync_client.obtener_estado()["estado"] == "manual"
+
+
+def test_una_instalacion_sin_sincronizacion_no_muestra_el_indicador(monkeypatch, tmp_path):
+    """Las PCs que trabajan puramente offline no tienen a quien sincronizarse:
+    ahi el indicador y el boton no deben aparecer."""
+    _estado_limpio(monkeypatch)
+    monkeypatch.setattr(sync_client, "SYNC_SERVER_URL", None)
+    monkeypatch.chdir(tmp_path)
+
+    sync_client.preparar_sincronizacion_manual()
+
+    assert sync_client.obtener_estado()["estado"] == "desactivado"
+
+
+def test_el_indicador_recuerda_la_ultima_sincronizacion_tras_reiniciar(sync_configurado, monkeypatch):
+    """Reiniciar la PC no puede hacer que el indicador diga "todavia no se
+    sincronizo": con sincronizacion manual, hace cuanto fue la ultima es el
+    dato que le dice al usuario cuanto tiene sin subir."""
+    _estado_limpio(monkeypatch)
+    sync_client._guardar_cursores("2026-01-01T10:00:00", "2026-01-01T09:59:00")
+
+    sync_client.preparar_sincronizacion_manual()
+
+    assert sync_client.obtener_estado()["ultima_sincronizacion"] == "2026-01-01T10:00:00Z"
+
+
 def test_endpoint_sync_ahora_responde_el_detalle(client, monkeypatch):
-    import main
+    from routers import sincronizacion
 
     monkeypatch.setattr(
         sync_client, "sincronizar_ahora",
         lambda origen="manual": {"ok": True, "subidos": 3, "bajados": 1, "conflictos": 0},
     )
-    monkeypatch.setattr(main, "sync_client", sync_client)
+    monkeypatch.setattr(sincronizacion, "sync_client", sync_client)
 
     respuesta = client.post("/sync/ahora")
     assert respuesta.status_code == 200
@@ -306,9 +364,9 @@ def test_endpoint_sync_ahora_responde_el_detalle(client, monkeypatch):
 def test_endpoint_sync_ahora_no_existe_en_el_servidor_web(client, monkeypatch):
     """En el VPS sync_client no esta instalado: el endpoint tiene que responder
     un error claro, no reventar."""
-    import main
+    from routers import sincronizacion
 
-    monkeypatch.setattr(main, "sync_client", None)
+    monkeypatch.setattr(sincronizacion, "sync_client", None)
     assert client.post("/sync/ahora").status_code == 400
 
 

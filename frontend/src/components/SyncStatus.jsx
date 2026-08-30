@@ -4,10 +4,18 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { apiJson } from '../api';
 
-const POLL_MS = 15000;
+// La sincronización es manual: el estado solo cambia cuando alguien aprieta el
+// botón, así que no hace falta preguntar seguido. Se sigue consultando cada
+// tanto para refrescar el "hace X minutos" y para que una segunda pestaña vea
+// la sincronización que se hizo desde la otra.
+const POLL_MS = 60000;
 
 const ESTILOS_POR_ESTADO = {
-  en_linea: { icon: Wifi, color: 'var(--success-color)', texto: 'En línea' },
+  // "manual" = configurada, esperando que alguien apriete el botón. El resto
+  // son el resultado del último intento, no el estado de la conexión ahora:
+  // nada consulta al servidor por su cuenta.
+  manual: { icon: RefreshCw, color: 'var(--text-muted)', texto: 'Sincronización manual' },
+  en_linea: { icon: Wifi, color: 'var(--success-color)', texto: 'Sincronizado' },
   fuera_de_linea: { icon: WifiOff, color: 'var(--warning-color)', texto: 'Sin conexión — trabajando localmente' },
   error: { icon: AlertTriangle, color: 'var(--danger-color)', texto: 'Error de sincronización' },
 };
@@ -87,9 +95,12 @@ const SyncStatus = () => {
   if (!cfg) return null;
   const Icono = cfg.icon;
 
+  // Sin ciclo automático, cuánto hace de la última sincronización es EL dato
+  // importante: es lo que hay pendiente de subir. Por eso se muestra siempre,
+  // incluso cuando todavía no se sincronizó nunca.
   const ultima = estado.ultima_sincronizacion
-    ? formatDistanceToNow(new Date(estado.ultima_sincronizacion), { addSuffix: true, locale: es })
-    : null;
+    ? `Última sync: ${formatDistanceToNow(new Date(estado.ultima_sincronizacion), { addSuffix: true, locale: es })}`
+    : 'Todavía no se sincronizó';
 
   return (
     <div style={{ margin: '0 0 8px' }}>
@@ -110,7 +121,7 @@ const SyncStatus = () => {
         <Icono size={14} style={{ flexShrink: 0 }} />
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3, overflow: 'hidden' }}>
           <span>{cfg.texto}</span>
-          {ultima && <span style={{ color: 'var(--text-muted)' }}>Última sync: {ultima}</span>}
+          <span style={{ color: 'var(--text-muted)' }}>{ultima}</span>
         </div>
       </div>
 

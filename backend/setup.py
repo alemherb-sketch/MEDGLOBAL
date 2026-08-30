@@ -1,5 +1,10 @@
 """Empaqueta la aplicacion de escritorio (MEDGLOBAL.exe) con cx_Freeze.
 
+Esto arma la version EN CARPETA (el .exe con lib/ y static/ al lado). Para el
+ejecutable UNICO -- un solo archivo que ya lleva adentro el frontend, la base
+inicial y el .env -- ver medglobal.spec, que se construye con PyInstaller.
+
+
 Antes de correr esto hay que compilar el frontend con la URL del API VACIA y
 copiar el resultado a backend/static, para que el .exe hable con su propio
 servidor local en vez de con el de internet:
@@ -23,22 +28,28 @@ build_exe_options = {
     "packages": [
         "uvicorn", "fastapi", "sqlalchemy", "pydantic", "starlette",
         "webbrowser", "threading", "sqlite3", "logging",
-        "requests", "bcrypt", "jose", "pandas", "openpyxl",
+        "requests", "bcrypt", "jose", "pandas", "openpyxl", "webview",
+        # Paquetes propios: los endpoints y la logica de negocio.
+        "routers", "servicios",
     ],
     # medglobal.db es la base inicial que se lleva la instalacion nueva.
     # .env lleva la configuracion de sincronizacion (SYNC_SERVER_URL, usuario
     # y contrasena); app_desktop.py lo lee al arrancar.
-    "include_files": ["static/", "medglobal.db", ".env"],
+    # licencia_publica.pem verifica los codigos de licencia firmados.
+    "include_files": [
+        "static/",
+        "medglobal.db",
+        ".env",
+        "licencia_publica.pem",
+    ],
     "excludes": ["tkinter", "test", "unittest"],
 }
 
-# base=None deja la consola visible a proposito: es la forma que tiene el
-# personal de cerrar el servidor local, y ahi se ven los mensajes de error si
-# algo falla al arrancar.
+# base="gui" = sin consola: ventana de escritorio.
 setup(
     name="MEDGLOBAL",
-    version="1.1",
-    description="Sistema Medglobal Local",
+    version="1.5",
+    description="MEDGLOBAL Escritorio",
     options={"build_exe": build_exe_options},
-    executables=[Executable("app_desktop.py", base=None, target_name="MEDGLOBAL.exe", icon=None)],
+    executables=[Executable("app_desktop.py", base="Win32GUI", target_name="MEDGLOBAL.exe", icon=None)],
 )

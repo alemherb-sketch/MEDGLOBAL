@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { apiFetch, apiJson } from '../api';
+import { apiFetch, apiJson, mensajeDeError } from '../api';
 import { Search, Plus, Edit2, Trash2, X, Eye } from 'lucide-react';
 
 const Planilla = () => {
@@ -46,7 +46,7 @@ const Planilla = () => {
       body: JSON.stringify(dataToSend)
     }).then(async res => {
       if (!res.ok) {
-        const err = await res.text();
+        const err = await mensajeDeError(res);
         throw new Error(err);
       }
       fetchTrabajadores();

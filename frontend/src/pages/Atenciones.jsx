@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiFetch, apiJson } from '../api';
-import { Search, Plus, Trash2, Edit2, X, Link, Clock, Eye } from 'lucide-react';
+import { Search, Plus, Trash2, Edit2, X, Eye } from 'lucide-react';
 import Select from 'react-select';
 import AsyncSelect from 'react-select/async';
 
@@ -14,7 +14,6 @@ const Atenciones = () => {
   const [trabajadores, setTrabajadores] = useState([]);
   const [sistemas, setSistemas] = useState([]);
   const [contingencias, setContingencias] = useState([]);
-  const [citas, setCitas] = useState([]);
   const [personalSalud, setPersonalSalud] = useState([]);
   const [medicamentos, setMedicamentos] = useState([]);
   const [empresas, setEmpresas] = useState([]);
@@ -58,7 +57,6 @@ const Atenciones = () => {
     apiJson('/trabajadores/').then(setTrabajadores);
     apiJson('/sistemas/').then(setSistemas);
     apiJson('/clasificaciones/').then(setContingencias);
-    apiJson('/citas/').then(setCitas);
     apiJson('/personal_salud/').then(setPersonalSalud);
     apiJson('/medicamentos/').then(setMedicamentos);
     apiJson('/empresas/').then(setEmpresas);

@@ -1,0 +1,8 @@
+# Dependencias solo de la app de escritorio (no se instalan en el VPS).
+# Asume que requirements.txt ya esta instalado en el venv:
+#   pip install -r requirements.txt
+#   pip install -r requirements-desktop.txt
+#
+# No reinstallar pandas/numpy aqui: en Pythons nuevos pueden exigir compilador.
+pywebview==5.3.2
+pyinstaller>=6.11.1

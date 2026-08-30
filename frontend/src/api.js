@@ -38,7 +38,51 @@ export async function apiFetch(path, options = {}) {
       window.location.hash = '#/login';
     }
   }
+  if (response.status === 403) await _redirigirSiFaltaLicencia(response);
   return response;
+}
+
+/** El backend de escritorio responde 403 con motivo "sin_licencia" cuando la
+ * PC no esta habilitada. Sin esto, ese 403 se mostraba como un error generico
+ * en cada pantalla y no habia forma de llegar a la activacion.
+ *
+ * Se lee sobre una copia: quien llamo a apiFetch todavia tiene que poder
+ * consumir el cuerpo de la respuesta original. Y solo redirige por ese motivo
+ * concreto, porque 403 tambien es "se requiere rol de administrador". */
+async function _redirigirSiFaltaLicencia(response) {
+  const datos = await response.clone().json().catch(() => ({}));
+  if (datos?.motivo !== 'sin_licencia') return false;
+  if (!window.location.hash.startsWith('#/activar-licencia')) {
+    window.location.hash = '#/activar-licencia';
+  }
+  return true;
+}
+
+/** Saca el mensaje para el usuario de una respuesta con error.
+ *
+ * FastAPI devuelve {"detail": "..."} y las paginas muestran `err.message` en un
+ * alert. Sin esto el usuario veia el JSON entero en pantalla
+ * ({"detail":"Stock insuficiente..."}) en vez de la frase. Cuando `detail` es
+ * la lista de errores de validacion de Pydantic, se arma una linea legible en
+ * lugar de volcar la estructura. */
+export async function mensajeDeError(response) {
+  const texto = await response.text().catch(() => '');
+  if (!texto) return `Error ${response.status}`;
+  try {
+    const { detail } = JSON.parse(texto);
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail)) {
+      const campos = detail
+        .map((d) => (Array.isArray(d?.loc) ? d.loc[d.loc.length - 1] : null))
+        .filter(Boolean);
+      return campos.length
+        ? `Revise estos campos: ${campos.join(', ')}.`
+        : 'Los datos enviados no son válidos.';
+    }
+  } catch {
+    // No era JSON: se muestra el cuerpo tal cual.
+  }
+  return texto;
 }
 
 /** Como apiFetch, pero ya parsea el JSON y lanza un Error legible si la
@@ -47,8 +91,7 @@ export async function apiFetch(path, options = {}) {
 export async function apiJson(path, options = {}) {
   const response = await apiFetch(path, options);
   if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(text || `Error ${response.status}`);
+    throw new Error(await mensajeDeError(response));
   }
   const text = await response.text();
   return text ? JSON.parse(text) : null;
@@ -60,11 +103,25 @@ export async function login(username, password) {
   const body = new URLSearchParams();
   body.set('username', username);
   body.set('password', password);
-  const response = await fetch(API_URL + '/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  });
+  let response;
+  try {
+    response = await fetch(API_URL + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+  } catch {
+    throw new Error(
+      'No se pudo contactar el servidor local. Cierre MEDGLOBAL y vuelve a abrirlo. Si el problema continua, reinstalle la version de escritorio.'
+    );
+  }
+  // Un 403 por licencia NO es una clave equivocada. Decir "usuario o
+  // contraseña incorrectos" ahi mandaba al usuario a probar claves una y otra
+  // vez por un problema que no tenia nada que ver.
+  if (response.status === 403 && (await _redirigirSiFaltaLicencia(response))) {
+    const datos = await response.json().catch(() => ({}));
+    throw new Error(datos.detail || 'Esta PC no tiene una licencia activa.');
+  }
   if (!response.ok) {
     throw new Error('Usuario o contraseña incorrectos');
   }

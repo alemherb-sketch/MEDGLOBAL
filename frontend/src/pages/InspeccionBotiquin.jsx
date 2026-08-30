@@ -8,7 +8,7 @@ import {
   Search, Trash2, X, ClipboardCheck, Download, Printer,
   Filter, History, Save, Eye, Edit2, FileText, ImagePlus, Package, PackagePlus
 } from 'lucide-react';
-import { apiFetch, apiJson } from '../api';
+import { apiFetch, apiJson, mensajeDeError } from '../api';
 import { API_URL } from '../config';
 import {
   TIPOS_EQUIPO_EMERGENCIA,
@@ -382,7 +382,7 @@ const InspeccionBotiquin = () => {
         method: 'POST',
         body: fd,
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await mensajeDeError(res));
       const data = await res.json();
       if (data?.url) urls.push(data.url);
     }
@@ -772,7 +772,7 @@ const InspeccionBotiquin = () => {
           body: JSON.stringify(payload),
         }
       );
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await mensajeDeError(res));
       pendingImagenes.forEach(p => p.preview && URL.revokeObjectURL(p.preview));
       setPendingImagenes([]);
       setModalInspeccion(false);
