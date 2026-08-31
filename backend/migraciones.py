@@ -1,4 +1,5 @@
-"""Migraciones de arranque: agrega columnas que faltan en bases ya creadas.
+"""Migraciones de arranque: agrega columnas que faltan en bases ya creadas
+y garantiza entradas de catalogo que el negocio espera.
 
 El proyecto no usa Alembic. Cuando se agrega una columna a models.py,
 create_all() no la agrega a las tablas que ya existen, asi que las
@@ -11,9 +12,17 @@ arranque.
 """
 import logging
 
-from sqlalchemy import text
+from sqlalchemy import func, text
+from sqlalchemy.orm import Session
+
+import models
+from servicios.tiempo import ahora_utc
 
 logger = logging.getLogger(__name__)
+
+# Catalogos de Sistemas Clinicos y Contingencias: entradas que deben existir
+# en toda instalacion para poder elegirlas en Atenciones y reportes.
+NOMBRES_CATALOGO_BASE = ("OBRA",)
 
 # tabla -> columnas a garantizar (definicion SQL tal cual va en el ALTER).
 COLUMNAS_POR_TABLA = {
@@ -65,6 +74,44 @@ def _ejecutar_ignorando_errores(conn, sentencia: str) -> None:
         logger.debug("Migracion omitida (probablemente ya aplicada): %s", sentencia)
 
 
+def _asegurar_nombre(sesion, modelo, nombre: str) -> None:
+    """Si ya hay una fila con ese nombre (cualquier capitalizacion), no
+    duplica. Si solo esta borrada en logico, la reactiva para que vuelva a
+    los desplegables. Prefiere la vigente cuando hay varias."""
+    existente = (
+        sesion.query(modelo)
+        .filter(func.lower(modelo.nombre) == nombre.lower())
+        .order_by(modelo.is_deleted.asc())
+        .first()
+    )
+    if existente is None:
+        sesion.add(modelo(nombre=nombre))
+        return
+    if existente.is_deleted:
+        existente.is_deleted = False
+        ahora = ahora_utc()
+        existente.updated_at = ahora
+        existente.server_updated_at = ahora
+
+
+def sembrar_catalogos(engine) -> None:
+    """Inserta OBRA en sistemas y clasificaciones si falta.
+
+    Corre en cada arranque. No pisa nombres ya creados a mano ni duplica.
+    """
+    sesion = Session(bind=engine)
+    try:
+        for nombre in NOMBRES_CATALOGO_BASE:
+            _asegurar_nombre(sesion, models.SistemaAtencion, nombre)
+            _asegurar_nombre(sesion, models.ClasificacionAtencion, nombre)
+        sesion.commit()
+    except Exception:
+        sesion.rollback()
+        logger.debug("Semilla de catalogos omitida (tabla o columna ausente)", exc_info=True)
+    finally:
+        sesion.close()
+
+
 def aplicar(engine) -> None:
     with engine.connect() as conn:
         for tabla, columnas in COLUMNAS_POR_TABLA.items():
@@ -72,3 +119,4 @@ def aplicar(engine) -> None:
                 _ejecutar_ignorando_errores(conn, f"ALTER TABLE {tabla} ADD COLUMN {columna}")
         for sentencia in AMPLIACIONES_DE_TIPO:
             _ejecutar_ignorando_errores(conn, sentencia)
+    sembrar_catalogos(engine)
