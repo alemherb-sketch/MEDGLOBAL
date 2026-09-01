@@ -35,8 +35,8 @@ const ConsumoMedicamentos = () => {
       .then(data => setEmpresas(data))
       .catch(err => console.error("Error fetching empresas:", err));
 
-    apiJson('/trabajadores/obras')
-      .then(data => setObras(data))
+    apiJson('/obras/')
+      .then(data => setObras(Array.isArray(data) ? data : []))
       .catch(err => console.error("Error fetching obras:", err));
   }, []);
 
@@ -151,7 +151,11 @@ const ConsumoMedicamentos = () => {
                 onChange={e => setFiltros({...filtros, obra: e.target.value})}
               >
                 <option value="">Todas las obras...</option>
-                {obras.map(o => <option key={o} value={o}>{o}</option>)}
+                {obras.map(o => {
+                  const nombre = typeof o === 'string' ? o : o.nombre;
+                  const key = typeof o === 'string' ? o : o.id;
+                  return <option key={key} value={nombre}>{nombre}</option>;
+                })}
               </select>
             </div>
             <div style={{ flex: '1 1 350px' }}>

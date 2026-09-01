@@ -18,7 +18,7 @@ const Layout = () => {
     { path: '/planilla', label: 'Planilla', icon: <Users size={20} /> },
     { path: '/personal-salud', label: 'Personal de Salud', icon: <UserRoundPlus size={20} /> },
     { path: '/diagnosticos-cie10', label: 'Catálogo CIE-10', icon: <BookOpen size={20} /> },
-    { path: '/sistemas', label: 'Sistemas Clínicos', icon: <Settings size={20} /> },
+    { path: '/sistemas', label: 'Sistemas y Obras', icon: <Settings size={20} /> },
   ];
 
   return (

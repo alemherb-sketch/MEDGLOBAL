@@ -127,6 +127,13 @@ class ClasificacionAtencion(MarcasDeAuditoria, Base):
     nombre = Column(String(100))
 
 
+class Obra(MarcasDeAuditoria, Base):
+    """Catalogo de obras / proyectos. Independiente de sistemas y contingencias."""
+    __tablename__ = "obras"
+    id = Id()
+    nombre = Column(String(150), unique=True, index=True)
+
+
 class DiagnosticoCie10(MarcasDeAuditoria, Base):
     __tablename__ = "diagnosticos_cie10"
     id = Id()

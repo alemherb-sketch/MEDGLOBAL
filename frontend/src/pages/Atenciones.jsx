@@ -17,6 +17,7 @@ const Atenciones = () => {
   const [personalSalud, setPersonalSalud] = useState([]);
   const [medicamentos, setMedicamentos] = useState([]);
   const [empresas, setEmpresas] = useState([]);
+  const [obras, setObras] = useState([]);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewAtencion, setViewAtencion] = useState(null);
@@ -47,6 +48,7 @@ const Atenciones = () => {
     diagnostico_2: '',
     diagnostico_3: '',
     destino: '',
+    sede_atencion: '',
     observaciones: '',
     tratamiento: '',
     medicamentos: [] // Array of {medicamento_id, cantidad}
@@ -60,6 +62,7 @@ const Atenciones = () => {
     apiJson('/personal_salud/').then(setPersonalSalud);
     apiJson('/medicamentos/').then(setMedicamentos);
     apiJson('/empresas/').then(setEmpresas);
+    apiJson('/obras/').then((data) => setObras(Array.isArray(data) ? data : []));
   };
 
   const loadDiagnosticos = (inputValue, callback) => {
@@ -225,6 +228,7 @@ const Atenciones = () => {
         diagnostico_2: atencion.diagnostico_2 || '',
         diagnostico_3: atencion.diagnostico_3 || '',
         destino: atencion.destino || '',
+        sede_atencion: atencion.sede_atencion || atencion.trabajador?.obra || '',
         observaciones: atencion.observaciones || '',
         tratamiento: atencion.tratamiento || '',
         medicamentos: atencion.medicamentos ? atencion.medicamentos.map(m => ({medicamento_id: m.medicamento_id, cantidad: m.cantidad})) : []
@@ -238,7 +242,7 @@ const Atenciones = () => {
         signos_vitales: { presion_arterial: '', frec_cardiaca: '', frec_respiratoria: '', temperatura: '', spo2: '', peso: '', talla: '' },
         examen_fisico: '', examenes_auxiliares: '', codigo_diagnostico: '', diagnostico: '',
         diagnostico_1: '', diagnostico_2: '', diagnostico_3: '',
-        destino: '', observaciones: '', tratamiento: '', medicamentos: []
+        destino: '', sede_atencion: '', observaciones: '', tratamiento: '', medicamentos: []
       });
     }
     setIsModalOpen(true);
@@ -265,6 +269,7 @@ const Atenciones = () => {
       trabajador_id: t_id,
       cargo: trabajador ? (trabajador.cargo || '') : '',
       empresa_id: trabajador ? (trabajador.empresa_id || '') : '',
+      sede_atencion: trabajador ? (trabajador.obra || '') : '',
       edad: ageCalc || newAtencion.edad
     });
   };
@@ -511,6 +516,16 @@ const Atenciones = () => {
                     <select className="form-control" value={newAtencion.empresa_id} onChange={e => setNewAtencion({...newAtencion, empresa_id: e.target.value})}>
                       <option value="">Seleccione empresa...</option>
                       {empresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Obra</label>
+                    <select className="form-control" value={newAtencion.sede_atencion || ''} onChange={e => setNewAtencion({...newAtencion, sede_atencion: e.target.value})}>
+                      <option value="">Seleccione obra...</option>
+                      {obras.map(o => <option key={o.id} value={o.nombre}>{o.nombre}</option>)}
+                      {newAtencion.sede_atencion && !obras.some(o => o.nombre === newAtencion.sede_atencion) && (
+                        <option value={newAtencion.sede_atencion}>{newAtencion.sede_atencion}</option>
+                      )}
                     </select>
                   </div>
                   <div className="form-group">
@@ -777,6 +792,7 @@ const Atenciones = () => {
                 <div><strong>Edad:</strong> {viewAtencion.edad || '--'}</div>
                 <div><strong>Residencia:</strong> {viewAtencion.residencia || '--'}</div>
                 <div><strong>Empresa:</strong> {viewAtencion.empresa ? viewAtencion.empresa.nombre : '--'}</div>
+                <div><strong>Obra:</strong> {viewAtencion.sede_atencion || viewAtencion.trabajador?.obra || '--'}</div>
                 <div><strong>Área / Cargo:</strong> {viewAtencion.cargo || '--'}</div>
               </div>
 

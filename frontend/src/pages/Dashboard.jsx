@@ -54,7 +54,7 @@ const Dashboard = () => {
   useEffect(() => {
     apiJson('/empresas/').then(setAllEmpresas).catch((err) => console.error(err));
     apiJson('/sistemas/').then(setAllSistemas).catch((err) => console.error(err));
-    apiJson('/trabajadores/obras').then(setAllObras).catch((err) => console.error(err));
+    apiJson('/obras/').then((data) => setAllObras(Array.isArray(data) ? data : [])).catch((err) => console.error(err));
   }, []);
 
   // Las fechas del encabezado filtran las atenciones contadas arriba. Antes
@@ -264,7 +264,11 @@ const Dashboard = () => {
                   style={{ cursor: 'pointer' }}
                 >
                   <option value="">Todas las obras...</option>
-                  {allObras.map((o) => <option key={o} value={o}>{o}</option>)}
+                  {allObras.map((o) => {
+                    const nombre = typeof o === 'string' ? o : o.nombre;
+                    const key = typeof o === 'string' ? o : o.id;
+                    return <option key={key} value={nombre}>{nombre}</option>;
+                  })}
                 </select>
               </div>
             </div>

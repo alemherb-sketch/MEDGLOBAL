@@ -161,6 +161,19 @@ class Sistema(SistemaBase):
     class Config:
         from_attributes = True
 
+# --- Obras (catalogo, no un sistema clinico) ---
+class ObraBase(BaseModel):
+    nombre: str
+
+class ObraCreate(ObraBase):
+    pass
+
+class Obra(ObraBase):
+    id: str
+
+    class Config:
+        from_attributes = True
+
 # --- Medicamento ---
 class MedicamentoBase(BaseModel):
     codigo: Optional[str] = None

@@ -25,6 +25,7 @@ SYNCABLE_MODELS = {
     "empresas": models.Empresa,
     "sistemas": models.SistemaAtencion,
     "clasificaciones": models.ClasificacionAtencion,
+    "obras": models.Obra,
     "diagnosticos_cie10": models.DiagnosticoCie10,
     "medicamentos": models.Medicamento,
     "personal_salud": models.PersonalSalud,

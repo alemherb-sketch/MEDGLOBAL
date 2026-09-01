@@ -5,6 +5,7 @@ import { Search, Plus, Edit2, Trash2, X, Eye } from 'lucide-react';
 const Planilla = () => {
   const [trabajadores, setTrabajadores] = useState([]);
   const [empresas, setEmpresas] = useState([]);
+  const [obras, setObras] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     id: null, nombre: '', apellidos: '', dni: '', tipo_contrato: '', afp_onp: '', rol: 'Médico',
@@ -25,10 +26,15 @@ const Planilla = () => {
     apiJson('/empresas/')
       .then(data => setEmpresas(data.filter(e => e.estado === 'ACTIVO')));
   };
+  const fetchObras = () => {
+    apiJson('/obras/')
+      .then(data => setObras(Array.isArray(data) ? data : []));
+  };
 
   useEffect(() => {
     fetchTrabajadores();
     fetchEmpresas();
+    fetchObras();
   }, []);
 
   const handleSubmit = (e) => {
@@ -244,7 +250,13 @@ const Planilla = () => {
                   </div>
                   <div className="form-group">
                     <label className="form-label">Obra</label>
-                    <input className="form-control" value={formData.obra} onChange={e => setFormData({...formData, obra: e.target.value})} />
+                    <select className="form-control" value={formData.obra} onChange={e => setFormData({...formData, obra: e.target.value})}>
+                      <option value="">Seleccione obra...</option>
+                      {obras.map(o => <option key={o.id} value={o.nombre}>{o.nombre}</option>)}
+                      {formData.obra && !obras.some(o => o.nombre === formData.obra) && (
+                        <option value={formData.obra}>{formData.obra}</option>
+                      )}
+                    </select>
                   </div>
                   <div className="form-group">
                     <label className="form-label">Puesto de Trabajo (Cargo)</label>

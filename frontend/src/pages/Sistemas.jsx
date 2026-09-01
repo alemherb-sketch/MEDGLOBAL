@@ -5,10 +5,12 @@ import { Search, Plus, Trash2, Edit2, X } from 'lucide-react';
 const Sistemas = () => {
   const [sistemas, setSistemas] = useState([]);
   const [contingencias, setContingencias] = useState([]);
-  const [modalType, setModalType] = useState(null); // 'sistema' or 'clasificacion'
+  const [obras, setObras] = useState([]);
+  const [modalType, setModalType] = useState(null); // 'sistema' | 'clasificacion' | 'obra'
   const [newSistema, setNewSistema] = useState({ id: null, nombre: '' });
   const [newClasificacion, setNewClasificacion] = useState({ id: null, nombre: '' });
-  const [filters, setFilters] = useState({ searchSistemas: '', searchContingencias: '' });
+  const [newObra, setNewObra] = useState({ id: null, nombre: '' });
+  const [filters, setFilters] = useState({ searchSistemas: '', searchContingencias: '', searchObras: '' });
 
   const fetchData = () => {
     apiJson('/sistemas/')
@@ -16,6 +18,9 @@ const Sistemas = () => {
 
     apiJson('/clasificaciones/')
       .then(data => setContingencias(data));
+
+    apiJson('/obras/')
+      .then(data => setObras(data));
   };
 
   useEffect(() => {
@@ -68,6 +73,28 @@ const Sistemas = () => {
     }
   };
 
+  const handleAddObra = (e) => {
+    e.preventDefault();
+    const isEditing = newObra.id !== null;
+    const url = isEditing ? `/obras/${newObra.id}` : '/obras/';
+    const method = isEditing ? 'PUT' : 'POST';
+
+    apiFetch(url, {
+      method,
+      body: JSON.stringify({ nombre: newObra.nombre })
+    }).then(() => {
+      fetchData();
+      closeModal();
+    });
+  };
+
+  const handleDeleteObra = (id) => {
+    if (window.confirm('¿Eliminar esta obra?')) {
+      apiFetch(`/obras/${id}`, { method: 'DELETE' })
+        .then(() => fetchData());
+    }
+  };
+
   const openModal = (type, data = null) => {
     setModalType(type);
     if (type === 'sistema') {
@@ -82,6 +109,12 @@ const Sistemas = () => {
       } else {
         setNewClasificacion({ id: null, nombre: '' });
       }
+    } else if (type === 'obra') {
+      if (data) {
+        setNewObra({ id: data.id, nombre: data.nombre });
+      } else {
+        setNewObra({ id: null, nombre: '' });
+      }
     }
   };
 
@@ -89,14 +122,15 @@ const Sistemas = () => {
 
   const filteredSistemas = sistemas.filter(s => s.nombre.toLowerCase().includes(filters.searchSistemas.toLowerCase()));
   const filteredContingencias = contingencias.filter(c => c.nombre.toLowerCase().includes(filters.searchContingencias.toLowerCase()));
+  const filteredObras = obras.filter(o => o.nombre.toLowerCase().includes(filters.searchObras.toLowerCase()));
 
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h1>Sistemas Clínicos y Contingencias</h1>
+        <h1>Sistemas Clínicos, Contingencias y Obras</h1>
       </div>
       
-      <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
         {/* Sistemas Column */}
         <div className="glass-panel">
           <div className="flex justify-between items-center mb-4">
@@ -176,6 +210,46 @@ const Sistemas = () => {
             )}
           </div>
         </div>
+
+        {/* Obras Column */}
+        <div className="glass-panel">
+          <div className="flex justify-between items-center mb-4">
+            <h2 style={{ fontSize: '1.25rem', margin: 0 }}>OBRAS</h2>
+            <button className="btn btn-secondary btn-sm" onClick={() => openModal('obra')} style={{ padding: '6px 12px' }}>
+              <Plus size={16} style={{marginRight: '6px'}} /> Nuevo
+            </button>
+          </div>
+          
+          <div className="filter-bar mb-4">
+            <div className="form-group mb-0" style={{flex: 1}}>
+              <div style={{position: 'relative'}}>
+                <Search size={18} style={{position: 'absolute', top: '14px', left: '14px', color: 'var(--text-muted)'}} />
+                <input 
+                  className="form-control search-input" 
+                  style={{paddingLeft: '40px'}}
+                  placeholder="Buscar obra..." 
+                  value={filters.searchObras} 
+                  onChange={e => setFilters({...filters, searchObras: e.target.value})} 
+                />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {filteredObras.map(o => (
+              <div key={o.id} className="p-3 flex justify-between items-center" style={{background: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid var(--border-color)'}}>
+                <span style={{ fontWeight: '500' }}>{o.nombre}</span>
+                <div className="flex gap-2">
+                  <button className="action-btn edit" onClick={() => openModal('obra', o)}><Edit2 size={16} /></button>
+                  <button className="action-btn delete" onClick={() => handleDeleteObra(o.id)}><Trash2 size={16} /></button>
+                </div>
+              </div>
+            ))}
+            {filteredObras.length === 0 && (
+              <div className="text-center text-muted py-4">No se encontraron obras</div>
+            )}
+          </div>
+        </div>
       </div>
 
       {modalType === 'sistema' && (
@@ -213,6 +287,29 @@ const Sistemas = () => {
                 <div className="form-group">
                   <label className="form-label">Nombre de Contingencia</label>
                   <input required className="form-control" placeholder="Ej. Neumonía leve" value={newClasificacion.nombre} onChange={e => setNewClasificacion({...newClasificacion, nombre: e.target.value})} />
+                </div>
+                <div style={{display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px'}}>
+                  <button type="button" className="btn btn-secondary" onClick={closeModal}>Cancelar</button>
+                  <button type="submit" className="btn btn-primary">Guardar</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalType === 'obra' && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>{newObra.id ? 'Editar Obra' : 'Nueva Obra'}</h3>
+              <button className="close-btn" onClick={closeModal}><X size={24} /></button>
+            </div>
+            <div className="modal-body">
+              <form onSubmit={handleAddObra}>
+                <div className="form-group">
+                  <label className="form-label">Nombre de la Obra</label>
+                  <input required className="form-control" placeholder="Ej. Mina Norte" value={newObra.nombre} onChange={e => setNewObra({...newObra, nombre: e.target.value})} />
                 </div>
                 <div style={{display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px'}}>
                   <button type="button" className="btn btn-secondary" onClick={closeModal}>Cancelar</button>

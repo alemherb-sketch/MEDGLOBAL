@@ -44,7 +44,7 @@ def client():
     # Cada test arranca de cero: se borran las filas de la corrida anterior.
     for modelo in (models.AtencionMedicamento, models.Kardex, models.Atencion,
                    models.Trabajador, models.Medicamento, models.SistemaAtencion,
-                   models.ClasificacionAtencion, models.Empresa, models.Usuario):
+                   models.ClasificacionAtencion, models.Obra, models.Empresa, models.Usuario):
         sesion.query(modelo).delete()
     sesion.add(models.Usuario(
         username="tester", password_hash=auth.hash_password("secreto"),

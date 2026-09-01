@@ -1,9 +1,9 @@
 """Catalogos maestros: CIE-10, empresas, trabajadores, sistemas,
-clasificaciones y personal de salud.
+clasificaciones, obras y personal de salud.
 
 Todos comparten el mismo esqueleto (ver servicios/crud.py); aca queda solo lo
 propio de cada uno: paginacion y busqueda del CIE-10, codigo correlativo del
-trabajador y la lista de obras.
+trabajador y el catalogo de obras.
 """
 import io
 import re
@@ -287,6 +287,40 @@ def editar_clasificacion(id: str, clasificacion: schemas.ClasificacionCreate, db
 @router.delete("/clasificaciones/{id}", tags=["clasificaciones"])
 def borrar_clasificacion(id: str, db: SesionDB):
     return crud.borrado_logico(db, models.ClasificacionAtencion, id, "Clasificación no encontrada")
+
+
+# --- Obras (catalogo independiente de sistemas y contingencias) -------------
+
+@router.get("/obras/", response_model=List[schemas.Obra], tags=["obras"])
+def listar_obras_catalogo(db: SesionDB):
+    return crud.listar_vigentes(db, models.Obra, orden=models.Obra.nombre)
+
+
+@router.post("/obras/", response_model=schemas.Obra, tags=["obras"])
+def crear_obra(obra: schemas.ObraCreate, db: SesionDB):
+    crud.rechazar_duplicado(db, models.Obra, models.Obra.nombre,
+                            obra.nombre, "Ya existe una obra con ese nombre")
+    fila = models.Obra(**obra.model_dump())
+    db.add(fila)
+    db.commit()
+    db.refresh(fila)
+    return fila
+
+
+@router.put("/obras/{id}", response_model=schemas.Obra, tags=["obras"])
+def editar_obra(id: str, obra: schemas.ObraCreate, db: SesionDB):
+    fila = crud.obtener_o_404(db, models.Obra, id, "Obra no encontrada")
+    crud.rechazar_duplicado(db, models.Obra, models.Obra.nombre,
+                            obra.nombre, "Ya existe una obra con ese nombre", excluir_id=id)
+    crud.aplicar_campos(fila, obra.model_dump())
+    db.commit()
+    db.refresh(fila)
+    return fila
+
+
+@router.delete("/obras/{id}", tags=["obras"])
+def borrar_obra(id: str, db: SesionDB):
+    return crud.borrado_logico(db, models.Obra, id, "Obra no encontrada")
 
 
 # --- Personal de salud ------------------------------------------------------

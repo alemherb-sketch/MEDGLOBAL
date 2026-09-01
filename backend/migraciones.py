@@ -1,5 +1,5 @@
 """Migraciones de arranque: agrega columnas que faltan en bases ya creadas
-y garantiza entradas de catalogo que el negocio espera.
+y mantiene catalogos alineados con el negocio.
 
 El proyecto no usa Alembic. Cuando se agrega una columna a models.py,
 create_all() no la agrega a las tablas que ya existen, asi que las
@@ -20,9 +20,9 @@ from servicios.tiempo import ahora_utc
 
 logger = logging.getLogger(__name__)
 
-# Catalogos de Sistemas Clinicos y Contingencias: entradas que deben existir
-# en toda instalacion para poder elegirlas en Atenciones y reportes.
-NOMBRES_CATALOGO_BASE = ("OBRA",)
+# Nombre que se sembró por error en sistemas/clasificaciones. Ya no es un
+# item de esos catalogos: las obras viven en su propia tabla.
+NOMBRE_OBRA_ERRONEO = "OBRA"
 
 # tabla -> columnas a garantizar (definicion SQL tal cual va en el ALTER).
 COLUMNAS_POR_TABLA = {
@@ -40,7 +40,7 @@ COLUMNAS_POR_TABLA = {
         "edad VARCHAR(10)", "residencia VARCHAR(200)", "empresa_id INTEGER", "cargo VARCHAR(100)",
         "funciones_biologicas TEXT", "signos_vitales TEXT", "examen_fisico TEXT",
         "examenes_auxiliares TEXT", "codigo_diagnostico VARCHAR(100)", "diagnostico_1 VARCHAR(255)",
-        "diagnostico_2 VARCHAR(255)", "diagnostico_3 VARCHAR(255)",
+        "diagnostico_2 VARCHAR(255)", "diagnostico_3 VARCHAR(255)", "sede_atencion VARCHAR(100)",
     ],
     "medicamentos": [
         "costo_unitario FLOAT DEFAULT 0.0", "tipo VARCHAR(20) DEFAULT 'MEDICAMENTO'",
@@ -94,20 +94,66 @@ def _asegurar_nombre(sesion, modelo, nombre: str) -> None:
         existente.server_updated_at = ahora
 
 
-def sembrar_catalogos(engine) -> None:
-    """Inserta OBRA en sistemas y clasificaciones si falta.
+def _soft_delete_por_nombre(sesion, modelo, nombre: str) -> None:
+    """Baja logica de filas vigentes cuyo nombre coincide (sin importar mayusculas)."""
+    filas = (
+        sesion.query(modelo)
+        .filter(func.lower(modelo.nombre) == nombre.lower())
+        .filter(modelo.is_deleted == False)  # noqa: E712
+        .all()
+    )
+    ahora = ahora_utc()
+    for fila in filas:
+        fila.is_deleted = True
+        fila.updated_at = ahora
+        fila.server_updated_at = ahora
 
-    Corre en cada arranque. No pisa nombres ya creados a mano ni duplica.
+
+def limpiar_obra_de_catalogos_clinicos(engine) -> None:
+    """Quita el item OBRA de sistemas y clasificaciones si se sembró ahi.
+
+    No toca trabajadores.obra ni la tabla obras. Es idempotente: si ya
+    esta borrado en logico, no hace nada.
     """
     sesion = Session(bind=engine)
     try:
-        for nombre in NOMBRES_CATALOGO_BASE:
-            _asegurar_nombre(sesion, models.SistemaAtencion, nombre)
-            _asegurar_nombre(sesion, models.ClasificacionAtencion, nombre)
+        _soft_delete_por_nombre(sesion, models.SistemaAtencion, NOMBRE_OBRA_ERRONEO)
+        _soft_delete_por_nombre(sesion, models.ClasificacionAtencion, NOMBRE_OBRA_ERRONEO)
         sesion.commit()
     except Exception:
         sesion.rollback()
-        logger.debug("Semilla de catalogos omitida (tabla o columna ausente)", exc_info=True)
+        logger.debug("Limpieza de OBRA en catalogos clinicos omitida", exc_info=True)
+    finally:
+        sesion.close()
+
+
+def sembrar_obras_desde_planilla(engine) -> None:
+    """Copia al catalogo los nombres de obra ya usados en planilla, sin duplicar.
+
+    Asi los desplegables no quedan vacios en instalaciones que ya tenian
+    obras cargadas como texto libre. No inventa el item OBRA.
+    """
+    sesion = Session(bind=engine)
+    try:
+        nombres = (
+            sesion.query(models.Trabajador.obra)
+            .filter(
+                models.Trabajador.is_deleted == False,  # noqa: E712
+                models.Trabajador.obra.isnot(None),
+                models.Trabajador.obra != "",
+            )
+            .distinct()
+            .all()
+        )
+        for (nombre,) in nombres:
+            nombre = (nombre or "").strip()
+            if not nombre:
+                continue
+            _asegurar_nombre(sesion, models.Obra, nombre)
+        sesion.commit()
+    except Exception:
+        sesion.rollback()
+        logger.debug("Semilla de obras desde planilla omitida", exc_info=True)
     finally:
         sesion.close()
 
@@ -119,4 +165,9 @@ def aplicar(engine) -> None:
                 _ejecutar_ignorando_errores(conn, f"ALTER TABLE {tabla} ADD COLUMN {columna}")
         for sentencia in AMPLIACIONES_DE_TIPO:
             _ejecutar_ignorando_errores(conn, sentencia)
-    sembrar_catalogos(engine)
+    try:
+        models.Obra.__table__.create(bind=engine, checkfirst=True)
+    except Exception:
+        logger.debug("Creacion de tabla obras omitida", exc_info=True)
+    limpiar_obra_de_catalogos_clinicos(engine)
+    sembrar_obras_desde_planilla(engine)
