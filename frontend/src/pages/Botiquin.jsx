@@ -18,6 +18,7 @@ import {
   estadoBadgeStyle,
   resumenVehiculo,
   sortBotiquinesByCodigoDesc,
+  listarNombresTipoEquipo,
 } from './botiquinShared';
 
 const Botiquin = () => {
@@ -61,6 +62,23 @@ const Botiquin = () => {
     [tiposBotiquin]
   );
 
+  const tiposFiltrados = useMemo(() => {
+    const q = (tipoSearch || '').trim().toLowerCase();
+    if (!q) return tiposBotiquin;
+    return tiposBotiquin.filter(t =>
+      (t.codigo || '').toLowerCase().includes(q)
+      || (t.nombre || '').toLowerCase().includes(q)
+    );
+  }, [tiposBotiquin, tipoSearch]);
+
+  const tipoEquipoNombres = useMemo(
+    () => listarNombresTipoEquipo({
+      tipos: tiposBotiquin,
+      extras: [filters.tipo_equipo, formBotiquin.tipo_equipo],
+    }),
+    [tiposBotiquin, filters.tipo_equipo, formBotiquin.tipo_equipo]
+  );
+
   const insumoOptions = useMemo(() => {
     const list = medicamentos.filter(m => {
       const t = (m.tipo || '').toUpperCase();
@@ -84,13 +102,10 @@ const Botiquin = () => {
   };
 
   const loadTipos = useCallback(() => {
-    const params = new URLSearchParams();
-    if (tipoSearch) params.append('search', tipoSearch);
-    const q = params.toString();
-    apiJson(`/tipos_botiquin/${q ? `?${q}` : ''}`)
+    apiJson('/tipos_botiquin/')
       .then(setTiposBotiquin)
       .catch(() => setTiposBotiquin([]));
-  }, [tipoSearch]);
+  }, []);
 
   const loadBotiquines = () => {
     const params = new URLSearchParams();
@@ -106,7 +121,7 @@ const Botiquin = () => {
   useEffect(() => {
     loadCatalogos();
     loadTipos();
-  }, []);
+  }, [loadTipos]);
 
   useEffect(() => {
     if (tab === 'tipos') loadTipos();
@@ -374,7 +389,7 @@ const Botiquin = () => {
               <label className="form-label">Tipo de equipo</label>
               <select className="form-control" value={filters.tipo_equipo} onChange={e => setFilters({ ...filters, tipo_equipo: e.target.value })}>
                 <option value="">Todos</option>
-                {TIPOS_EQUIPO_EMERGENCIA.map(o => <option key={o} value={o}>{o}</option>)}
+                {tipoEquipoNombres.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </div>
             <div className="form-group" style={{ margin: 0 }}>
@@ -436,10 +451,10 @@ const Botiquin = () => {
               </tr>
             </thead>
             <tbody>
-              {tiposBotiquin.length === 0 && (
+              {tiposFiltrados.length === 0 && (
                 <tr><td colSpan={4} style={{ textAlign: 'center', opacity: 0.7 }}>Sin tipos de botiquín. Cree uno para usarlo al registrar botiquines.</td></tr>
               )}
-              {tiposBotiquin.map(t => (
+              {tiposFiltrados.map(t => (
                 <tr key={t.id}>
                   <td>{t.codigo || '—'}</td>
                   <td>{t.nombre}</td>
@@ -950,7 +965,14 @@ const Botiquin = () => {
                     options={tipoBotiquinOptions}
                     placeholder="Buscar tipo de botiquín..."
                     value={tipoBotiquinOptions.find(o => o.value === String(formBotiquin.tipo_botiquin_id || '')) || null}
-                    onChange={opt => setFormBotiquin({ ...formBotiquin, tipo_botiquin_id: opt ? opt.value : '' })}
+                    onChange={opt => {
+                      const tipo = tiposBotiquin.find(t => String(t.id) === (opt ? opt.value : ''));
+                      setFormBotiquin({
+                        ...formBotiquin,
+                        tipo_botiquin_id: opt ? opt.value : '',
+                        tipo_equipo: (tipo && tipo.nombre) ? tipo.nombre : formBotiquin.tipo_equipo,
+                      });
+                    }}
                     noOptionsMessage={() => 'Sin tipos. Cree uno en la pestaña Tipos de botiquín'}
                   />
                 </div>
@@ -964,7 +986,7 @@ const Botiquin = () => {
                     value={formBotiquin.tipo_equipo}
                     onChange={e => setFormBotiquin({ ...formBotiquin, tipo_equipo: e.target.value })}
                   >
-                    {TIPOS_EQUIPO_EMERGENCIA.map(o => <option key={o} value={o}>{o}</option>)}
+                    {tipoEquipoNombres.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
 

@@ -11,12 +11,12 @@ import {
 import { apiFetch, apiJson, mensajeDeError } from '../api';
 import { API_URL } from '../config';
 import {
-  TIPOS_EQUIPO_EMERGENCIA,
   UBICACIONES,
   selectStyles,
   labelMedicamento,
   resumenVehiculo,
   sortBotiquinesByCodigoDesc,
+  listarNombresTipoEquipo,
 } from './botiquinShared';
 
 const ESTADOS_INSUMO = [
@@ -95,6 +95,7 @@ const InspeccionBotiquin = () => {
   const [inspecciones, setInspecciones] = useState([]);
   const [empresas, setEmpresas] = useState([]);
   const [personal, setPersonal] = useState([]);
+  const [tiposBotiquin, setTiposBotiquin] = useState([]);
 
   const [filters, setFilters] = useState({
     search: '',
@@ -163,8 +164,11 @@ const InspeccionBotiquin = () => {
   );
 
   const tipoEquipoOptions = useMemo(
-    () => TIPOS_EQUIPO_EMERGENCIA.map(t => ({ value: t, label: t })),
-    []
+    () => listarNombresTipoEquipo({
+      tipos: tiposBotiquin,
+      extras: botiquines.flatMap(b => [b.tipo_equipo, b.tipo_botiquin?.nombre]),
+    }).map(t => ({ value: t, label: t })),
+    [tiposBotiquin, botiquines]
   );
 
   const mapInsumosFromApi = (list) =>
@@ -191,6 +195,7 @@ const InspeccionBotiquin = () => {
     apiJson('/empresas/').then(setEmpresas).catch(() => setEmpresas([]));
     apiJson('/personal_salud/').then(setPersonal).catch(() => setPersonal([]));
     apiJson('/botiquines/').then(data => setBotiquines(sortBotiquinesByCodigoDesc(data))).catch(() => setBotiquines([]));
+    apiJson('/tipos_botiquin/').then(setTiposBotiquin).catch(() => setTiposBotiquin([]));
   };
 
   const loadInspecciones = () => {

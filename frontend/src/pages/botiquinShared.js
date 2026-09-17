@@ -8,6 +8,21 @@ export const TIPOS_EQUIPO_EMERGENCIA = [
   'Refugio minero',
 ];
 
+/** Nombres para los desplegables de tipo: catálogo + lista histórica + extras. */
+export function listarNombresTipoEquipo({ tipos = [], extras = [] } = {}) {
+  const vistos = new Map();
+  const agregar = (valor) => {
+    const nombre = String(valor || '').trim();
+    if (!nombre) return;
+    const clave = nombre.toLocaleLowerCase();
+    if (!vistos.has(clave)) vistos.set(clave, nombre);
+  };
+  TIPOS_EQUIPO_EMERGENCIA.forEach(agregar);
+  tipos.forEach((item) => agregar(typeof item === 'string' ? item : item?.nombre));
+  extras.forEach(agregar);
+  return [...vistos.values()].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+}
+
 export const AREAS = ['Mina', 'Planta'];
 export const UBICACIONES = ['Mina', 'Planta'];
 

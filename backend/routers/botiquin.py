@@ -248,7 +248,6 @@ def listar_botiquines(
     )
 
     exactos = {
-        models.Botiquin.tipo_equipo: tipo_equipo,
         models.Botiquin.ubicacion: ubicacion,
         models.Botiquin.empresa_id: empresa_id,
         models.Botiquin.equipo: equipo,
@@ -258,6 +257,15 @@ def listar_botiquines(
     for columna, valor in exactos.items():
         if valor:
             consulta = consulta.filter(columna == valor)
+    if tipo_equipo:
+        ids_tipo = (
+            db.query(models.TipoBotiquin.id)
+            .filter(models.TipoBotiquin.nombre == tipo_equipo)
+        )
+        consulta = consulta.filter(
+            (models.Botiquin.tipo_equipo == tipo_equipo)
+            | models.Botiquin.tipo_botiquin_id.in_(ids_tipo)
+        )
     if area:
         consulta = consulta.filter(models.Botiquin.area.ilike(f"%{area}%"))
     if search:

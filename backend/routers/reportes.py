@@ -49,6 +49,18 @@ def _filtrar_por_lista(consulta, columna, valor: Optional[str], comparacion="exa
     return consulta.filter(columna.in_(valores))
 
 
+def _filtrar_tipo_equipo(consulta, db, tipo_equipo: Optional[str]):
+    """Filtra por el texto guardado o por el nombre del tipo de botiquín."""
+    valores = _lista_de_ids(tipo_equipo)
+    if not valores:
+        return consulta
+    ids_tipo = db.query(models.TipoBotiquin.id).filter(models.TipoBotiquin.nombre.in_(valores))
+    return consulta.filter(
+        models.Botiquin.tipo_equipo.in_(valores)
+        | models.Botiquin.tipo_botiquin_id.in_(ids_tipo)
+    )
+
+
 def _totales_con_igv(total: float) -> dict:
     """El total incluye IGV; se desglosa hacia atras, como en las facturas."""
     total = round(total, 2)
@@ -483,7 +495,7 @@ def consumo_insumos_botiquin(
         consulta = consulta.filter(models.Botiquin.id == botiquin_id)
     consulta = _filtrar_por_lista(consulta, models.Botiquin.area, area, comparacion="parcial")
     consulta = _filtrar_por_lista(consulta, models.Botiquin.ubicacion, ubicacion)
-    consulta = _filtrar_por_lista(consulta, models.Botiquin.tipo_equipo, tipo_equipo)
+    consulta = _filtrar_tipo_equipo(consulta, db, tipo_equipo)
     consulta = _filtrar_por_lista(consulta, models.Botiquin.equipo, equipo)
 
     por_insumo, fechas = {}, set()
