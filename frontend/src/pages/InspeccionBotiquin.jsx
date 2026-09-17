@@ -68,6 +68,17 @@ const escHtml = (s) => String(s ?? '')
   .replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
 
+const FechaCorta = ({ value }) => {
+  if (!value) return <span style={{ opacity: 0.55 }}>Sin inspección</span>;
+  const d = new Date(value);
+  return (
+    <span className="insp-fecha">
+      <span>{d.toLocaleDateString('es-PE')}</span>
+      <span>{d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</span>
+    </span>
+  );
+};
+
 /** El glass-panel recorta el popper (overflow + backdrop-filter). El portal lo saca. */
 const datePickerPortalProps = {
   portalId: 'datepicker-portal',
@@ -1016,21 +1027,21 @@ const InspeccionBotiquin = () => {
             <colgroup>
               <col style={{ width: '15%' }} />
               <col style={{ width: '20%' }} />
+              <col style={{ width: '10%' }} />
               <col style={{ width: '9%' }} />
-              <col style={{ width: '8%' }} />
               <col style={{ width: '14%' }} />
-              <col style={{ width: '14%' }} />
+              <col style={{ width: '12%' }} />
               <col style={{ width: '20%' }} />
             </colgroup>
             <thead>
               <tr>
-                <th className="cell-keep">Código</th>
-                <th className="cell-text">Empresa</th>
-                <th className="cell-keep">Vehículo</th>
-                <th className="cell-keep">Ubicación</th>
-                <th className="cell-text">Área</th>
-                <th className="cell-text">Última inspección</th>
-                <th className="cell-keep" style={{ textAlign: 'center' }}>Acciones</th>
+                <th>Código</th>
+                <th>Empresa</th>
+                <th>Vehículo</th>
+                <th>Ubicación</th>
+                <th>Área</th>
+                <th>Última inspección</th>
+                <th className="insp-actions-cell">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -1058,16 +1069,8 @@ const InspeccionBotiquin = () => {
                     <td className="cell-keep">{vehiculoLabel}</td>
                     <td className="cell-keep">{b.ubicacion || '—'}</td>
                     <td className="cell-text">{b.area || '—'}</td>
-                    <td className="cell-keep">
-                      {tieneInspeccion
-                        ? new Date(b.ultima_inspeccion).toLocaleString('es-PE', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : <span style={{ opacity: 0.55 }}>Sin inspección</span>}
+                    <td>
+                      <FechaCorta value={tieneInspeccion ? b.ultima_inspeccion : null} />
                     </td>
                     <td className="insp-actions-cell">
                       <div className="insp-actions insp-actions--toolbar" role="group" aria-label="Acciones">
@@ -1229,9 +1232,7 @@ const InspeccionBotiquin = () => {
               )}
               {inspecciones.map(ins => (
                 <tr key={ins.id}>
-                  <td className="cell-keep">{ins.fecha ? new Date(ins.fecha).toLocaleString('es-PE', {
-                    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
-                  }) : '—'}</td>
+                  <td>{ins.fecha ? <FechaCorta value={ins.fecha} /> : '—'}</td>
                   <td className="cell-text">
                     {ins.botiquin
                       ? `${ins.botiquin.codigo ? ins.botiquin.codigo + ' · ' : ''}${ins.botiquin.tipo_botiquin?.nombre || ins.botiquin.tipo_equipo} · ${ins.botiquin.ubicacion || ''}`

@@ -312,13 +312,16 @@ h3 { font-size: 1.5rem; }
 .table.table-wide th,
 .table.table-wide td {
   vertical-align: middle;
+  overflow: hidden;
   overflow-wrap: break-word;
   word-break: normal;
   hyphens: none;
+  padding: 12px 10px;
 }
 
 .table.table-wide th {
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
+  white-space: normal;
 }
 
 .table.table-wide .cell-keep {
@@ -329,10 +332,24 @@ h3 { font-size: 1.5rem; }
   white-space: normal;
 }
 
-.table.table-wide .insp-actions-cell {
-  width: 220px;
-  padding-left: 10px;
-  padding-right: 10px;
+.insp-fecha {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.table.table-wide th.insp-actions-cell,
+.table.table-wide td.insp-actions-cell {
+  width: 232px;
+  min-width: 232px;
+  max-width: 232px;
+  overflow: hidden;
+  padding-left: 12px;
+  padding-right: 12px;
+  text-align: center;
+  box-shadow: inset 1px 0 0 rgba(148, 163, 184, 0.18);
 }
 
 /* Reporte con muchas fechas: sí puede desbordar y scrollear. */
