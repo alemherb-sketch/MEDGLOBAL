@@ -1011,8 +1011,8 @@ const InspeccionBotiquin = () => {
       )}
 
       {tab === 'botiquines' && (
-        <div className="glass-panel" style={{ overflowX: 'auto' }}>
-          <table className="table">
+        <div className="glass-panel table-container">
+          <table className="table table-wide">
             <thead>
               <tr>
                 <th>Código</th>
@@ -1021,7 +1021,7 @@ const InspeccionBotiquin = () => {
                 <th>Ubicación</th>
                 <th>Área</th>
                 <th>Última inspección</th>
-                <th style={{ width: 168, textAlign: 'center', whiteSpace: 'nowrap' }}>Acciones</th>
+                <th style={{ minWidth: 220, textAlign: 'center' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -1188,8 +1188,8 @@ const InspeccionBotiquin = () => {
       )}
 
       {tab === 'historial' && (
-        <div className="glass-panel" style={{ overflowX: 'auto' }}>
-          <table className="table">
+        <div className="glass-panel table-container">
+          <table className="table table-wide">
             <thead>
               <tr>
                 <th>Fecha</th>
@@ -1197,7 +1197,7 @@ const InspeccionBotiquin = () => {
                 <th>Área</th>
                 <th>Empresa</th>
                 <th>Responsable</th>
-                <th style={{ width: 140, textAlign: 'center' }}>Acciones</th>
+                <th style={{ minWidth: 180, textAlign: 'center' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -1342,8 +1342,8 @@ const InspeccionBotiquin = () => {
             </div>
           </div>
 
-          <div className="glass-panel" style={{ overflowX: 'auto' }}>
-            <table className="table">
+          <div className="glass-panel table-container">
+            <table className="table table-wide">
               <thead>
                 <tr>
                   <th>Código</th>

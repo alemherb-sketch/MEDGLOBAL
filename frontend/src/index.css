@@ -297,6 +297,24 @@ h3 { font-size: 1.5rem; }
   background-color: rgba(255, 255, 255, 0.03);
 }
 
+/* Listados con códigos largos: no partir celdas; el panel scrollea en X.
+   .glass-panel trae overflow:hidden, hay que reabrirlo con más especificidad. */
+.glass-panel.table-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.table.table-wide {
+  width: max-content;
+  min-width: 100%;
+}
+
+.table.table-wide th,
+.table.table-wide td {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
 /* Utilities */
 .text-center { text-align: center; }
 .mt-1 { margin-top: 0.5rem; }
