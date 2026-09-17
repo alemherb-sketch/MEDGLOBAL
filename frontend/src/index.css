@@ -297,31 +297,55 @@ h3 { font-size: 1.5rem; }
   background-color: rgba(255, 255, 255, 0.03);
 }
 
-/* Listados de botiquín/inspección: las 7 columnas van en fila.
-   Si no caben, el panel scrollea en X; Acciones no se superpone. */
+/* Listados: 7 columnas al 100% del panel (table-layout:fixed).
+   Acciones tiene % reservado DENTRO de la tabla para no recortarse
+   ni superponerse. El scroll interno cubre pantallas estrechas. */
 .glass-panel.table-container {
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;
 }
 
 .glass-panel.table-container:hover {
   transform: none;
 }
 
+.table-scroll-x {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 .table.table-wide {
   width: 100%;
-  table-layout: auto;
+  table-layout: fixed;
 }
+
+.table.table-wide col:nth-child(1) { width: 13%; }
+.table.table-wide col:nth-child(2) { width: 18%; }
+.table.table-wide col:nth-child(3) { width: 9%; }
+.table.table-wide col:nth-child(4) { width: 8%; }
+.table.table-wide col:nth-child(5) { width: 14%; }
+.table.table-wide col:nth-child(6) { width: 12%; }
+.table.table-wide col:nth-child(7) { width: 26%; }
+
+.table.table-wide--labeled col:nth-child(1) { width: 11%; }
+.table.table-wide--labeled col:nth-child(2) { width: 15%; }
+.table.table-wide--labeled col:nth-child(3) { width: 8%; }
+.table.table-wide--labeled col:nth-child(4) { width: 7%; }
+.table.table-wide--labeled col:nth-child(5) { width: 12%; }
+.table.table-wide--labeled col:nth-child(6) { width: 12%; }
+.table.table-wide--labeled col:nth-child(7) { width: 35%; }
 
 .table.table-wide th,
 .table.table-wide td {
   vertical-align: middle;
-  padding: 12px 10px;
+  padding: 12px 8px;
+  overflow: hidden;
 }
 
 .table.table-wide th {
-  letter-spacing: 0.02em;
-  white-space: nowrap;
+  letter-spacing: 0.03em;
+  white-space: normal;
+  line-height: 1.25;
 }
 
 .table.table-wide .cell-keep {
@@ -333,8 +357,6 @@ h3 { font-size: 1.5rem; }
 
 .table.table-wide .cell-text {
   white-space: normal;
-  min-width: 9.5rem;
-  max-width: 16rem;
   overflow-wrap: break-word;
   word-break: normal;
   hyphens: none;
@@ -354,17 +376,11 @@ h3 { font-size: 1.5rem; }
 
 .table.table-wide th.insp-actions-cell,
 .table.table-wide td.insp-actions-cell {
-  width: 1%;
   white-space: nowrap;
   text-align: right;
-  padding-left: 12px;
-  padding-right: 12px;
-  vertical-align: middle;
-}
-
-.table.table-wide--labeled th.insp-actions-cell,
-.table.table-wide--labeled td.insp-actions-cell {
-  min-width: 17.5rem;
+  padding-left: 8px;
+  padding-right: 8px;
+  overflow: hidden;
 }
 
 /* Reporte con muchas fechas: sí puede desbordar y scrollear. */

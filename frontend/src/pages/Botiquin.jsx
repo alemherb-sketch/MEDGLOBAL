@@ -490,7 +490,11 @@ const Botiquin = () => {
 
       {tab === 'botiquines' && (
         <div className="glass-panel table-container">
+          <div className="table-scroll-x">
           <table className="table table-wide table-wide--labeled">
+            <colgroup>
+              <col /><col /><col /><col /><col /><col /><col />
+            </colgroup>
             <thead>
               <tr>
                 <th className="cell-keep">Código</th>
@@ -551,6 +555,7 @@ const Botiquin = () => {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

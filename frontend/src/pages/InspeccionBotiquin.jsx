@@ -1088,7 +1088,11 @@ const InspeccionBotiquin = () => {
 
       {tab === 'botiquines' && (
         <div className="glass-panel table-container">
+          <div className="table-scroll-x">
           <table className="table table-wide">
+            <colgroup>
+              <col /><col /><col /><col /><col /><col /><col />
+            </colgroup>
             <thead>
               <tr>
                 <th className="cell-keep">Código</th>
@@ -1181,6 +1185,7 @@ const InspeccionBotiquin = () => {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
@@ -1293,7 +1298,11 @@ const InspeccionBotiquin = () => {
 
       {tab === 'historial' && (
         <div className="glass-panel table-container">
+          <div className="table-scroll-x">
           <table className="table table-wide">
+            <colgroup>
+              <col /><col /><col /><col /><col /><col /><col />
+            </colgroup>
             <thead>
               <tr>
                 <th className="cell-keep">ID</th>
@@ -1345,6 +1354,7 @@ const InspeccionBotiquin = () => {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
