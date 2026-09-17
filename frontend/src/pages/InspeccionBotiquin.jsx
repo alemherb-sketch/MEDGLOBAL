@@ -106,7 +106,7 @@ const InspeccionBotiquin = () => {
   const [filters, setFilters] = useState({
     search: '',
     empresa_id: '',
-    tipo_botiquin_id: '',
+    botiquin_id: '',
     ubicacion: '',
     fecha_inicio: null,
     fecha_fin: null,
@@ -168,6 +168,17 @@ const InspeccionBotiquin = () => {
     [botiquinesCatalogo]
   );
 
+  const botiquinOptionsHistorial = useMemo(() => {
+    const empresaId = filters.empresa_id;
+    const lista = empresaId
+      ? botiquinesCatalogo.filter(b => String(b.empresa_id || '') === String(empresaId))
+      : botiquinesCatalogo;
+    return lista.map(b => ({
+      value: String(b.id),
+      label: etiquetaBotiquin(b),
+    }));
+  }, [botiquinesCatalogo, filters.empresa_id]);
+
   const botiquinOptionsReporte = useMemo(() => {
     const empresaId = reporteFiltros.empresa_id;
     const lista = empresaId
@@ -227,7 +238,7 @@ const InspeccionBotiquin = () => {
   const loadInspecciones = () => {
     const params = new URLSearchParams();
     if (filters.empresa_id) params.append('empresa_id', filters.empresa_id);
-    if (filters.tipo_botiquin_id) params.append('tipo_botiquin_id', filters.tipo_botiquin_id);
+    if (filters.botiquin_id) params.append('botiquin_id', filters.botiquin_id);
     if (filters.ubicacion) params.append('ubicacion', filters.ubicacion);
     if (filters.search) params.append('search', filters.search);
     if (filters.fecha_inicio) {
@@ -1228,20 +1239,27 @@ const InspeccionBotiquin = () => {
                 isClearable
                 placeholder="Buscar empresa..."
                 value={empresaOptions.find(o => o.value === filters.empresa_id) || null}
-                onChange={opt => setFilters({ ...filters, empresa_id: opt ? opt.value : '' })}
+                onChange={opt => {
+                  const empresa_id = opt ? opt.value : '';
+                  const bot = botiquinesCatalogo.find(b => String(b.id) === String(filters.botiquin_id));
+                  const botiquin_id = (empresa_id && bot && String(bot.empresa_id || '') !== String(empresa_id))
+                    ? ''
+                    : filters.botiquin_id;
+                  setFilters({ ...filters, empresa_id, botiquin_id });
+                }}
                 noOptionsMessage={() => 'Sin resultados'}
               />
             </div>
             <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Tipo de botiquín</label>
+              <label className="form-label">Botiquín</label>
               <Select
                 styles={selectStyles} {...selectPortalProps}
-                options={tipoBotiquinOptions}
+                options={botiquinOptionsHistorial}
                 isClearable
-                placeholder="Todos..."
-                value={tipoBotiquinOptions.find(o => o.value === filters.tipo_botiquin_id) || null}
-                onChange={opt => setFilters({ ...filters, tipo_botiquin_id: opt ? opt.value : '' })}
-                noOptionsMessage={() => 'Sin tipos'}
+                placeholder={filters.empresa_id ? 'Botiquines del cliente...' : 'Todos...'}
+                value={botiquinOptionsHistorial.find(o => o.value === filters.botiquin_id) || null}
+                onChange={opt => setFilters({ ...filters, botiquin_id: opt ? opt.value : '' })}
+                noOptionsMessage={() => filters.empresa_id ? 'Este cliente no tiene botiquines' : 'Sin botiquines'}
               />
             </div>
             <div className="form-group" style={{ margin: 0 }}>
