@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { apiFetch, apiJson } from '../api';
 import { Search, Plus, Trash2, Edit2, X, Eye } from 'lucide-react';
 import Select from 'react-select';
@@ -99,7 +99,7 @@ const Atenciones = () => {
     }),
     menuPortal: (base) => ({
       ...base,
-      zIndex: 9999
+      zIndex: 10050
     }),
     option: (base, state) => ({
       ...base,
@@ -127,6 +127,10 @@ const Atenciones = () => {
 
   const handleAddAtencion = async (e) => {
     e.preventDefault();
+    if (!newAtencion.trabajador_id) {
+      alert('Seleccione un paciente (trabajador).');
+      return;
+    }
     const isEditing = newAtencion.id !== null;
     const url = isEditing ? `/atenciones/${newAtencion.id}` : '/atenciones/';
     const method = isEditing ? 'PUT' : 'POST';
@@ -250,17 +254,24 @@ const Atenciones = () => {
 
   const closeModal = () => setIsModalOpen(false);
 
+  const trabajadorOptions = useMemo(
+    () => trabajadores.map(t => ({
+      value: String(t.id),
+      label: `${t.dni || '—'} — ${`${t.nombre || ''} ${t.apellidos || ''}`.trim() || 'Sin nombre'}`,
+    })),
+    [trabajadores]
+  );
+
   // Auto-fill worker details when worker changes
-  const handleTrabajadorChange = (e) => {
-    const t_id = e.target.value;
-    const trabajador = trabajadores.find(t => t.id === t_id);
-    
-    // Auto-calculate age if fecha_nacimiento exists, else leave empty for manual
+  const handleTrabajadorChange = (opt) => {
+    const t_id = opt ? String(opt.value) : '';
+    const trabajador = trabajadores.find(t => String(t.id) === t_id);
+
     let ageCalc = '';
     if (trabajador && trabajador.fecha_nacimiento) {
       const birth = new Date(trabajador.fecha_nacimiento);
       const diff_ms = Date.now() - birth.getTime();
-      const age_dt = new Date(diff_ms); 
+      const age_dt = new Date(diff_ms);
       ageCalc = Math.abs(age_dt.getUTCFullYear() - 1970).toString();
     }
 
@@ -484,14 +495,22 @@ const Atenciones = () => {
 
                   <div className="form-group">
                     <label className="form-label">Paciente (Trabajador)</label>
-                    <select required className="form-control" value={newAtencion.trabajador_id} onChange={handleTrabajadorChange}>
-                      <option value="">Seleccione un paciente...</option>
-                      {trabajadores.map(t => <option key={t.id} value={t.id}>{t.dni} - {t.nombre} {t.apellidos}</option>)}
-                    </select>
+                    <Select
+                      styles={selectStyles}
+                      menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
+                      menuPosition="fixed"
+                      options={trabajadorOptions}
+                      isClearable
+                      isSearchable
+                      placeholder="Buscar por DNI, nombre o apellidos..."
+                      noOptionsMessage={() => 'Sin resultados'}
+                      value={trabajadorOptions.find(o => o.value === String(newAtencion.trabajador_id || '')) || null}
+                      onChange={handleTrabajadorChange}
+                    />
                   </div>
                   <div className="form-group">
                     <label className="form-label">DNI</label>
-                    <input className="form-control" value={trabajadores.find(t => t.id === newAtencion.trabajador_id)?.dni || ''} disabled />
+                    <input className="form-control" value={trabajadores.find(t => String(t.id) === String(newAtencion.trabajador_id))?.dni || ''} disabled />
                   </div>
 
                   <div className="form-group">
