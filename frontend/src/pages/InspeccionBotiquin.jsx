@@ -164,11 +164,8 @@ const InspeccionBotiquin = () => {
   );
 
   const tipoEquipoOptions = useMemo(
-    () => listarNombresTipoEquipo({
-      tipos: tiposBotiquin,
-      extras: botiquines.flatMap(b => [b.tipo_equipo, b.tipo_botiquin?.nombre]),
-    }).map(t => ({ value: t, label: t })),
-    [tiposBotiquin, botiquines]
+    () => listarNombresTipoEquipo({ tipos: tiposBotiquin }).map(t => ({ value: t, label: t })),
+    [tiposBotiquin]
   );
 
   const mapInsumosFromApi = (list) =>

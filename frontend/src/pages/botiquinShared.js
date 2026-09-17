@@ -1,14 +1,6 @@
 /** Constantes y utilidades compartidas de Botiquín / Inspección */
-export const TIPOS_EQUIPO_EMERGENCIA = [
-  'Botiquín de área de trabajo',
-  'Botiquín vehículo liviano',
-  'Botiquín polvorín de accesorios',
-  'Botiquín polvorín explosivos',
-  'Estacion de emergencia',
-  'Refugio minero',
-];
 
-/** Nombres para los desplegables de tipo: catálogo + lista histórica + extras. */
+/** Nombres para los desplegables: solo tipos del catálogo (y extras puntuales). */
 export function listarNombresTipoEquipo({ tipos = [], extras = [] } = {}) {
   const vistos = new Map();
   const agregar = (valor) => {
@@ -17,7 +9,6 @@ export function listarNombresTipoEquipo({ tipos = [], extras = [] } = {}) {
     const clave = nombre.toLocaleLowerCase();
     if (!vistos.has(clave)) vistos.set(clave, nombre);
   };
-  TIPOS_EQUIPO_EMERGENCIA.forEach(agregar);
   tipos.forEach((item) => agregar(typeof item === 'string' ? item : item?.nombre));
   extras.forEach(agregar);
   return [...vistos.values()].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
@@ -62,7 +53,7 @@ export const emptyBotiquin = {
   codigo: '',
   fecha_creacion: new Date(),
   tipo_botiquin_id: '',
-  tipo_equipo: TIPOS_EQUIPO_EMERGENCIA[0],
+  tipo_equipo: '',
   area: '',
   empresa_id: '',
   ubicacion: UBICACIONES[0],

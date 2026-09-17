@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { apiFetch, apiJson, mensajeDeError } from '../api';
 import {
-  TIPOS_EQUIPO_EMERGENCIA,
   UBICACIONES,
   EQUIPOS,
   selectStyles,
@@ -72,11 +71,16 @@ const Botiquin = () => {
   }, [tiposBotiquin, tipoSearch]);
 
   const tipoEquipoNombres = useMemo(
+    () => listarNombresTipoEquipo({ tipos: tiposBotiquin }),
+    [tiposBotiquin]
+  );
+
+  const tipoEquipoNombresForm = useMemo(
     () => listarNombresTipoEquipo({
       tipos: tiposBotiquin,
-      extras: [filters.tipo_equipo, formBotiquin.tipo_equipo],
+      extras: formBotiquin.id ? [formBotiquin.tipo_equipo] : [],
     }),
-    [tiposBotiquin, filters.tipo_equipo, formBotiquin.tipo_equipo]
+    [tiposBotiquin, formBotiquin.id, formBotiquin.tipo_equipo]
   );
 
   const insumoOptions = useMemo(() => {
@@ -235,7 +239,7 @@ const Botiquin = () => {
       codigo: b.codigo || '',
       fecha_creacion: b.fecha_creacion ? new Date(b.fecha_creacion) : (b.created_at ? new Date(b.created_at) : new Date()),
       tipo_botiquin_id: b.tipo_botiquin_id ? String(b.tipo_botiquin_id) : '',
-      tipo_equipo: b.tipo_equipo || TIPOS_EQUIPO_EMERGENCIA[0],
+      tipo_equipo: b.tipo_equipo || b.tipo_botiquin?.nombre || '',
       area: b.area || '',
       empresa_id: b.empresa_id ? String(b.empresa_id) : '',
       ubicacion: b.ubicacion || '',
@@ -986,7 +990,8 @@ const Botiquin = () => {
                     value={formBotiquin.tipo_equipo}
                     onChange={e => setFormBotiquin({ ...formBotiquin, tipo_equipo: e.target.value })}
                   >
-                    {tipoEquipoNombres.map(o => <option key={o} value={o}>{o}</option>)}
+                    <option value="">Seleccione...</option>
+                    {tipoEquipoNombresForm.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
 
