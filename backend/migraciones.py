@@ -11,6 +11,7 @@ esta, no hay nada que hacer. Es idempotente a proposito -- corre en cada
 arranque.
 """
 import logging
+import re
 
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
@@ -158,22 +159,36 @@ def sembrar_obras_desde_planilla(engine) -> None:
         sesion.close()
 
 
+def _numero_codigo_ins(codigo) -> int:
+    encontrado = re.match(r"^INS(\d+)$", (codigo or "").strip())
+    return int(encontrado.group(1)) if encontrado else 0
+
+
 def sembrar_codigos_inspeccion(engine) -> None:
     """Asigna INS0001, INS0002... a inspecciones que todavia no tienen codigo.
 
-    Orden: las mas antiguas primero, para que el correlativo coincida con
-    como se fueron registrando. Idempotente: si ya tienen codigo, no toca.
+    Orden: las mas antiguas primero. En PostgreSQL un advisory lock evita que
+    dos workers de uvicorn numeren a la vez (si no, el segundo pisa los
+    correlativos y queda INS0001 + INS0144...). Si el maximo ya asignado es
+    mayor que la cantidad de filas, se reescriben todos: es esa corrida
+    doble, no un hueco legitimo.
+
+    No pisa un codigo valido cuando la secuencia esta sana.
     """
     from servicios.codigos import siguiente_codigo
 
     sesion = Session(bind=engine)
     try:
+        if engine.dialect.name == "postgresql":
+            sesion.execute(text("SELECT pg_advisory_xact_lock(87233401)"))
+
+        sesion.query(models.BotiquinInspeccion).filter(
+            models.BotiquinInspeccion.codigo == ""
+        ).update({models.BotiquinInspeccion.codigo: None}, synchronize_session=False)
+        sesion.flush()
+
         filas = (
             sesion.query(models.BotiquinInspeccion)
-            .filter(
-                (models.BotiquinInspeccion.codigo.is_(None))
-                | (models.BotiquinInspeccion.codigo == "")
-            )
             .order_by(
                 models.BotiquinInspeccion.created_at.asc(),
                 models.BotiquinInspeccion.fecha.asc(),
@@ -181,7 +196,24 @@ def sembrar_codigos_inspeccion(engine) -> None:
             )
             .all()
         )
+        if not filas:
+            sesion.commit()
+            return
+
+        n = len(filas)
+        maximo = max(_numero_codigo_ins(fila.codigo) for fila in filas)
+        if maximo > n:
+            logger.warning(
+                "Correlativos de inspeccion inconsistentes (max INS%04d con %s filas); se reescriben",
+                maximo, n,
+            )
+            for fila in filas:
+                fila.codigo = None
+            sesion.flush()
+
         for fila in filas:
+            if fila.codigo:
+                continue
             fila.codigo = siguiente_codigo(
                 sesion, models.BotiquinInspeccion, "codigo", "INS", separador=""
             )
@@ -201,6 +233,17 @@ def aplicar(engine) -> None:
                 _ejecutar_ignorando_errores(conn, f"ALTER TABLE {tabla} ADD COLUMN {columna}")
         for sentencia in AMPLIACIONES_DE_TIPO:
             _ejecutar_ignorando_errores(conn, sentencia)
+        _ejecutar_ignorando_errores(
+            conn,
+            "UPDATE botiquin_inspecciones SET codigo = NULL WHERE codigo = ''",
+        )
+        # El indice unico va ANTES de sembrar: dos workers no pueden grabar el
+        # mismo INS0001. Varios NULL siguen permitidos.
+        _ejecutar_ignorando_errores(
+            conn,
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_botiquin_inspecciones_codigo "
+            "ON botiquin_inspecciones (codigo)",
+        )
     try:
         models.Obra.__table__.create(bind=engine, checkfirst=True)
     except Exception:
@@ -208,9 +251,3 @@ def aplicar(engine) -> None:
     limpiar_obra_de_catalogos_clinicos(engine)
     sembrar_obras_desde_planilla(engine)
     sembrar_codigos_inspeccion(engine)
-    with engine.connect() as conn:
-        _ejecutar_ignorando_errores(
-            conn,
-            "CREATE UNIQUE INDEX IF NOT EXISTS ux_botiquin_inspecciones_codigo "
-            "ON botiquin_inspecciones (codigo)",
-        )
