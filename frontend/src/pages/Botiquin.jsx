@@ -490,15 +490,15 @@ const Botiquin = () => {
 
       {tab === 'botiquines' && (
         <div className="glass-panel table-container">
-          <table className="table table-wide">
+          <table className="table table-wide table-wide--labeled">
             <thead>
               <tr>
-                <th>Código</th>
+                <th className="cell-keep">Código</th>
                 <th className="cell-text">Empresa</th>
-                <th>Vehículo</th>
-                <th>Ubicación</th>
+                <th className="cell-keep">Vehículo</th>
+                <th className="cell-keep">Ubicación</th>
                 <th className="cell-text">Área</th>
-                <th>Última inspección</th>
+                <th className="cell-fecha">Última inspección</th>
                 <th className="insp-actions-cell">Acciones</th>
               </tr>
             </thead>
@@ -522,7 +522,7 @@ const Botiquin = () => {
                     <td className="cell-keep">{vehiculoLabel}</td>
                     <td className="cell-keep">{b.ubicacion || '—'}</td>
                     <td className="cell-text">{b.area || '—'}</td>
-                    <td>
+                    <td className="cell-fecha">
                       <FechaCorta value={b.ultima_inspeccion} />
                     </td>
                     <td className="insp-actions-cell">

@@ -1089,12 +1089,12 @@ const InspeccionBotiquin = () => {
           <table className="table table-wide">
             <thead>
               <tr>
-                <th>Código</th>
+                <th className="cell-keep">Código</th>
                 <th className="cell-text">Empresa</th>
-                <th>Vehículo</th>
-                <th>Ubicación</th>
+                <th className="cell-keep">Vehículo</th>
+                <th className="cell-keep">Ubicación</th>
                 <th className="cell-text">Área</th>
-                <th>Última inspección</th>
+                <th className="cell-fecha">Última inspección</th>
                 <th className="insp-actions-cell">Acciones</th>
               </tr>
             </thead>
@@ -1123,7 +1123,7 @@ const InspeccionBotiquin = () => {
                     <td className="cell-keep">{vehiculoLabel}</td>
                     <td className="cell-keep">{b.ubicacion || '—'}</td>
                     <td className="cell-text">{b.area || '—'}</td>
-                    <td>
+                    <td className="cell-fecha">
                       <FechaCorta value={tieneInspeccion ? b.ultima_inspeccion : null} />
                     </td>
                     <td className="insp-actions-cell">
@@ -1294,8 +1294,8 @@ const InspeccionBotiquin = () => {
           <table className="table table-wide">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Fecha</th>
+                <th className="cell-keep">ID</th>
+                <th className="cell-fecha">Fecha</th>
                 <th className="cell-text">Botiquín</th>
                 <th className="cell-text">Área</th>
                 <th className="cell-text">Empresa</th>
@@ -1310,7 +1310,7 @@ const InspeccionBotiquin = () => {
               {inspecciones.map(ins => (
                 <tr key={ins.id}>
                   <td className="cell-keep"><strong>{ins.codigo || '—'}</strong></td>
-                  <td>{ins.fecha ? <FechaCorta value={ins.fecha} /> : '—'}</td>
+                  <td className="cell-fecha">{ins.fecha ? <FechaCorta value={ins.fecha} /> : '—'}</td>
                   <td className="cell-text">
                     {ins.botiquin
                       ? `${ins.botiquin.codigo ? ins.botiquin.codigo + ' · ' : ''}${ins.botiquin.tipo_botiquin?.nombre || ins.botiquin.tipo_equipo} · ${ins.botiquin.ubicacion || ''}`
@@ -1323,7 +1323,7 @@ const InspeccionBotiquin = () => {
                       ? `${ins.responsable.nombre || ''} ${ins.responsable.apellidos || ''}`.trim()
                       : '—'}
                   </td>
-                  <td style={{ textAlign: 'center' }}>
+                  <td className="insp-actions-cell">
                     <div className="insp-actions">
                       <button type="button" className="action-btn view" title="Ver" onClick={() => openViewInspeccion(ins)}>
                         <Eye size={17} />

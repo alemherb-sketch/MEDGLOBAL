@@ -297,16 +297,20 @@ h3 { font-size: 1.5rem; }
   background-color: rgba(255, 255, 255, 0.03);
 }
 
-/* Listados de botiquín/inspección: el panel hace scroll horizontal si hace
-   falta, para no recortar código, fechas ni acciones. */
+/* Listados de botiquín/inspección: el panel scrollea en X si no caben.
+   El hover con transform del glass-panel rompe sticky y recorta acciones. */
 .glass-panel.table-container {
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
+}
+
+.glass-panel.table-container:hover {
+  transform: none;
 }
 
 .table.table-wide {
   width: 100%;
-  min-width: 1080px;
+  min-width: 1240px;
   table-layout: auto;
 }
 
@@ -314,7 +318,7 @@ h3 { font-size: 1.5rem; }
 .table.table-wide td {
   vertical-align: middle;
   overflow: visible;
-  padding: 12px 10px;
+  padding: 12px 12px;
 }
 
 .table.table-wide th {
@@ -324,13 +328,22 @@ h3 { font-size: 1.5rem; }
 
 .table.table-wide .cell-keep {
   white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  hyphens: none;
 }
 
 .table.table-wide .cell-text {
   white-space: normal;
-  min-width: 140px;
+  min-width: 168px;
   overflow-wrap: break-word;
-  word-break: break-word;
+  word-break: normal;
+  hyphens: none;
+}
+
+.table.table-wide .cell-fecha {
+  white-space: nowrap;
+  min-width: 7.5rem;
 }
 
 .insp-fecha {
@@ -343,14 +356,28 @@ h3 { font-size: 1.5rem; }
 
 .table.table-wide th.insp-actions-cell,
 .table.table-wide td.insp-actions-cell {
-  width: 1%;
-  min-width: 268px;
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  width: 12.5rem;
+  min-width: 12.5rem;
   overflow: visible;
-  padding-left: 12px;
-  padding-right: 12px;
+  padding-left: 14px;
+  padding-right: 14px;
   text-align: right;
   white-space: nowrap;
-  box-shadow: inset 1px 0 0 rgba(148, 163, 184, 0.18);
+  background: rgba(22, 32, 50, 0.96);
+  box-shadow: inset 1px 0 0 rgba(148, 163, 184, 0.18), -10px 0 16px rgba(2, 6, 23, 0.28);
+}
+
+.table.table-wide--labeled th.insp-actions-cell,
+.table.table-wide--labeled td.insp-actions-cell {
+  width: 22rem;
+  min-width: 22rem;
+}
+
+.table.table-wide tbody tr:hover td.insp-actions-cell {
+  background: rgb(30, 41, 59);
 }
 
 /* Reporte con muchas fechas: sí puede desbordar y scrollear. */
@@ -677,9 +704,11 @@ h3 { font-size: 1.5rem; }
 .insp-actions--labeled {
   gap: 6px;
   flex-wrap: nowrap;
+  width: max-content;
 }
 
-.insp-actions--labeled .btn {
+.insp-actions--labeled .btn,
+.insp-actions--labeled .btn-icon {
   flex-shrink: 0;
   white-space: nowrap;
 }
