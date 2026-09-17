@@ -22,3 +22,41 @@ def test_listar_botiquines_filtra_por_nombre_del_tipo(client):
     assert lista.status_code == 200, lista.text
     ids = [b["id"] for b in lista.json()]
     assert creado.json()["id"] in ids
+
+
+def test_listar_inspecciones_filtra_por_tipo_y_ubicacion(client):
+    tipo = client.post("/tipos_botiquin/", json={
+        "nombre": "Tipo filtro inspección",
+        "insumos": [],
+    }).json()
+    bot = client.post("/botiquines/", json={
+        "codigo": "BOT-FILTRO-INSP",
+        "tipo_botiquin_id": tipo["id"],
+        "tipo_equipo": tipo["nombre"],
+        "area": "MINA",
+        "ubicacion": "Mina",
+        "equipo": "Botiquín de emergencia",
+    }).json()
+    otro = client.post("/botiquines/", json={
+        "codigo": "BOT-FILTRO-INSP-2",
+        "tipo_equipo": "Otro",
+        "area": "PLANTA",
+        "ubicacion": "Planta",
+        "equipo": "Botiquín de emergencia",
+    }).json()
+    ins = client.post("/botiquin_inspecciones/", json={
+        "botiquin_id": bot["id"], "insumos": [],
+    }).json()
+    client.post("/botiquin_inspecciones/", json={
+        "botiquin_id": otro["id"], "insumos": [],
+    })
+
+    por_tipo = client.get("/botiquin_inspecciones/", params={"tipo_botiquin_id": tipo["id"]})
+    assert por_tipo.status_code == 200, por_tipo.text
+    ids_tipo = [x["id"] for x in por_tipo.json()]
+    assert ins["id"] in ids_tipo
+    assert all(x["botiquin_id"] == bot["id"] for x in por_tipo.json())
+
+    por_ubi = client.get("/botiquin_inspecciones/", params={"ubicacion": "Mina"})
+    assert por_ubi.status_code == 200, por_ubi.text
+    assert ins["id"] in [x["id"] for x in por_ubi.json()]

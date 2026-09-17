@@ -100,6 +100,8 @@ const InspeccionBotiquin = () => {
   const [filters, setFilters] = useState({
     search: '',
     empresa_id: '',
+    tipo_botiquin_id: '',
+    ubicacion: '',
     fecha_inicio: null,
     fecha_fin: null,
   });
@@ -107,6 +109,8 @@ const InspeccionBotiquin = () => {
   const [botFilters, setBotFilters] = useState({
     search: '',
     empresa_id: '',
+    tipo_botiquin_id: '',
+    ubicacion: '',
     estado: '',
   });
 
@@ -168,6 +172,14 @@ const InspeccionBotiquin = () => {
     [tiposBotiquin]
   );
 
+  const tipoBotiquinOptions = useMemo(
+    () => tiposBotiquin.map(t => ({
+      value: String(t.id),
+      label: t.codigo ? `${t.codigo} · ${t.nombre}` : t.nombre,
+    })),
+    [tiposBotiquin]
+  );
+
   const mapInsumosFromApi = (list) =>
     (list || []).map(p => ({
       medicamento_id: String(p.medicamento_id),
@@ -198,6 +210,8 @@ const InspeccionBotiquin = () => {
   const loadInspecciones = () => {
     const params = new URLSearchParams();
     if (filters.empresa_id) params.append('empresa_id', filters.empresa_id);
+    if (filters.tipo_botiquin_id) params.append('tipo_botiquin_id', filters.tipo_botiquin_id);
+    if (filters.ubicacion) params.append('ubicacion', filters.ubicacion);
     if (filters.search) params.append('search', filters.search);
     if (filters.fecha_inicio) {
       params.append('fecha_inicio', filters.fecha_inicio.toISOString().split('T')[0]);
@@ -214,6 +228,8 @@ const InspeccionBotiquin = () => {
   const loadBotiquinesList = () => {
     const params = new URLSearchParams();
     if (botFilters.empresa_id) params.append('empresa_id', botFilters.empresa_id);
+    if (botFilters.tipo_botiquin_id) params.append('tipo_botiquin_id', botFilters.tipo_botiquin_id);
+    if (botFilters.ubicacion) params.append('ubicacion', botFilters.ubicacion);
     if (botFilters.estado) params.append('estado', botFilters.estado);
     if (botFilters.search) params.append('search', botFilters.search);
     const q = params.toString();
@@ -1012,6 +1028,29 @@ const InspeccionBotiquin = () => {
               />
             </div>
             <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Tipo de botiquín</label>
+              <Select
+                styles={selectStyles}
+                options={tipoBotiquinOptions}
+                isClearable
+                placeholder="Todos..."
+                value={tipoBotiquinOptions.find(o => o.value === botFilters.tipo_botiquin_id) || null}
+                onChange={opt => setBotFilters({ ...botFilters, tipo_botiquin_id: opt ? opt.value : '' })}
+                noOptionsMessage={() => 'Sin tipos'}
+              />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Ubicación</label>
+              <select
+                className="form-control"
+                value={botFilters.ubicacion}
+                onChange={e => setBotFilters({ ...botFilters, ubicacion: e.target.value })}
+              >
+                <option value="">Todas</option>
+                {UBICACIONES.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Estado</label>
               <select
                 className="form-control"
@@ -1175,6 +1214,29 @@ const InspeccionBotiquin = () => {
                 onChange={opt => setFilters({ ...filters, empresa_id: opt ? opt.value : '' })}
                 noOptionsMessage={() => 'Sin resultados'}
               />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Tipo de botiquín</label>
+              <Select
+                styles={selectStyles}
+                options={tipoBotiquinOptions}
+                isClearable
+                placeholder="Todos..."
+                value={tipoBotiquinOptions.find(o => o.value === filters.tipo_botiquin_id) || null}
+                onChange={opt => setFilters({ ...filters, tipo_botiquin_id: opt ? opt.value : '' })}
+                noOptionsMessage={() => 'Sin tipos'}
+              />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label">Ubicación</label>
+              <select
+                className="form-control"
+                value={filters.ubicacion}
+                onChange={e => setFilters({ ...filters, ubicacion: e.target.value })}
+              >
+                <option value="">Todas</option>
+                {UBICACIONES.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
             </div>
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Desde</label>

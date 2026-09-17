@@ -410,6 +410,8 @@ def listar_inspecciones(
     botiquin_id: Optional[str] = None,
     responsable_id: Optional[str] = None,
     empresa_id: Optional[str] = None,
+    tipo_botiquin_id: Optional[str] = None,
+    ubicacion: Optional[str] = None,
     fecha_inicio: Optional[str] = None,
     fecha_fin: Optional[str] = None,
     search: Optional[str] = None,
@@ -425,6 +427,10 @@ def listar_inspecciones(
         consulta = consulta.filter(models.BotiquinInspeccion.responsable_id == responsable_id)
     if empresa_id:
         consulta = consulta.filter(models.Botiquin.empresa_id == empresa_id)
+    if tipo_botiquin_id:
+        consulta = consulta.filter(models.Botiquin.tipo_botiquin_id == tipo_botiquin_id)
+    if ubicacion:
+        consulta = consulta.filter(models.Botiquin.ubicacion == ubicacion)
     if fecha_inicio:
         consulta = consulta.filter(func.date(models.BotiquinInspeccion.fecha) >= fecha_inicio)
     if fecha_fin:
