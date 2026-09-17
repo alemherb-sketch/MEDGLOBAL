@@ -297,8 +297,8 @@ h3 { font-size: 1.5rem; }
   background-color: rgba(255, 255, 255, 0.03);
 }
 
-/* Listados de inspección: las 7 columnas caben en el panel.
-   Código/fecha/acciones no se parten; empresa y área envuelven por espacios. */
+/* Listados de botiquín/inspección: el panel hace scroll horizontal si hace
+   falta, para no recortar código, fechas ni acciones. */
 .glass-panel.table-container {
   overflow-x: auto;
   overflow-y: hidden;
@@ -306,22 +306,20 @@ h3 { font-size: 1.5rem; }
 
 .table.table-wide {
   width: 100%;
-  table-layout: fixed;
+  min-width: 1080px;
+  table-layout: auto;
 }
 
 .table.table-wide th,
 .table.table-wide td {
   vertical-align: middle;
-  overflow: hidden;
-  overflow-wrap: break-word;
-  word-break: normal;
-  hyphens: none;
+  overflow: visible;
   padding: 12px 10px;
 }
 
 .table.table-wide th {
   letter-spacing: 0.02em;
-  white-space: normal;
+  white-space: nowrap;
 }
 
 .table.table-wide .cell-keep {
@@ -330,6 +328,9 @@ h3 { font-size: 1.5rem; }
 
 .table.table-wide .cell-text {
   white-space: normal;
+  min-width: 140px;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .insp-fecha {
@@ -342,13 +343,13 @@ h3 { font-size: 1.5rem; }
 
 .table.table-wide th.insp-actions-cell,
 .table.table-wide td.insp-actions-cell {
-  width: 232px;
-  min-width: 232px;
-  max-width: 232px;
-  overflow: hidden;
+  width: 1%;
+  min-width: 268px;
+  overflow: visible;
   padding-left: 12px;
   padding-right: 12px;
-  text-align: center;
+  text-align: right;
+  white-space: nowrap;
   box-shadow: inset 1px 0 0 rgba(148, 163, 184, 0.18);
 }
 
@@ -671,6 +672,16 @@ h3 { font-size: 1.5rem; }
   filter: brightness(1.08);
   background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
   color: #fff;
+}
+
+.insp-actions--labeled {
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.insp-actions--labeled .btn {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* Filter Bar */

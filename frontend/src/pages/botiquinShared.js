@@ -1,3 +1,5 @@
+import { createElement } from 'react';
+
 /** Constantes y utilidades compartidas de Botiquín / Inspección */
 
 /** Nombres para los desplegables: solo tipos del catálogo (y extras puntuales). */
@@ -133,3 +135,14 @@ export const estadoBadgeStyle = (activo) => ({
   background: activo ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
   color: activo ? 'var(--success-color)' : 'var(--danger-color)',
 });
+
+export function FechaCorta({ value, empty = 'Sin inspección' }) {
+  if (!value) return createElement('span', { style: { opacity: 0.55 } }, empty);
+  const d = new Date(value);
+  return createElement(
+    'span',
+    { className: 'insp-fecha' },
+    createElement('span', null, d.toLocaleDateString('es-PE')),
+    createElement('span', null, d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })),
+  );
+}

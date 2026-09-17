@@ -18,6 +18,7 @@ import {
   resumenVehiculo,
   sortBotiquinesByCodigoDesc,
   listarNombresTipoEquipo,
+  FechaCorta,
 } from './botiquinShared';
 
 const ESTADOS_INSUMO = [
@@ -69,17 +70,6 @@ const escHtml = (s) => String(s ?? '')
   .replace(/</g, '&lt;')
   .replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;');
-
-const FechaCorta = ({ value }) => {
-  if (!value) return <span style={{ opacity: 0.55 }}>Sin inspección</span>;
-  const d = new Date(value);
-  return (
-    <span className="insp-fecha">
-      <span>{d.toLocaleDateString('es-PE')}</span>
-      <span>{d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</span>
-    </span>
-  );
-};
 
 /** El glass-panel recorta el popper (overflow + backdrop-filter). El portal lo saca. */
 const datePickerPortalProps = {
@@ -1097,22 +1087,13 @@ const InspeccionBotiquin = () => {
       {tab === 'botiquines' && (
         <div className="glass-panel table-container">
           <table className="table table-wide">
-            <colgroup>
-              <col style={{ width: '15%' }} />
-              <col style={{ width: '20%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '9%' }} />
-              <col style={{ width: '14%' }} />
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '20%' }} />
-            </colgroup>
             <thead>
               <tr>
                 <th>Código</th>
-                <th>Empresa</th>
+                <th className="cell-text">Empresa</th>
                 <th>Vehículo</th>
                 <th>Ubicación</th>
-                <th>Área</th>
+                <th className="cell-text">Área</th>
                 <th>Última inspección</th>
                 <th className="insp-actions-cell">Acciones</th>
               </tr>
@@ -1311,15 +1292,6 @@ const InspeccionBotiquin = () => {
       {tab === 'historial' && (
         <div className="glass-panel table-container">
           <table className="table table-wide">
-            <colgroup>
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '14%' }} />
-              <col style={{ width: '22%' }} />
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '16%' }} />
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '12%' }} />
-            </colgroup>
             <thead>
               <tr>
                 <th>ID</th>

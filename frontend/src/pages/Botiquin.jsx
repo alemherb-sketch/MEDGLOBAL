@@ -19,6 +19,7 @@ import {
   resumenVehiculo,
   sortBotiquinesByCodigoDesc,
   listarNombresTipoEquipo,
+  FechaCorta,
 } from './botiquinShared';
 
 const Botiquin = () => {
@@ -488,17 +489,17 @@ const Botiquin = () => {
       )}
 
       {tab === 'botiquines' && (
-        <div className="glass-panel" style={{ overflowX: 'auto' }}>
-          <table className="table">
+        <div className="glass-panel table-container">
+          <table className="table table-wide">
             <thead>
               <tr>
                 <th>Código</th>
-                <th>Empresa</th>
+                <th className="cell-text">Empresa</th>
                 <th>Vehículo</th>
                 <th>Ubicación</th>
-                <th>Área</th>
+                <th className="cell-text">Área</th>
                 <th>Última inspección</th>
-                <th style={{ width: 200 }}>Acciones</th>
+                <th className="insp-actions-cell">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -516,18 +517,16 @@ const Botiquin = () => {
                   || '—';
                 return (
                   <tr key={b.id}>
-                    <td>{b.codigo || '—'}</td>
-                    <td>{b.empresa?.nombre || '—'}</td>
-                    <td>{vehiculoLabel}</td>
-                    <td>{b.ubicacion || '—'}</td>
-                    <td>{b.area || '—'}</td>
+                    <td className="cell-keep">{b.codigo || '—'}</td>
+                    <td className="cell-text">{b.empresa?.nombre || '—'}</td>
+                    <td className="cell-keep">{vehiculoLabel}</td>
+                    <td className="cell-keep">{b.ubicacion || '—'}</td>
+                    <td className="cell-text">{b.area || '—'}</td>
                     <td>
-                      {b.ultima_inspeccion
-                        ? new Date(b.ultima_inspeccion).toLocaleString()
-                        : <span style={{ opacity: 0.55 }}>Sin inspección</span>}
+                      <FechaCorta value={b.ultima_inspeccion} />
                     </td>
-                    <td>
-                      <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <td className="insp-actions-cell">
+                      <div className="insp-actions insp-actions--labeled">
                         <button
                           type="button"
                           className="btn btn-primary btn-sm"
