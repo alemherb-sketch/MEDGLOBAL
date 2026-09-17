@@ -60,3 +60,24 @@ def test_listar_inspecciones_filtra_por_tipo_y_ubicacion(client):
     por_ubi = client.get("/botiquin_inspecciones/", params={"ubicacion": "Mina"})
     assert por_ubi.status_code == 200, por_ubi.text
     assert ins["id"] in [x["id"] for x in por_ubi.json()]
+
+
+def test_listar_botiquines_filtra_por_botiquin_id(client):
+    propio = client.post("/botiquines/", json={
+        "codigo": "BOT-ID-PROPIO",
+        "tipo_equipo": "Botiquín de área de trabajo",
+        "area": "MINA",
+        "equipo": "Botiquín de emergencia",
+    }).json()
+    otro = client.post("/botiquines/", json={
+        "codigo": "BOT-ID-OTRO",
+        "tipo_equipo": "Botiquín de área de trabajo",
+        "area": "PLANTA",
+        "equipo": "Botiquín de emergencia",
+    }).json()
+
+    lista = client.get("/botiquines/", params={"botiquin_id": propio["id"]})
+    assert lista.status_code == 200, lista.text
+    ids = [b["id"] for b in lista.json()]
+    assert propio["id"] in ids
+    assert otro["id"] not in ids

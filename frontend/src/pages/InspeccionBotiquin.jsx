@@ -105,7 +105,7 @@ const InspeccionBotiquin = () => {
   const [botFilters, setBotFilters] = useState({
     search: '',
     empresa_id: '',
-    tipo_botiquin_id: '',
+    botiquin_id: '',
     ubicacion: '',
     estado: '',
   });
@@ -158,8 +158,7 @@ const InspeccionBotiquin = () => {
     [botiquinesCatalogo]
   );
 
-  const botiquinOptionsHistorial = useMemo(() => {
-    const empresaId = filters.empresa_id;
+  const botiquinOptionsPorEmpresa = (empresaId) => {
     const lista = empresaId
       ? botiquinesCatalogo.filter(b => String(b.empresa_id || '') === String(empresaId))
       : botiquinesCatalogo;
@@ -167,18 +166,22 @@ const InspeccionBotiquin = () => {
       value: String(b.id),
       label: etiquetaBotiquin(b),
     }));
-  }, [botiquinesCatalogo, filters.empresa_id]);
+  };
 
-  const botiquinOptionsReporte = useMemo(() => {
-    const empresaId = reporteFiltros.empresa_id;
-    const lista = empresaId
-      ? botiquinesCatalogo.filter(b => String(b.empresa_id || '') === String(empresaId))
-      : botiquinesCatalogo;
-    return lista.map(b => ({
-      value: String(b.id),
-      label: etiquetaBotiquin(b),
-    }));
-  }, [botiquinesCatalogo, reporteFiltros.empresa_id]);
+  const botiquinOptionsLista = useMemo(
+    () => botiquinOptionsPorEmpresa(botFilters.empresa_id),
+    [botiquinesCatalogo, botFilters.empresa_id]
+  );
+
+  const botiquinOptionsHistorial = useMemo(
+    () => botiquinOptionsPorEmpresa(filters.empresa_id),
+    [botiquinesCatalogo, filters.empresa_id]
+  );
+
+  const botiquinOptionsReporte = useMemo(
+    () => botiquinOptionsPorEmpresa(reporteFiltros.empresa_id),
+    [botiquinesCatalogo, reporteFiltros.empresa_id]
+  );
 
   const ubicacionOptions = useMemo(
     () => UBICACIONES.map(a => ({ value: a, label: a })),
@@ -187,14 +190,6 @@ const InspeccionBotiquin = () => {
 
   const tipoEquipoOptions = useMemo(
     () => listarNombresTipoEquipo({ tipos: tiposBotiquin }).map(t => ({ value: t, label: t })),
-    [tiposBotiquin]
-  );
-
-  const tipoBotiquinOptions = useMemo(
-    () => tiposBotiquin.map(t => ({
-      value: String(t.id),
-      label: t.codigo ? `${t.codigo} · ${t.nombre}` : t.nombre,
-    })),
     [tiposBotiquin]
   );
 
@@ -246,7 +241,7 @@ const InspeccionBotiquin = () => {
   const loadBotiquinesList = () => {
     const params = new URLSearchParams();
     if (botFilters.empresa_id) params.append('empresa_id', botFilters.empresa_id);
-    if (botFilters.tipo_botiquin_id) params.append('tipo_botiquin_id', botFilters.tipo_botiquin_id);
+    if (botFilters.botiquin_id) params.append('botiquin_id', botFilters.botiquin_id);
     if (botFilters.ubicacion) params.append('ubicacion', botFilters.ubicacion);
     if (botFilters.estado) params.append('estado', botFilters.estado);
     if (botFilters.search) params.append('search', botFilters.search);
@@ -1041,20 +1036,27 @@ const InspeccionBotiquin = () => {
                 isClearable
                 placeholder="Buscar empresa..."
                 value={empresaOptions.find(o => o.value === botFilters.empresa_id) || null}
-                onChange={opt => setBotFilters({ ...botFilters, empresa_id: opt ? opt.value : '' })}
+                onChange={opt => {
+                  const empresa_id = opt ? opt.value : '';
+                  const bot = botiquinesCatalogo.find(b => String(b.id) === String(botFilters.botiquin_id));
+                  const botiquin_id = (empresa_id && bot && String(bot.empresa_id || '') !== String(empresa_id))
+                    ? ''
+                    : botFilters.botiquin_id;
+                  setBotFilters({ ...botFilters, empresa_id, botiquin_id });
+                }}
                 noOptionsMessage={() => 'Sin resultados'}
               />
             </div>
             <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Tipo de botiquín</label>
+              <label className="form-label">Botiquín</label>
               <Select
                 styles={selectStyles} {...selectPortalProps}
-                options={tipoBotiquinOptions}
+                options={botiquinOptionsLista}
                 isClearable
-                placeholder="Todos..."
-                value={tipoBotiquinOptions.find(o => o.value === botFilters.tipo_botiquin_id) || null}
-                onChange={opt => setBotFilters({ ...botFilters, tipo_botiquin_id: opt ? opt.value : '' })}
-                noOptionsMessage={() => 'Sin tipos'}
+                placeholder={botFilters.empresa_id ? 'Botiquines del cliente...' : 'Todos...'}
+                value={botiquinOptionsLista.find(o => o.value === botFilters.botiquin_id) || null}
+                onChange={opt => setBotFilters({ ...botFilters, botiquin_id: opt ? opt.value : '' })}
+                noOptionsMessage={() => botFilters.empresa_id ? 'Este cliente no tiene botiquines' : 'Sin botiquines'}
               />
             </div>
             <div className="form-group" style={{ margin: 0 }}>

@@ -231,6 +231,7 @@ def listar_botiquines(
     area: Optional[str] = None,
     ubicacion: Optional[str] = None,
     empresa_id: Optional[str] = None,
+    botiquin_id: Optional[str] = None,
     equipo: Optional[str] = None,
     estado: Optional[str] = None,
     tipo_botiquin_id: Optional[str] = None,
@@ -253,6 +254,7 @@ def listar_botiquines(
         models.Botiquin.equipo: equipo,
         models.Botiquin.estado: estado,
         models.Botiquin.tipo_botiquin_id: tipo_botiquin_id,
+        models.Botiquin.id: botiquin_id,
     }
     for columna, valor in exactos.items():
         if valor:
