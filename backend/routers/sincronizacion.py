@@ -15,6 +15,7 @@ import models
 import schemas
 from dependencias import RequiereSesion, SesionDB
 from servicios import sincronizacion as protocolo
+from servicios.codigos import siguiente_codigo
 from servicios.tiempo import ahora_utc
 
 logger = logging.getLogger(__name__)
@@ -145,6 +146,15 @@ def _insumos_de_tipo(db, tipo, insumos) -> None:
         ))
 
 
+def _inspeccion_nueva(db, inspeccion, insumos) -> None:
+    """Asigna correlativo INS0001 y reconstruye los insumos de una fila nueva."""
+    if not inspeccion.codigo:
+        inspeccion.codigo = siguiente_codigo(
+            db, models.BotiquinInspeccion, "codigo", "INS", separador=""
+        )
+    _insumos_de_inspeccion(db, inspeccion, insumos)
+
+
 def _insumos_de_inspeccion(db, inspeccion, insumos) -> None:
     for item in insumos or []:
         if not item.get("medicamento_id"):
@@ -188,7 +198,7 @@ def _reconstruir_hijos(db, tabla: str, fila, datos: dict) -> None:
     elif tabla == "tipos_botiquin":
         _insumos_de_tipo(db, fila, datos.get("insumos", []))
     elif tabla == "botiquin_inspecciones":
-        _insumos_de_inspeccion(db, fila, datos.get("insumos", []))
+        _inspeccion_nueva(db, fila, datos.get("insumos", []))
     elif tabla == "kardex":
         _kardex_nuevo(db, fila)
 

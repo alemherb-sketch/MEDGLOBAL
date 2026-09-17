@@ -47,6 +47,7 @@ const normalizarEstado = (estado) => {
 
 const emptyInspeccionForm = () => ({
   id: null,
+  codigo: null,
   botiquin_id: '',
   responsable_id: '',
   fecha: new Date(),
@@ -285,6 +286,7 @@ const InspeccionBotiquin = () => {
   const openViewInspeccion = (ins) => {
     setFormInspeccion({
       id: ins.id,
+      codigo: ins.codigo || null,
       botiquin_id: String(ins.botiquin_id || ''),
       responsable_id: ins.responsable_id ? String(ins.responsable_id) : '',
       fecha: ins.fecha ? new Date(ins.fecha) : new Date(),
@@ -343,6 +345,7 @@ const InspeccionBotiquin = () => {
   const openEditInspeccion = (ins) => {
     setFormInspeccion({
       id: ins.id,
+      codigo: ins.codigo || null,
       botiquin_id: String(ins.botiquin_id || ''),
       responsable_id: ins.responsable_id ? String(ins.responsable_id) : '',
       fecha: ins.fecha ? new Date(ins.fecha) : new Date(),
@@ -499,6 +502,7 @@ const InspeccionBotiquin = () => {
       <h1>MEDGLOBAL — Informe de Inspección de Botiquín</h1>
       <p class="sub">Documento generado el ${escHtml(new Date().toLocaleString())}</p>
       <div class="meta">
+        <div><strong>ID inspección</strong>${escHtml(ins.codigo || '—')}</div>
         <div><strong>Fecha de inspección</strong>${escHtml(fecha)}</div>
         <div><strong>Responsable</strong>${escHtml(responsable)}</div>
         <div><strong>Botiquín</strong>${escHtml(botLabel)}</div>
@@ -522,7 +526,7 @@ const InspeccionBotiquin = () => {
           <div class="firma-hint">Responsable de la inspección</div>
         </div>
       </div>
-      <p class="footer">MEDGLOBAL · Sistema de gestión médica · Inspección ${escHtml(ins.id || '')}</p>
+      <p class="footer">MEDGLOBAL · Sistema de gestión médica · ${escHtml(ins.codigo || 'Inspección')}</p>
       <script>
         function listoParaImprimir() {
           var imgs = Array.prototype.slice.call(document.images || []);
@@ -623,7 +627,7 @@ const InspeccionBotiquin = () => {
         : '<span class="muted">Sin foto</span>';
       return `
         <tr>
-          <td class="num">${idx + 1}</td>
+          <td class="num">${escHtml(ins.codigo || String(idx + 1))}</td>
           <td>${escHtml(fecha)}</td>
           <td>${escHtml(botLabel)}</td>
           <td>${escHtml(bot?.area || '—')}</td>
@@ -698,7 +702,7 @@ const InspeccionBotiquin = () => {
       <table>
         <thead>
           <tr>
-            <th>#</th>
+            <th>ID</th>
             <th>Fecha</th>
             <th>Botiquín</th>
             <th>Área</th>
@@ -1152,7 +1156,7 @@ const InspeccionBotiquin = () => {
                 <input
                   className="form-control"
                   style={{ paddingLeft: 32 }}
-                  placeholder="Botiquín, ubicación, tipo..."
+                  placeholder="INS0001, botiquín, ubicación..."
                   value={filters.search}
                   onChange={e => setFilters({ ...filters, search: e.target.value })}
                 />
@@ -1209,29 +1213,32 @@ const InspeccionBotiquin = () => {
         <div className="glass-panel table-container">
           <table className="table table-wide">
             <colgroup>
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '22%' }} />
+              <col style={{ width: '12%' }} />
               <col style={{ width: '16%' }} />
-              <col style={{ width: '26%' }} />
-              <col style={{ width: '14%' }} />
-              <col style={{ width: '18%' }} />
-              <col style={{ width: '14%' }} />
+              <col style={{ width: '12%' }} />
               <col style={{ width: '12%' }} />
             </colgroup>
             <thead>
               <tr>
-                <th className="cell-keep">Fecha</th>
+                <th>ID</th>
+                <th>Fecha</th>
                 <th className="cell-text">Botiquín</th>
                 <th className="cell-text">Área</th>
                 <th className="cell-text">Empresa</th>
                 <th className="cell-text">Responsable</th>
-                <th className="cell-keep" style={{ textAlign: 'center' }}>Acciones</th>
+                <th className="insp-actions-cell">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {inspecciones.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign: 'center', opacity: 0.7 }}>Sin inspecciones</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: 'center', opacity: 0.7 }}>Sin inspecciones</td></tr>
               )}
               {inspecciones.map(ins => (
                 <tr key={ins.id}>
+                  <td className="cell-keep"><strong>{ins.codigo || '—'}</strong></td>
                   <td>{ins.fecha ? <FechaCorta value={ins.fecha} /> : '—'}</td>
                   <td className="cell-text">
                     {ins.botiquin
@@ -1440,15 +1447,24 @@ const InspeccionBotiquin = () => {
             <div className="modal-header" style={{ flexShrink: 0 }}>
               <h3>
                 {formInspeccion.mode === 'view'
-                  ? 'Ver inspección'
+                  ? `Ver inspección${formInspeccion.codigo ? ` ${formInspeccion.codigo}` : ''}`
                   : formInspeccion.mode === 'edit'
-                    ? 'Editar inspección'
+                    ? `Editar inspección${formInspeccion.codigo ? ` ${formInspeccion.codigo}` : ''}`
                     : 'Registrar inspección'}
               </h3>
               <button className="close-btn" type="button" onClick={() => setModalInspeccion(false)}><X size={24} /></button>
             </div>
             <form onSubmit={saveInspeccion} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
               <div className="modal-body" style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
+                <div className="form-group">
+                  <label className="form-label">ID inspección</label>
+                  <input
+                    className="form-control"
+                    value={formInspeccion.codigo || (formInspeccion.mode === 'create' ? '(Autogenerado)' : '—')}
+                    disabled
+                    style={{ background: 'rgba(0,0,0,0.05)', fontWeight: 700 }}
+                  />
+                </div>
                 <div className="form-group">
                   <label className="form-label">Fecha (automática)</label>
                   <DatePicker

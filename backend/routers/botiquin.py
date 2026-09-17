@@ -424,7 +424,9 @@ def listar_inspecciones(
     if search:
         patron = f"%{search}%"
         consulta = consulta.filter(
-            models.Botiquin.ubicacion.ilike(patron)
+            models.BotiquinInspeccion.codigo.ilike(patron)
+            | models.Botiquin.codigo.ilike(patron)
+            | models.Botiquin.ubicacion.ilike(patron)
             | models.Botiquin.numero_serie_placa.ilike(patron)
             | models.Botiquin.tipo_equipo.ilike(patron)
         )
@@ -470,6 +472,7 @@ def crear_inspeccion(inspeccion: schemas.BotiquinInspeccionCreate, db: SesionDB)
     if not datos.get("fecha"):
         datos["fecha"] = ahora_utc()
     datos["imagenes"] = _serializar_imagenes(inspeccion.imagenes)
+    datos["codigo"] = siguiente_codigo(db, models.BotiquinInspeccion, "codigo", "INS", separador="")
 
     fila = models.BotiquinInspeccion(**datos)
     db.add(fila)
@@ -485,7 +488,7 @@ def editar_inspeccion(id: str, inspeccion: schemas.BotiquinInspeccionUpdate, db:
     fila = crud.obtener_o_404(db, models.BotiquinInspeccion, id, "Inspección no encontrada",
                               solo_vigentes=True)
 
-    cambios = inspeccion.model_dump(exclude_unset=True, exclude={"insumos", "imagenes"})
+    cambios = inspeccion.model_dump(exclude_unset=True, exclude={"insumos", "imagenes", "codigo"})
     if cambios.get("botiquin_id"):
         crud.obtener_o_404(db, models.Botiquin, cambios["botiquin_id"], "Botiquín no encontrado",
                            solo_vigentes=True)

@@ -352,6 +352,8 @@ class BotiquinInspeccion(MarcasDeAuditoria, Base):
     """Inspeccion de un botiquin, con responsable e insumos registrados."""
     __tablename__ = "botiquin_inspecciones"
     id = Id()
+    # Correlativo legible (INS0001). El id sigue siendo UUID por la sync.
+    codigo = Column(String(20), unique=True, nullable=True, index=True)
     botiquin_id = Column(String(36), ForeignKey("botiquines.id"), index=True)
     fecha = Column(DateTime, default=ahora_utc, index=True)
     responsable_id = Column(String(36), ForeignKey("personal_salud.id"), nullable=True, index=True)

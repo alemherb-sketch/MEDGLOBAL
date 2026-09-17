@@ -463,6 +463,7 @@ class BotiquinInspeccionUpdate(BaseModel):
 
 class BotiquinInspeccion(BaseModel):
     id: str
+    codigo: Optional[str] = None
     botiquin_id: str
     fecha: Optional[datetime] = None
     responsable_id: Optional[str] = None

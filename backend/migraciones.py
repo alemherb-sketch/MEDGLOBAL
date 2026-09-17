@@ -55,7 +55,7 @@ COLUMNAS_POR_TABLA = {
     "botiquin_inspeccion_insumos": [
         "estado VARCHAR(50) DEFAULT 'BUENO'", "reposicion VARCHAR(10) DEFAULT 'NO'",
     ],
-    "botiquin_inspecciones": ["imagenes TEXT"],
+    "botiquin_inspecciones": ["imagenes TEXT", "codigo VARCHAR(20)"],
 }
 
 # Cambios de tipo que solo entiende PostgreSQL; en SQLite fallan y se ignoran.
@@ -158,6 +158,42 @@ def sembrar_obras_desde_planilla(engine) -> None:
         sesion.close()
 
 
+def sembrar_codigos_inspeccion(engine) -> None:
+    """Asigna INS0001, INS0002... a inspecciones que todavia no tienen codigo.
+
+    Orden: las mas antiguas primero, para que el correlativo coincida con
+    como se fueron registrando. Idempotente: si ya tienen codigo, no toca.
+    """
+    from servicios.codigos import siguiente_codigo
+
+    sesion = Session(bind=engine)
+    try:
+        filas = (
+            sesion.query(models.BotiquinInspeccion)
+            .filter(
+                (models.BotiquinInspeccion.codigo.is_(None))
+                | (models.BotiquinInspeccion.codigo == "")
+            )
+            .order_by(
+                models.BotiquinInspeccion.created_at.asc(),
+                models.BotiquinInspeccion.fecha.asc(),
+                models.BotiquinInspeccion.id.asc(),
+            )
+            .all()
+        )
+        for fila in filas:
+            fila.codigo = siguiente_codigo(
+                sesion, models.BotiquinInspeccion, "codigo", "INS", separador=""
+            )
+            sesion.flush()
+        sesion.commit()
+    except Exception:
+        sesion.rollback()
+        logger.exception("No se pudieron sembrar los codigos de inspeccion")
+    finally:
+        sesion.close()
+
+
 def aplicar(engine) -> None:
     with engine.connect() as conn:
         for tabla, columnas in COLUMNAS_POR_TABLA.items():
@@ -171,3 +207,10 @@ def aplicar(engine) -> None:
         logger.debug("Creacion de tabla obras omitida", exc_info=True)
     limpiar_obra_de_catalogos_clinicos(engine)
     sembrar_obras_desde_planilla(engine)
+    sembrar_codigos_inspeccion(engine)
+    with engine.connect() as conn:
+        _ejecutar_ignorando_errores(
+            conn,
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_botiquin_inspecciones_codigo "
+            "ON botiquin_inspecciones (codigo)",
+        )

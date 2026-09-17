@@ -58,6 +58,7 @@ COLUMNAS_NUNCA_COPIADAS = {"id"}
 COLUMNAS_DEL_SERVIDOR = {"folio", "server_updated_at"}
 COLUMNAS_DEL_SERVIDOR_POR_TABLA = {
     "medicamentos": {"stock_actual"},
+    "botiquin_inspecciones": {"codigo"},
 }
 
 COLUMNAS_DE_FECHA = {
