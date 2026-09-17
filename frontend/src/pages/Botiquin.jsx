@@ -11,6 +11,7 @@ import {
   UBICACIONES,
   EQUIPOS,
   selectStyles,
+  selectPortalProps,
   emptyBotiquin,
   emptyTipo,
   labelMedicamento,
@@ -370,7 +371,7 @@ const Botiquin = () => {
       )}
 
       {tab === 'botiquines' && (
-        <div className="glass-panel mb-4" style={{ padding: 16 }}>
+        <div className="glass-panel mb-4" style={{ padding: 16, overflow: 'visible' }}>
           <div className="flex items-center mb-3" style={{ gap: 8 }}>
             <Filter size={18} />
             <strong>Filtros avanzados</strong>
@@ -415,7 +416,7 @@ const Botiquin = () => {
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Empresa</label>
               <Select
-                styles={selectStyles}
+                styles={selectStyles} {...selectPortalProps}
                 options={empresaOptions}
                 isClearable
                 placeholder="Buscar empresa..."
@@ -817,7 +818,7 @@ const Botiquin = () => {
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'stretch' }}>
                     <div style={{ flex: '1 1 240px', minWidth: 200 }}>
                       <Select
-                        styles={selectStyles}
+                        styles={selectStyles} {...selectPortalProps}
                         options={insumoOptions}
                         placeholder="Buscar y seleccionar medicamento..."
                         value={insumoTipoSelect}
@@ -926,7 +927,7 @@ const Botiquin = () => {
                 <div className="form-group">
                   <label className="form-label">Empresa</label>
                   <Select
-                    styles={selectStyles}
+                    styles={selectStyles} {...selectPortalProps}
                     options={empresaOptions}
                     isClearable
                     placeholder="Buscar y seleccionar empresa..."
@@ -965,7 +966,7 @@ const Botiquin = () => {
                 <div className="form-group">
                   <label className="form-label">Tipo de botiquín</label>
                   <Select
-                    styles={selectStyles}
+                    styles={selectStyles} {...selectPortalProps}
                     options={tipoBotiquinOptions}
                     placeholder="Buscar tipo de botiquín..."
                     value={tipoBotiquinOptions.find(o => o.value === String(formBotiquin.tipo_botiquin_id || '')) || null}

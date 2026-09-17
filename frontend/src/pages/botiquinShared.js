@@ -30,7 +30,8 @@ export const selectStyles = {
     borderColor: 'var(--border-color, #334155)',
     minHeight: 42,
   }),
-  menu: (base) => ({ ...base, zIndex: 50, background: 'var(--input-bg, #1e293b)' }),
+  menu: (base) => ({ ...base, zIndex: 10050, background: 'var(--input-bg, #1e293b)' }),
+  menuPortal: (base) => ({ ...base, zIndex: 10050 }),
   option: (base, state) => ({
     ...base,
     background: state.isFocused ? 'rgba(59,130,246,0.25)' : 'transparent',
@@ -46,6 +47,12 @@ export const selectStyles = {
   }),
   input: (base) => ({ ...base, color: 'var(--text-color, #e2e8f0)' }),
   placeholder: (base) => ({ ...base, color: '#94a3b8' }),
+};
+
+/** El glass-panel tiene overflow:hidden y recorta el menú si no sale al body. */
+export const selectPortalProps = {
+  menuPortalTarget: typeof document !== 'undefined' ? document.body : null,
+  menuPosition: 'fixed',
 };
 
 export const emptyBotiquin = {

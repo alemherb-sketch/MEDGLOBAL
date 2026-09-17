@@ -13,6 +13,7 @@ import { API_URL } from '../config';
 import {
   UBICACIONES,
   selectStyles,
+  selectPortalProps,
   labelMedicamento,
   resumenVehiculo,
   sortBotiquinesByCodigoDesc,
@@ -87,11 +88,16 @@ const datePickerPortalProps = {
   popperPlacement: 'bottom-start',
 };
 
+const etiquetaBotiquin = (b) => (
+  `${b.codigo ? b.codigo + ' · ' : ''}${b.tipo_botiquin?.nombre || b.tipo_equipo}${b.vehiculo ? ` · ${b.vehiculo}` : ''}${b.ubicacion ? ` · ${b.ubicacion}` : ''}`
+);
+
 const InspeccionBotiquin = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const autoOpenDone = useRef(false);
   const [tab, setTab] = useState('botiquines'); // botiquines | historial | reporte
   const [botiquines, setBotiquines] = useState([]);
+  const [botiquinesCatalogo, setBotiquinesCatalogo] = useState([]);
   const [inspecciones, setInspecciones] = useState([]);
   const [empresas, setEmpresas] = useState([]);
   const [personal, setPersonal] = useState([]);
@@ -155,12 +161,23 @@ const InspeccionBotiquin = () => {
   );
 
   const botiquinOptions = useMemo(
-    () => botiquines.map(b => ({
+    () => botiquinesCatalogo.map(b => ({
       value: String(b.id),
-      label: `${b.codigo ? b.codigo + ' · ' : ''}${b.tipo_botiquin?.nombre || b.tipo_equipo}${b.vehiculo ? ` · ${b.vehiculo}` : ''}${b.ubicacion ? ` · ${b.ubicacion}` : ''}`,
+      label: etiquetaBotiquin(b),
     })),
-    [botiquines]
+    [botiquinesCatalogo]
   );
+
+  const botiquinOptionsReporte = useMemo(() => {
+    const empresaId = reporteFiltros.empresa_id;
+    const lista = empresaId
+      ? botiquinesCatalogo.filter(b => String(b.empresa_id || '') === String(empresaId))
+      : botiquinesCatalogo;
+    return lista.map(b => ({
+      value: String(b.id),
+      label: etiquetaBotiquin(b),
+    }));
+  }, [botiquinesCatalogo, reporteFiltros.empresa_id]);
 
   const ubicacionOptions = useMemo(
     () => UBICACIONES.map(a => ({ value: a, label: a })),
@@ -203,7 +220,7 @@ const InspeccionBotiquin = () => {
   const loadCatalogos = () => {
     apiJson('/empresas/').then(setEmpresas).catch(() => setEmpresas([]));
     apiJson('/personal_salud/').then(setPersonal).catch(() => setPersonal([]));
-    apiJson('/botiquines/').then(data => setBotiquines(sortBotiquinesByCodigoDesc(data))).catch(() => setBotiquines([]));
+    apiJson('/botiquines/').then(data => setBotiquinesCatalogo(sortBotiquinesByCodigoDesc(data))).catch(() => setBotiquinesCatalogo([]));
     apiJson('/tipos_botiquin/').then(setTiposBotiquin).catch(() => setTiposBotiquin([]));
   };
 
@@ -267,7 +284,7 @@ const InspeccionBotiquin = () => {
       }));
     } catch (err) {
       console.error(err);
-      const bot = botiquines.find(b => String(b.id) === String(botiquinId));
+      const bot = botiquinesCatalogo.find(b => String(b.id) === String(botiquinId));
       const insumosTipo = bot?.tipo_botiquin?.insumos || [];
       setFormInspeccion(prev => ({
         ...prev,
@@ -825,7 +842,7 @@ const InspeccionBotiquin = () => {
       alert('Seleccione un botiquín antes de reponer.');
       return;
     }
-    const botiquin = botiquines.find(
+    const botiquin = botiquinesCatalogo.find(
       b => String(b.id) === String(formInspeccion.botiquin_id)
     );
     setReposicionModal({
@@ -996,7 +1013,7 @@ const InspeccionBotiquin = () => {
       </div>
 
       {tab === 'botiquines' && (
-        <div className="glass-panel mb-4" style={{ padding: 16 }}>
+        <div className="glass-panel mb-4" style={{ padding: 16, overflow: 'visible' }}>
           <div className="flex items-center mb-3" style={{ gap: 8 }}>
             <Filter size={18} />
             <strong>Filtros</strong>
@@ -1018,7 +1035,7 @@ const InspeccionBotiquin = () => {
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Empresa</label>
               <Select
-                styles={selectStyles}
+                styles={selectStyles} {...selectPortalProps}
                 options={empresaOptions}
                 isClearable
                 placeholder="Buscar empresa..."
@@ -1030,7 +1047,7 @@ const InspeccionBotiquin = () => {
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Tipo de botiquín</label>
               <Select
-                styles={selectStyles}
+                styles={selectStyles} {...selectPortalProps}
                 options={tipoBotiquinOptions}
                 isClearable
                 placeholder="Todos..."
@@ -1206,7 +1223,7 @@ const InspeccionBotiquin = () => {
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Empresa</label>
               <Select
-                styles={selectStyles}
+                styles={selectStyles} {...selectPortalProps}
                 options={empresaOptions}
                 isClearable
                 placeholder="Buscar empresa..."
@@ -1218,7 +1235,7 @@ const InspeccionBotiquin = () => {
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Tipo de botiquín</label>
               <Select
-                styles={selectStyles}
+                styles={selectStyles} {...selectPortalProps}
                 options={tipoBotiquinOptions}
                 isClearable
                 placeholder="Todos..."
@@ -1346,29 +1363,36 @@ const InspeccionBotiquin = () => {
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Empresa</label>
                 <Select
-                  styles={selectStyles}
+                  styles={selectStyles} {...selectPortalProps}
                   options={empresaOptions}
                   isClearable
                   placeholder="Todas..."
                   value={empresaOptions.find(o => o.value === reporteFiltros.empresa_id) || null}
-                  onChange={opt => setReporteFiltros({ ...reporteFiltros, empresa_id: opt ? opt.value : '' })}
+                  onChange={opt => {
+                    const empresa_id = opt ? opt.value : '';
+                    const bot = botiquinesCatalogo.find(b => String(b.id) === String(reporteFiltros.botiquin_id));
+                    const botiquin_id = (empresa_id && bot && String(bot.empresa_id || '') !== String(empresa_id))
+                      ? ''
+                      : reporteFiltros.botiquin_id;
+                    setReporteFiltros({ ...reporteFiltros, empresa_id, botiquin_id });
+                  }}
                 />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Botiquín</label>
                 <Select
-                  styles={selectStyles}
-                  options={botiquinOptions}
+                  styles={selectStyles} {...selectPortalProps}
+                  options={botiquinOptionsReporte}
                   isClearable
                   placeholder="Todos..."
-                  value={botiquinOptions.find(o => o.value === reporteFiltros.botiquin_id) || null}
+                  value={botiquinOptionsReporte.find(o => o.value === reporteFiltros.botiquin_id) || null}
                   onChange={opt => setReporteFiltros({ ...reporteFiltros, botiquin_id: opt ? opt.value : '' })}
                 />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Ubicación</label>
                 <Select
-                  styles={selectStyles}
+                  styles={selectStyles} {...selectPortalProps}
                   isMulti
                   isClearable
                   isSearchable
@@ -1387,7 +1411,7 @@ const InspeccionBotiquin = () => {
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Tipo de equipo</label>
                 <Select
-                  styles={selectStyles}
+                  styles={selectStyles} {...selectPortalProps}
                   isMulti
                   isClearable
                   isSearchable
@@ -1544,7 +1568,7 @@ const InspeccionBotiquin = () => {
                 <div className="form-group">
                   <label className="form-label">Botiquín</label>
                   <Select
-                    styles={selectStyles}
+                    styles={selectStyles} {...selectPortalProps}
                     options={botiquinOptions}
                     placeholder="Buscar botiquín..."
                     value={botiquinOptions.find(o => o.value === formInspeccion.botiquin_id) || null}
@@ -1564,7 +1588,7 @@ const InspeccionBotiquin = () => {
                 <div className="form-group">
                   <label className="form-label">Responsable de la inspección</label>
                   <Select
-                    styles={selectStyles}
+                    styles={selectStyles} {...selectPortalProps}
                     options={personalOptions}
                     placeholder="Buscar personal de salud..."
                     value={personalOptions.find(o => o.value === formInspeccion.responsable_id) || null}
