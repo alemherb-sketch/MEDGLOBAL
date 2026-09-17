@@ -474,6 +474,7 @@ def consumo_insumos_botiquin(
     ubicacion: Optional[str] = None,
     tipo_equipo: Optional[str] = None,
     equipo: Optional[str] = None,
+    estado: Optional[str] = None,
 ):
     """Consumo de insumos registrado en inspecciones de botiquin, con su costo."""
     consulta = (
@@ -497,6 +498,8 @@ def consumo_insumos_botiquin(
     consulta = _filtrar_por_lista(consulta, models.Botiquin.ubicacion, ubicacion)
     consulta = _filtrar_tipo_equipo(consulta, db, tipo_equipo)
     consulta = _filtrar_por_lista(consulta, models.Botiquin.equipo, equipo)
+    if estado:
+        consulta = consulta.filter(models.Botiquin.estado == estado)
 
     por_insumo, fechas = {}, set()
     for item, inspeccion, medicamento in consulta.all():

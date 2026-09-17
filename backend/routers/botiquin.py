@@ -413,7 +413,11 @@ def listar_inspecciones(
     responsable_id: Optional[str] = None,
     empresa_id: Optional[str] = None,
     tipo_botiquin_id: Optional[str] = None,
+    tipo_equipo: Optional[str] = None,
     ubicacion: Optional[str] = None,
+    area: Optional[str] = None,
+    equipo: Optional[str] = None,
+    estado: Optional[str] = None,
     fecha_inicio: Optional[str] = None,
     fecha_fin: Optional[str] = None,
     search: Optional[str] = None,
@@ -431,8 +435,23 @@ def listar_inspecciones(
         consulta = consulta.filter(models.Botiquin.empresa_id == empresa_id)
     if tipo_botiquin_id:
         consulta = consulta.filter(models.Botiquin.tipo_botiquin_id == tipo_botiquin_id)
+    if tipo_equipo:
+        ids_tipo = (
+            db.query(models.TipoBotiquin.id)
+            .filter(models.TipoBotiquin.nombre == tipo_equipo)
+        )
+        consulta = consulta.filter(
+            (models.Botiquin.tipo_equipo == tipo_equipo)
+            | models.Botiquin.tipo_botiquin_id.in_(ids_tipo)
+        )
     if ubicacion:
         consulta = consulta.filter(models.Botiquin.ubicacion == ubicacion)
+    if area:
+        consulta = consulta.filter(models.Botiquin.area.ilike(f"%{area}%"))
+    if equipo:
+        consulta = consulta.filter(models.Botiquin.equipo == equipo)
+    if estado:
+        consulta = consulta.filter(models.Botiquin.estado == estado)
     if fecha_inicio:
         consulta = consulta.filter(func.date(models.BotiquinInspeccion.fecha) >= fecha_inicio)
     if fecha_fin:
@@ -445,6 +464,8 @@ def listar_inspecciones(
             | models.Botiquin.ubicacion.ilike(patron)
             | models.Botiquin.numero_serie_placa.ilike(patron)
             | models.Botiquin.tipo_equipo.ilike(patron)
+            | models.Botiquin.area.ilike(patron)
+            | models.Botiquin.equipo.ilike(patron)
         )
     return consulta.order_by(models.BotiquinInspeccion.fecha.desc()).all()
 

@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { Download, Printer, Search } from 'lucide-react';
+import Select from 'react-select';
+import { Download, Filter, Printer, Search } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { apiJson } from '../api';
+import { selectPortalProps, selectStyles } from './botiquinShared';
 
 /** «2026-07-31» → «31/07»: con muchos dias en el rango el encabezado completo
  *  hace que la tabla no quepa a lo ancho. */
@@ -16,6 +18,7 @@ const ConsumoMedicamentos = () => {
   const [empresas, setEmpresas] = useState([]);
   const [obras, setObras] = useState([]);
   const [filtros, setFiltros] = useState({
+    search: '',
     empresa_id: '',
     obra: '',
     fecha_inicio: null,
@@ -29,6 +32,19 @@ const ConsumoMedicamentos = () => {
   });
   
   const [isLoading, setIsLoading] = useState(false);
+
+  const empresaOptions = useMemo(
+    () => empresas.map(e => ({ value: String(e.id), label: `${e.nombre}${e.ruc ? ` (${e.ruc})` : ''}` })),
+    [empresas]
+  );
+
+  const medicamentosFiltrados = useMemo(() => {
+    const q = (filtros.search || '').trim().toLowerCase();
+    if (!q) return reporte.medicamentos;
+    return reporte.medicamentos.filter(m => (
+      `${m.codigo || ''} ${m.nombre || ''} ${m.presentacion || ''}`.toLowerCase().includes(q)
+    ));
+  }, [reporte.medicamentos, filtros.search]);
 
   useEffect(() => {
     apiJson('/empresas/')
@@ -129,75 +145,90 @@ const ConsumoMedicamentos = () => {
       </div>
 
       {/* Filters */}
-      <div className="dash-chart-card no-print" style={{ marginBottom: '24px', overflow: 'visible' }}>
-        <div className="dash-chart-body" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-            <div style={{ flex: '1 1 250px' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-color)', marginBottom: '8px' }}>Empresa</label>
-              <select 
-                className="form-control" 
-                value={filtros.empresa_id} 
-                onChange={e => setFiltros({...filtros, empresa_id: e.target.value})}
-              >
-                <option value="">Todas las empresas...</option>
-                {empresas.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
-              </select>
+      <div className="glass-panel mb-4 no-print" style={{ padding: 16, overflow: 'visible' }}>
+        <div className="flex items-center mb-3" style={{ gap: 8 }}>
+          <Filter size={18} />
+          <strong>Filtros avanzados</strong>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, alignItems: 'end' }}>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label">Buscar</label>
+            <div style={{ position: 'relative' }}>
+              <Search size={16} style={{ position: 'absolute', left: 10, top: 12, opacity: 0.5 }} />
+              <input
+                className="form-control"
+                style={{ paddingLeft: 32 }}
+                placeholder="Código, medicamento..."
+                value={filtros.search}
+                onChange={e => setFiltros({ ...filtros, search: e.target.value })}
+              />
             </div>
-            <div style={{ flex: '1 1 250px' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-color)', marginBottom: '8px' }}>Obra</label>
-              <select 
-                className="form-control" 
-                value={filtros.obra} 
-                onChange={e => setFiltros({...filtros, obra: e.target.value})}
-              >
-                <option value="">Todas las obras...</option>
-                {obras.map(o => {
-                  const nombre = typeof o === 'string' ? o : o.nombre;
-                  const key = typeof o === 'string' ? o : o.id;
-                  return <option key={key} value={nombre}>{nombre}</option>;
-                })}
-              </select>
-            </div>
-            <div style={{ flex: '1 1 350px' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '500', color: 'var(--text-color)', marginBottom: '8px' }}>Rango de Fechas</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ flex: 1 }}>
-                  <DatePicker
-                    selected={filtros.fecha_inicio}
-                    onChange={date => setFiltros({...filtros, fecha_inicio: date})}
-                    selectsStart
-                    startDate={filtros.fecha_inicio}
-                    endDate={filtros.fecha_fin}
-                    dateFormat="dd/MM/yyyy"
-                    placeholderText="Desde..."
-                    className="form-control"
-                    isClearable
-                    wrapperClassName="date-picker-wrapper"
-                  />
-                </div>
-                <span style={{ color: 'var(--text-muted)' }}>-</span>
-                <div style={{ flex: 1 }}>
-                  <DatePicker
-                    selected={filtros.fecha_fin}
-                    onChange={date => setFiltros({...filtros, fecha_fin: date})}
-                    selectsEnd
-                    startDate={filtros.fecha_inicio}
-                    endDate={filtros.fecha_fin}
-                    minDate={filtros.fecha_inicio}
-                    dateFormat="dd/MM/yyyy"
-                    placeholderText="Hasta..."
-                    className="form-control"
-                    isClearable
-                    wrapperClassName="date-picker-wrapper"
-                  />
-                </div>
-              </div>
-            </div>
-            <div>
-              <button className="btn btn-primary" onClick={handleSearch} disabled={isLoading} style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '42px' }}>
-                <Search size={18} /> {isLoading ? 'Buscando...' : 'Buscar'}
-              </button>
-            </div>
+          </div>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label">Empresa</label>
+            <Select
+              styles={selectStyles}
+              {...selectPortalProps}
+              options={empresaOptions}
+              isClearable
+              placeholder="Buscar empresa..."
+              value={empresaOptions.find(o => o.value === String(filtros.empresa_id || '')) || null}
+              onChange={opt => setFiltros({ ...filtros, empresa_id: opt ? opt.value : '' })}
+              noOptionsMessage={() => 'Sin resultados'}
+            />
+          </div>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label">Obra</label>
+            <select
+              className="form-control"
+              value={filtros.obra}
+              onChange={e => setFiltros({ ...filtros, obra: e.target.value })}
+            >
+              <option value="">Todas</option>
+              {obras.map(o => {
+                const nombre = typeof o === 'string' ? o : o.nombre;
+                const key = typeof o === 'string' ? o : o.id;
+                return <option key={key} value={nombre}>{nombre}</option>;
+              })}
+            </select>
+          </div>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label">Desde</label>
+            <DatePicker
+              selected={filtros.fecha_inicio}
+              onChange={date => setFiltros({ ...filtros, fecha_inicio: date })}
+              selectsStart
+              startDate={filtros.fecha_inicio}
+              endDate={filtros.fecha_fin}
+              dateFormat="dd/MM/yyyy"
+              placeholderText="Desde..."
+              className="form-control"
+              isClearable
+              portalId="datepicker-portal"
+              wrapperClassName="date-picker-wrapper"
+            />
+          </div>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label">Hasta</label>
+            <DatePicker
+              selected={filtros.fecha_fin}
+              onChange={date => setFiltros({ ...filtros, fecha_fin: date })}
+              selectsEnd
+              startDate={filtros.fecha_inicio}
+              endDate={filtros.fecha_fin}
+              minDate={filtros.fecha_inicio}
+              dateFormat="dd/MM/yyyy"
+              placeholderText="Hasta..."
+              className="form-control"
+              isClearable
+              portalId="datepicker-portal"
+              wrapperClassName="date-picker-wrapper"
+            />
+          </div>
+          <div className="form-group" style={{ margin: 0 }}>
+            <button className="btn btn-primary" onClick={handleSearch} disabled={isLoading} style={{ height: 42, width: '100%' }}>
+              <Search size={18} /> {isLoading ? 'Buscando...' : 'Buscar'}
+            </button>
           </div>
         </div>
       </div>
@@ -238,7 +269,7 @@ const ConsumoMedicamentos = () => {
           )}
         </div>
         <div className="dash-chart-body" style={{ overflowX: 'auto', maxWidth: '100%', padding: 0 }}>
-          {reporte.medicamentos.length > 0 ? (
+          {medicamentosFiltrados.length > 0 ? (
             <table className="table" style={{ minWidth: '100%', margin: 0, whiteSpace: 'nowrap' }}>
               <thead style={{ background: 'rgba(15, 23, 42, 0.9)' }}>
                 <tr>
@@ -254,7 +285,7 @@ const ConsumoMedicamentos = () => {
                 </tr>
               </thead>
               <tbody>
-                {reporte.medicamentos.map(med => (
+                {medicamentosFiltrados.map(med => (
                   <tr key={med.id}>
                     <td style={{ color: 'var(--text-muted)' }}>{med.codigo}</td>
                     <td style={{ fontWeight: '500' }}>{med.nombre}</td>
@@ -277,7 +308,11 @@ const ConsumoMedicamentos = () => {
             </table>
           ) : (
             <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              {isLoading ? 'Cargando datos...' : 'Realiza una búsqueda para ver el reporte'}
+              {isLoading
+                ? 'Cargando datos...'
+                : (reporte.medicamentos.length
+                  ? 'Sin coincidencias para la búsqueda'
+                  : 'Realiza una búsqueda para ver el reporte')}
             </div>
           )}
         </div>

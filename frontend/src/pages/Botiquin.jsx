@@ -4,7 +4,7 @@ import Select from 'react-select';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import {
-  Search, Plus, Trash2, Edit2, X, Filter, Package, Save, Layers, Eye, ClipboardCheck
+  Search, Plus, Trash2, Edit2, X, Package, Save, Layers, Eye, ClipboardCheck
 } from 'lucide-react';
 import { apiFetch, apiJson, mensajeDeError } from '../api';
 import {
@@ -21,6 +21,7 @@ import {
   listarNombresTipoEquipo,
   FechaCorta,
 } from './botiquinShared';
+import FiltrosAvanzadosBotiquin from '../components/FiltrosAvanzadosBotiquin';
 
 const Botiquin = () => {
   const navigate = useNavigate();
@@ -372,77 +373,12 @@ const Botiquin = () => {
       )}
 
       {tab === 'botiquines' && (
-        <div className="glass-panel mb-4" style={{ padding: 16, overflow: 'visible' }}>
-          <div className="flex items-center mb-3" style={{ gap: 8 }}>
-            <Filter size={18} />
-            <strong>Filtros avanzados</strong>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Buscar</label>
-              <div style={{ position: 'relative' }}>
-                <Search size={16} style={{ position: 'absolute', left: 10, top: 12, opacity: 0.5 }} />
-                <input
-                  className="form-control"
-                  style={{ paddingLeft: 32 }}
-                  placeholder="Código, tipo, empresa..."
-                  value={filters.search}
-                  onChange={e => setFilters({ ...filters, search: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Tipo de equipo</label>
-              <select className="form-control" value={filters.tipo_equipo} onChange={e => setFilters({ ...filters, tipo_equipo: e.target.value })}>
-                <option value="">Todos</option>
-                {tipoEquipoNombres.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Ubicación</label>
-              <select className="form-control" value={filters.ubicacion} onChange={e => setFilters({ ...filters, ubicacion: e.target.value })}>
-                <option value="">Todas</option>
-                {UBICACIONES.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Área</label>
-              <input
-                className="form-control"
-                placeholder="Filtrar por área..."
-                value={filters.area}
-                onChange={e => setFilters({ ...filters, area: e.target.value })}
-              />
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Empresa</label>
-              <Select
-                styles={selectStyles} {...selectPortalProps}
-                options={empresaOptions}
-                isClearable
-                placeholder="Buscar empresa..."
-                value={empresaOptions.find(o => o.value === filters.empresa_id) || null}
-                onChange={opt => setFilters({ ...filters, empresa_id: opt ? opt.value : '' })}
-                noOptionsMessage={() => 'Sin resultados'}
-              />
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Equipo</label>
-              <select className="form-control" value={filters.equipo} onChange={e => setFilters({ ...filters, equipo: e.target.value })}>
-                <option value="">Todos</option>
-                {EQUIPOS.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Estado</label>
-              <select className="form-control" value={filters.estado} onChange={e => setFilters({ ...filters, estado: e.target.value })}>
-                <option value="">Todos</option>
-                <option value="ACTIVO">Activo</option>
-                <option value="INACTIVO">Inactivo</option>
-              </select>
-            </div>
-          </div>
-        </div>
+        <FiltrosAvanzadosBotiquin
+          filters={filters}
+          onChange={setFilters}
+          empresaOptions={empresaOptions}
+          tipoEquipoNombres={tipoEquipoNombres}
+        />
       )}
 
       {tab === 'tipos' && (

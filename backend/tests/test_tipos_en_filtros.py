@@ -81,3 +81,50 @@ def test_listar_botiquines_filtra_por_botiquin_id(client):
     ids = [b["id"] for b in lista.json()]
     assert propio["id"] in ids
     assert otro["id"] not in ids
+
+
+def test_listar_inspecciones_filtra_por_tipo_area_equipo(client):
+    tipo = client.post("/tipos_botiquin/", json={
+        "nombre": "Tipo area equipo",
+        "insumos": [],
+    }).json()
+    bot = client.post("/botiquines/", json={
+        "codigo": "BOT-AREA-EQ",
+        "tipo_botiquin_id": tipo["id"],
+        "tipo_equipo": tipo["nombre"],
+        "area": "CISTERNA G.LESSER",
+        "ubicacion": "Planta",
+        "equipo": "Botiquín de emergencia",
+        "estado": "ACTIVO",
+    }).json()
+    otro = client.post("/botiquines/", json={
+        "codigo": "BOT-AREA-EQ-2",
+        "tipo_equipo": "Otro tipo",
+        "area": "MINA NORTE",
+        "ubicacion": "Mina",
+        "equipo": "Polvorines",
+        "estado": "INACTIVO",
+    }).json()
+    ins = client.post("/botiquin_inspecciones/", json={
+        "botiquin_id": bot["id"], "insumos": [],
+    }).json()
+    client.post("/botiquin_inspecciones/", json={
+        "botiquin_id": otro["id"], "insumos": [],
+    })
+
+    por_tipo = client.get("/botiquin_inspecciones/", params={"tipo_equipo": tipo["nombre"]})
+    assert por_tipo.status_code == 200, por_tipo.text
+    assert ins["id"] in [x["id"] for x in por_tipo.json()]
+    assert all(x["botiquin_id"] == bot["id"] for x in por_tipo.json())
+
+    por_area = client.get("/botiquin_inspecciones/", params={"area": "CISTERNA"})
+    assert por_area.status_code == 200, por_area.text
+    assert ins["id"] in [x["id"] for x in por_area.json()]
+
+    por_equipo = client.get("/botiquin_inspecciones/", params={"equipo": "Botiquín de emergencia"})
+    assert por_equipo.status_code == 200, por_equipo.text
+    assert ins["id"] in [x["id"] for x in por_equipo.json()]
+
+    por_estado = client.get("/botiquin_inspecciones/", params={"estado": "ACTIVO"})
+    assert por_estado.status_code == 200, por_estado.text
+    assert ins["id"] in [x["id"] for x in por_estado.json()]

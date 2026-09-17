@@ -6,7 +6,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import * as XLSX from 'xlsx';
 import {
   Search, Trash2, X, ClipboardCheck, Download, Printer,
-  Filter, History, Save, Eye, Edit2, FileText, ImagePlus, Package, PackagePlus
+  History, Save, Eye, Edit2, FileText, ImagePlus, Package, PackagePlus
 } from 'lucide-react';
 import { apiFetch, apiJson, mensajeDeError } from '../api';
 import { API_URL } from '../config';
@@ -20,6 +20,7 @@ import {
   listarNombresTipoEquipo,
   FechaCorta,
 } from './botiquinShared';
+import FiltrosAvanzadosBotiquin from '../components/FiltrosAvanzadosBotiquin';
 
 const ESTADOS_INSUMO = [
   { value: 'CONFORME', label: 'Conforme' },
@@ -95,19 +96,26 @@ const InspeccionBotiquin = () => {
 
   const [filters, setFilters] = useState({
     search: '',
-    empresa_id: '',
-    botiquin_id: '',
+    tipo_equipo: '',
+    area: '',
     ubicacion: '',
+    empresa_id: '',
+    equipo: '',
+    estado: '',
+    botiquin_id: '',
     fecha_inicio: null,
     fecha_fin: null,
   });
 
   const [botFilters, setBotFilters] = useState({
     search: '',
-    empresa_id: '',
-    botiquin_id: '',
+    tipo_equipo: '',
+    area: '',
     ubicacion: '',
+    empresa_id: '',
+    equipo: '',
     estado: '',
+    botiquin_id: '',
   });
 
   const [modalInspeccion, setModalInspeccion] = useState(false);
@@ -188,9 +196,14 @@ const InspeccionBotiquin = () => {
     []
   );
 
-  const tipoEquipoOptions = useMemo(
-    () => listarNombresTipoEquipo({ tipos: tiposBotiquin }).map(t => ({ value: t, label: t })),
+  const tipoEquipoNombres = useMemo(
+    () => listarNombresTipoEquipo({ tipos: tiposBotiquin }),
     [tiposBotiquin]
+  );
+
+  const tipoEquipoOptions = useMemo(
+    () => tipoEquipoNombres.map(t => ({ value: t, label: t })),
+    [tipoEquipoNombres]
   );
 
   const mapInsumosFromApi = (list) =>
@@ -222,10 +235,9 @@ const InspeccionBotiquin = () => {
 
   const loadInspecciones = () => {
     const params = new URLSearchParams();
-    if (filters.empresa_id) params.append('empresa_id', filters.empresa_id);
-    if (filters.botiquin_id) params.append('botiquin_id', filters.botiquin_id);
-    if (filters.ubicacion) params.append('ubicacion', filters.ubicacion);
-    if (filters.search) params.append('search', filters.search);
+    ['empresa_id', 'botiquin_id', 'ubicacion', 'search', 'tipo_equipo', 'area', 'equipo', 'estado'].forEach((k) => {
+      if (filters[k]) params.append(k, filters[k]);
+    });
     if (filters.fecha_inicio) {
       params.append('fecha_inicio', filters.fecha_inicio.toISOString().split('T')[0]);
     }
@@ -240,11 +252,9 @@ const InspeccionBotiquin = () => {
 
   const loadBotiquinesList = () => {
     const params = new URLSearchParams();
-    if (botFilters.empresa_id) params.append('empresa_id', botFilters.empresa_id);
-    if (botFilters.botiquin_id) params.append('botiquin_id', botFilters.botiquin_id);
-    if (botFilters.ubicacion) params.append('ubicacion', botFilters.ubicacion);
-    if (botFilters.estado) params.append('estado', botFilters.estado);
-    if (botFilters.search) params.append('search', botFilters.search);
+    Object.entries(botFilters).forEach(([k, v]) => {
+      if (v) params.append(k, v);
+    });
     const q = params.toString();
     apiJson(`/botiquines/${q ? `?${q}` : ''}`)
       .then(data => setBotiquines(sortBotiquinesByCodigoDesc(data)))
@@ -1009,44 +1019,19 @@ const InspeccionBotiquin = () => {
       </div>
 
       {tab === 'botiquines' && (
-        <div className="glass-panel mb-4" style={{ padding: 16, overflow: 'visible' }}>
-          <div className="flex items-center mb-3" style={{ gap: 8 }}>
-            <Filter size={18} />
-            <strong>Filtros</strong>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Buscar</label>
-              <div style={{ position: 'relative' }}>
-                <Search size={16} style={{ position: 'absolute', left: 10, top: 12, opacity: 0.5 }} />
-                <input
-                  className="form-control"
-                  style={{ paddingLeft: 32 }}
-                  placeholder="Código, tipo, empresa..."
-                  value={botFilters.search}
-                  onChange={e => setBotFilters({ ...botFilters, search: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Empresa</label>
-              <Select
-                styles={selectStyles} {...selectPortalProps}
-                options={empresaOptions}
-                isClearable
-                placeholder="Buscar empresa..."
-                value={empresaOptions.find(o => o.value === botFilters.empresa_id) || null}
-                onChange={opt => {
-                  const empresa_id = opt ? opt.value : '';
-                  const bot = botiquinesCatalogo.find(b => String(b.id) === String(botFilters.botiquin_id));
-                  const botiquin_id = (empresa_id && bot && String(bot.empresa_id || '') !== String(empresa_id))
-                    ? ''
-                    : botFilters.botiquin_id;
-                  setBotFilters({ ...botFilters, empresa_id, botiquin_id });
-                }}
-                noOptionsMessage={() => 'Sin resultados'}
-              />
-            </div>
+        <FiltrosAvanzadosBotiquin
+          filters={botFilters}
+          onChange={setBotFilters}
+          empresaOptions={empresaOptions}
+          tipoEquipoNombres={tipoEquipoNombres}
+          onEmpresaChange={(empresa_id) => {
+            const bot = botiquinesCatalogo.find(b => String(b.id) === String(botFilters.botiquin_id));
+            const botiquin_id = (empresa_id && bot && String(bot.empresa_id || '') !== String(empresa_id))
+              ? ''
+              : botFilters.botiquin_id;
+            setBotFilters({ ...botFilters, empresa_id, botiquin_id });
+          }}
+          extras={(
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Botiquín</label>
               <Select
@@ -1059,31 +1044,8 @@ const InspeccionBotiquin = () => {
                 noOptionsMessage={() => botFilters.empresa_id ? 'Este cliente no tiene botiquines' : 'Sin botiquines'}
               />
             </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Ubicación</label>
-              <select
-                className="form-control"
-                value={botFilters.ubicacion}
-                onChange={e => setBotFilters({ ...botFilters, ubicacion: e.target.value })}
-              >
-                <option value="">Todas</option>
-                {UBICACIONES.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Estado</label>
-              <select
-                className="form-control"
-                value={botFilters.estado}
-                onChange={e => setBotFilters({ ...botFilters, estado: e.target.value })}
-              >
-                <option value="">Todos</option>
-                <option value="ACTIVO">Activo</option>
-                <option value="INACTIVO">Inactivo</option>
-              </select>
-            </div>
-          </div>
-        </div>
+          )}
+        />
       )}
 
       {tab === 'botiquines' && (
@@ -1190,12 +1152,20 @@ const InspeccionBotiquin = () => {
       )}
 
       {tab === 'historial' && (
-        <div className="glass-panel mb-4" style={{ padding: 16, overflow: 'visible' }}>
-          <div className="flex items-center mb-3" style={{ gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-            <div className="flex items-center" style={{ gap: 8 }}>
-              <Filter size={18} />
-              <strong>Filtros</strong>
-            </div>
+        <FiltrosAvanzadosBotiquin
+          filters={filters}
+          onChange={setFilters}
+          empresaOptions={empresaOptions}
+          tipoEquipoNombres={tipoEquipoNombres}
+          searchPlaceholder="INS0001, botiquín, ubicación..."
+          onEmpresaChange={(empresa_id) => {
+            const bot = botiquinesCatalogo.find(b => String(b.id) === String(filters.botiquin_id));
+            const botiquin_id = (empresa_id && bot && String(bot.empresa_id || '') !== String(empresa_id))
+              ? ''
+              : filters.botiquin_id;
+            setFilters({ ...filters, empresa_id, botiquin_id });
+          }}
+          headerRight={(
             <button
               type="button"
               className="btn btn-primary"
@@ -1204,96 +1174,55 @@ const InspeccionBotiquin = () => {
             >
               <Printer size={16} /> Imprimir reporte general
             </button>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Buscar</label>
-              <div style={{ position: 'relative' }}>
-                <Search size={16} style={{ position: 'absolute', left: 10, top: 12, opacity: 0.5 }} />
-                <input
-                  className="form-control"
-                  style={{ paddingLeft: 32 }}
-                  placeholder="INS0001, botiquín, ubicación..."
-                  value={filters.search}
-                  onChange={e => setFilters({ ...filters, search: e.target.value })}
+          )}
+          extras={(
+            <>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Botiquín</label>
+                <Select
+                  styles={selectStyles} {...selectPortalProps}
+                  options={botiquinOptionsHistorial}
+                  isClearable
+                  placeholder={filters.empresa_id ? 'Botiquines del cliente...' : 'Todos...'}
+                  value={botiquinOptionsHistorial.find(o => o.value === filters.botiquin_id) || null}
+                  onChange={opt => setFilters({ ...filters, botiquin_id: opt ? opt.value : '' })}
+                  noOptionsMessage={() => filters.empresa_id ? 'Este cliente no tiene botiquines' : 'Sin botiquines'}
                 />
               </div>
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Empresa</label>
-              <Select
-                styles={selectStyles} {...selectPortalProps}
-                options={empresaOptions}
-                isClearable
-                placeholder="Buscar empresa..."
-                value={empresaOptions.find(o => o.value === filters.empresa_id) || null}
-                onChange={opt => {
-                  const empresa_id = opt ? opt.value : '';
-                  const bot = botiquinesCatalogo.find(b => String(b.id) === String(filters.botiquin_id));
-                  const botiquin_id = (empresa_id && bot && String(bot.empresa_id || '') !== String(empresa_id))
-                    ? ''
-                    : filters.botiquin_id;
-                  setFilters({ ...filters, empresa_id, botiquin_id });
-                }}
-                noOptionsMessage={() => 'Sin resultados'}
-              />
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Botiquín</label>
-              <Select
-                styles={selectStyles} {...selectPortalProps}
-                options={botiquinOptionsHistorial}
-                isClearable
-                placeholder={filters.empresa_id ? 'Botiquines del cliente...' : 'Todos...'}
-                value={botiquinOptionsHistorial.find(o => o.value === filters.botiquin_id) || null}
-                onChange={opt => setFilters({ ...filters, botiquin_id: opt ? opt.value : '' })}
-                noOptionsMessage={() => filters.empresa_id ? 'Este cliente no tiene botiquines' : 'Sin botiquines'}
-              />
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Ubicación</label>
-              <select
-                className="form-control"
-                value={filters.ubicacion}
-                onChange={e => setFilters({ ...filters, ubicacion: e.target.value })}
-              >
-                <option value="">Todas</option>
-                {UBICACIONES.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Desde</label>
-              <DatePicker
-                {...datePickerPortalProps}
-                selected={filters.fecha_inicio}
-                onChange={d => setFilters({ ...filters, fecha_inicio: d })}
-                selectsStart
-                startDate={filters.fecha_inicio}
-                endDate={filters.fecha_fin}
-                dateFormat="dd/MM/yyyy"
-                className="form-control"
-                isClearable
-                placeholderText="Fecha inicio"
-              />
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Hasta</label>
-              <DatePicker
-                {...datePickerPortalProps}
-                selected={filters.fecha_fin}
-                onChange={d => setFilters({ ...filters, fecha_fin: d })}
-                selectsEnd
-                startDate={filters.fecha_inicio}
-                endDate={filters.fecha_fin}
-                minDate={filters.fecha_inicio}
-                dateFormat="dd/MM/yyyy"
-                className="form-control"
-                isClearable
-                placeholderText="Fecha fin"
-              />
-            </div>
-          </div>
-        </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Desde</label>
+                <DatePicker
+                  {...datePickerPortalProps}
+                  selected={filters.fecha_inicio}
+                  onChange={d => setFilters({ ...filters, fecha_inicio: d })}
+                  selectsStart
+                  startDate={filters.fecha_inicio}
+                  endDate={filters.fecha_fin}
+                  dateFormat="dd/MM/yyyy"
+                  className="form-control"
+                  isClearable
+                  placeholderText="Fecha inicio"
+                />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Hasta</label>
+                <DatePicker
+                  {...datePickerPortalProps}
+                  selected={filters.fecha_fin}
+                  onChange={d => setFilters({ ...filters, fecha_fin: d })}
+                  selectsEnd
+                  startDate={filters.fecha_inicio}
+                  endDate={filters.fecha_fin}
+                  minDate={filters.fecha_inicio}
+                  dateFormat="dd/MM/yyyy"
+                  className="form-control"
+                  isClearable
+                  placeholderText="Fecha fin"
+                />
+              </div>
+            </>
+          )}
+        />
       )}
 
       {tab === 'historial' && (
