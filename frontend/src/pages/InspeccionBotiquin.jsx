@@ -1013,15 +1013,24 @@ const InspeccionBotiquin = () => {
       {tab === 'botiquines' && (
         <div className="glass-panel table-container">
           <table className="table table-wide">
+            <colgroup>
+              <col style={{ width: '15%' }} />
+              <col style={{ width: '20%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '20%' }} />
+            </colgroup>
             <thead>
               <tr>
-                <th>Código</th>
-                <th>Empresa</th>
-                <th>Vehículo</th>
-                <th>Ubicación</th>
-                <th>Área</th>
-                <th>Última inspección</th>
-                <th style={{ minWidth: 220, textAlign: 'center' }}>Acciones</th>
+                <th className="cell-keep">Código</th>
+                <th className="cell-text">Empresa</th>
+                <th className="cell-keep">Vehículo</th>
+                <th className="cell-keep">Ubicación</th>
+                <th className="cell-text">Área</th>
+                <th className="cell-text">Última inspección</th>
+                <th className="cell-keep" style={{ textAlign: 'center' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -1044,14 +1053,20 @@ const InspeccionBotiquin = () => {
                 const tieneInspeccion = !!b.ultima_inspeccion;
                 return (
                   <tr key={b.id}>
-                    <td>{b.codigo || '—'}</td>
-                    <td>{b.empresa?.nombre || '—'}</td>
-                    <td>{vehiculoLabel}</td>
-                    <td>{b.ubicacion || '—'}</td>
-                    <td>{b.area || '—'}</td>
-                    <td>
+                    <td className="cell-keep">{b.codigo || '—'}</td>
+                    <td className="cell-text">{b.empresa?.nombre || '—'}</td>
+                    <td className="cell-keep">{vehiculoLabel}</td>
+                    <td className="cell-keep">{b.ubicacion || '—'}</td>
+                    <td className="cell-text">{b.area || '—'}</td>
+                    <td className="cell-keep">
                       {tieneInspeccion
-                        ? new Date(b.ultima_inspeccion).toLocaleString()
+                        ? new Date(b.ultima_inspeccion).toLocaleString('es-PE', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
                         : <span style={{ opacity: 0.55 }}>Sin inspección</span>}
                     </td>
                     <td className="insp-actions-cell">
@@ -1190,14 +1205,22 @@ const InspeccionBotiquin = () => {
       {tab === 'historial' && (
         <div className="glass-panel table-container">
           <table className="table table-wide">
+            <colgroup>
+              <col style={{ width: '16%' }} />
+              <col style={{ width: '26%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '18%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '12%' }} />
+            </colgroup>
             <thead>
               <tr>
-                <th>Fecha</th>
-                <th>Botiquín</th>
-                <th>Área</th>
-                <th>Empresa</th>
-                <th>Responsable</th>
-                <th style={{ minWidth: 180, textAlign: 'center' }}>Acciones</th>
+                <th className="cell-keep">Fecha</th>
+                <th className="cell-text">Botiquín</th>
+                <th className="cell-text">Área</th>
+                <th className="cell-text">Empresa</th>
+                <th className="cell-text">Responsable</th>
+                <th className="cell-keep" style={{ textAlign: 'center' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -1206,15 +1229,17 @@ const InspeccionBotiquin = () => {
               )}
               {inspecciones.map(ins => (
                 <tr key={ins.id}>
-                  <td>{ins.fecha ? new Date(ins.fecha).toLocaleString() : '—'}</td>
-                  <td>
+                  <td className="cell-keep">{ins.fecha ? new Date(ins.fecha).toLocaleString('es-PE', {
+                    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                  }) : '—'}</td>
+                  <td className="cell-text">
                     {ins.botiquin
                       ? `${ins.botiquin.codigo ? ins.botiquin.codigo + ' · ' : ''}${ins.botiquin.tipo_botiquin?.nombre || ins.botiquin.tipo_equipo} · ${ins.botiquin.ubicacion || ''}`
                       : '—'}
                   </td>
-                  <td>{ins.botiquin?.area || '—'}</td>
-                  <td>{ins.botiquin?.empresa?.nombre || '—'}</td>
-                  <td>
+                  <td className="cell-text">{ins.botiquin?.area || '—'}</td>
+                  <td className="cell-text">{ins.botiquin?.empresa?.nombre || '—'}</td>
+                  <td className="cell-text">
                     {ins.responsable
                       ? `${ins.responsable.nombre || ''} ${ins.responsable.apellidos || ''}`.trim()
                       : '—'}
@@ -1343,7 +1368,7 @@ const InspeccionBotiquin = () => {
           </div>
 
           <div className="glass-panel table-container">
-            <table className="table table-wide">
+            <table className="table table-scroll">
               <thead>
                 <tr>
                   <th>Código</th>

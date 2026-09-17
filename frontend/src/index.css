@@ -297,20 +297,52 @@ h3 { font-size: 1.5rem; }
   background-color: rgba(255, 255, 255, 0.03);
 }
 
-/* Listados con códigos largos: no partir celdas; el panel scrollea en X.
-   .glass-panel trae overflow:hidden, hay que reabrirlo con más especificidad. */
+/* Listados de inspección: las 7 columnas caben en el panel.
+   Código/fecha/acciones no se parten; empresa y área envuelven por espacios. */
 .glass-panel.table-container {
   overflow-x: auto;
   overflow-y: hidden;
 }
 
 .table.table-wide {
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
+  table-layout: fixed;
 }
 
 .table.table-wide th,
 .table.table-wide td {
+  vertical-align: middle;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
+}
+
+.table.table-wide th {
+  letter-spacing: 0.03em;
+}
+
+.table.table-wide .cell-keep {
+  white-space: nowrap;
+}
+
+.table.table-wide .cell-text {
+  white-space: normal;
+}
+
+.table.table-wide .insp-actions-cell {
+  width: 220px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+/* Reporte con muchas fechas: sí puede desbordar y scrollear. */
+.table.table-scroll {
+  width: max-content;
+  min-width: 100%;
+}
+
+.table.table-scroll th,
+.table.table-scroll td {
   white-space: nowrap;
   vertical-align: middle;
 }
