@@ -8,6 +8,14 @@ import AsyncSelect from 'react-select/async';
 // que las tablas del sistema se comporten igual en todas las pantallas.
 const PAGE_SIZE = 20;
 
+const DESTINOS = [
+  'Alta a su puesto',
+  'Observación en tópico',
+  'Descanso en habitación',
+  'Referencia Centro de Salud',
+  'Referencia clínica SCTR',
+];
+
 const Atenciones = () => {
   const [atenciones, setAtenciones] = useState([]);
   const [page, setPage] = useState(0);
@@ -752,13 +760,10 @@ const Atenciones = () => {
                     <label className="form-label">Destino</label>
                     <select required className="form-control" value={newAtencion.destino} onChange={e => setNewAtencion({...newAtencion, destino: e.target.value})}>
                       <option value="">Seleccione...</option>
-                      <option value="Alta a su puesto">Alta a su puesto</option>
-                      <option value="Retorno al trabajo">Retorno al trabajo</option>
-                      <option value="Observación en Tópico">Observación en Tópico</option>
-                      <option value="Descanso en habitación">Descanso en habitación</option>
-                      <option value="Descanso Médico">Descanso Médico</option>
-                      <option value="Evacuación médica">Evacuación médica</option>
-                      <option value="Referencia a Centro de Salud">Referencia a Centro de Salud</option>
+                      {DESTINOS.map(d => <option key={d} value={d}>{d}</option>)}
+                      {newAtencion.destino && !DESTINOS.includes(newAtencion.destino) && (
+                        <option value={newAtencion.destino}>{newAtencion.destino}</option>
+                      )}
                     </select>
                   </div>
                   <div className="form-group">
