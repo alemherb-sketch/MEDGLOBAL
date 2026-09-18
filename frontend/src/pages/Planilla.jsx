@@ -135,6 +135,16 @@ const Planilla = () => {
 
         <div className="table-scroll-x">
           <table className="table table-planilla">
+            <colgroup>
+              <col />
+              <col />
+              <col />
+              <col />
+              <col />
+              <col />
+              <col />
+              <col style={{ width: '11rem' }} />
+            </colgroup>
             <thead>
               <tr>
                 <th>Código</th>

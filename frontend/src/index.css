@@ -669,6 +669,7 @@ h3 { font-size: 1.5rem; }
 .acciones-cell {
   width: 11rem;
   min-width: 11rem;
+  max-width: 11rem;
   padding-left: 10px;
   padding-right: 10px;
   white-space: nowrap;
@@ -683,10 +684,20 @@ h3 { font-size: 1.5rem; }
   justify-content: flex-end;
 }
 
-.table-scroll-x > .table:not(.table-wide),
 .table-planilla {
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.table-planilla th,
+.table-planilla td {
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.table-planilla .acciones-cell {
+  overflow: visible;
+  overflow-wrap: normal;
 }
 
 .insp-actions--toolbar {
