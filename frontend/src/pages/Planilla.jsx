@@ -117,7 +117,7 @@ const Planilla = () => {
         </button>
       </div>
       
-      <div className="glass-panel">
+      <div className="glass-panel table-container">
         <div className="filter-bar">
           <div className="form-group mb-0" style={{flex: 1}}>
             <div style={{position: 'relative'}}>
@@ -133,7 +133,7 @@ const Planilla = () => {
           </div>
         </div>
 
-        <div className="table-container">
+        <div className="table-scroll-x">
           <table className="table">
             <thead>
               <tr>
@@ -144,7 +144,7 @@ const Planilla = () => {
                 <th>Obra</th>
                 <th>Sede</th>
                 <th>Estado</th>
-                <th style={{textAlign: 'right'}}>Acciones</th>
+                <th className="acciones-cell">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -168,10 +168,12 @@ const Planilla = () => {
                       {t.estado_trabajador || 'ACTIVO'}
                     </span>
                   </td>
-                  <td style={{textAlign: 'right', whiteSpace: 'nowrap'}}>
-                    <button className="action-btn view" style={{color: '#4caf50', marginRight: '5px'}} onClick={() => setViewTrabajador(t)} title="Ver Detalles"><Eye size={18} /></button>
-                    <button className="action-btn edit" onClick={() => openModal(t)}><Edit2 size={18} /></button>
-                    <button className="action-btn delete" onClick={() => handleDelete(t.id)}><Trash2 size={18} /></button>
+                  <td className="acciones-cell">
+                    <div className="insp-actions">
+                      <button type="button" className="action-btn view" onClick={() => setViewTrabajador(t)} title="Ver Detalles"><Eye size={18} /></button>
+                      <button type="button" className="action-btn edit" onClick={() => openModal(t)} title="Editar"><Edit2 size={18} /></button>
+                      <button type="button" className="action-btn delete" onClick={() => handleDelete(t.id)} title="Eliminar"><Trash2 size={18} /></button>
+                    </div>
                   </td>
                 </tr>
               ))}
