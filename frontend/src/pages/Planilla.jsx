@@ -134,7 +134,7 @@ const Planilla = () => {
         </div>
 
         <div className="table-scroll-x">
-          <table className="table">
+          <table className="table table-planilla">
             <thead>
               <tr>
                 <th>Código</th>
