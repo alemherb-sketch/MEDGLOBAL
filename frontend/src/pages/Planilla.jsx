@@ -142,7 +142,6 @@ const Planilla = () => {
               <col />
               <col />
               <col />
-              <col />
               <col style={{ width: '11rem' }} />
             </colgroup>
             <thead>
@@ -153,7 +152,6 @@ const Planilla = () => {
                 <th>Empresa</th>
                 <th>Obra</th>
                 <th>Sede</th>
-                <th>Estado</th>
                 <th className="acciones-cell">Acciones</th>
               </tr>
             </thead>
@@ -169,15 +167,6 @@ const Planilla = () => {
                   </td>
                   <td>{t.obra || '-'}</td>
                   <td>{t.subdivision_sede || '-'}</td>
-                  <td>
-                    <span style={{
-                      padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 'bold',
-                      background: t.estado_trabajador === 'ACTIVO' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                      color: t.estado_trabajador === 'ACTIVO' ? 'var(--success-color)' : 'var(--danger-color)'
-                    }}>
-                      {t.estado_trabajador || 'ACTIVO'}
-                    </span>
-                  </td>
                   <td className="acciones-cell">
                     <div className="insp-actions">
                       <button type="button" className="action-btn view" onClick={() => setViewTrabajador(t)} title="Ver Detalles"><Eye size={18} /></button>
@@ -189,7 +178,7 @@ const Planilla = () => {
               ))}
               {filteredTrabajadores.length === 0 && (
                 <tr>
-                  <td colSpan="8" className="text-center text-muted py-4">No se encontraron trabajadores</td>
+                  <td colSpan="7" className="text-center text-muted py-4">No se encontraron trabajadores</td>
                 </tr>
               )}
             </tbody>
