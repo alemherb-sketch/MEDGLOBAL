@@ -16,6 +16,12 @@ const DESTINOS = [
   'Referencia clínica SCTR',
 ];
 
+// El formulario CIE-10 guarda en diagnostico_1/2/3. `diagnostico` es el
+// campo legado de fichas anteriores; si solo se mira ese, la lista sale
+// "No registrado" aunque el CIE-10 sí esté.
+const textoDiagnostico = (a) =>
+  (a?.diagnostico_1 || a?.diagnostico || '').trim();
+
 const Atenciones = () => {
   const [atenciones, setAtenciones] = useState([]);
   const [page, setPage] = useState(0);
@@ -165,6 +171,8 @@ const Atenciones = () => {
         medicamento_id: m.medicamento_id,
         cantidad: parseInt(m.cantidad, 10) || 1
       }));
+
+    dataToSend.diagnostico = textoDiagnostico(dataToSend);
 
     if (dataToSend.fecha) {
       const dateOnly = toDateInputValue(dataToSend.fecha);
@@ -317,7 +325,7 @@ const Atenciones = () => {
       (a.trabajador ? `${a.trabajador.nombre} ${a.trabajador.apellidos}` : '') + 
       (a.sistema ? a.sistema.nombre : '') + 
       (a.clasificacion ? a.clasificacion.nombre : '') + 
-      a.descripcion + (a.diagnostico||'')
+      a.descripcion + textoDiagnostico(a) + (a.diagnostico_2 || '') + (a.diagnostico_3 || '')
     ).toLowerCase();
     
     const matchesSearch = searchStr.includes(filters.search.toLowerCase());
@@ -412,9 +420,9 @@ const Atenciones = () => {
                     <div style={{fontWeight: '500'}}>{a.trabajador ? `${a.trabajador.nombre} ${a.trabajador.apellidos}` : 'N/A'}</div>
                   </td>
                   <td>
-                    <div style={{fontWeight: '500'}}>{a.diagnostico || 'No registrado'}</div>
+                    <div style={{fontWeight: '500'}}>{textoDiagnostico(a) || 'No registrado'}</div>
                     <div className="text-muted" style={{fontSize: '0.8rem'}}>
-                      {a.sistema ? a.sistema.nombre : ''} {a.clasificacion ? `> ${a.clasificacion.nombre}` : ''}
+                      {a.sistema ? a.sistema.nombre : 'Sin sistema'}{a.clasificacion ? ` > ${a.clasificacion.nombre}` : ''}
                     </div>
                   </td>
                   <td>{a.personal_salud ? `Dr(a). ${a.personal_salud.apellidos}` : 'N/A'}</td>

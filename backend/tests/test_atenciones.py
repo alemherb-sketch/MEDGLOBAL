@@ -39,6 +39,24 @@ def test_una_atencion_incompleta_no_tumba_todo_el_listado(client, db):
     assert incompleta["sistema"] is None
 
 
+def test_el_diagnostico_cie10_rellena_el_campo_legado(client):
+    """El listado y los reportes leen `diagnostico`; el formulario guarda el
+    CIE-10 en `diagnostico_1`. Sin copiar uno en el otro, la pantalla muestra
+    'No registrado' aunque el diagnostico principal sí esté."""
+    sistema, clasificacion, trabajador = _catalogos(client)
+    cie10 = "L08.9 - Infeccion local de la piel y del tejido subcutaneo"
+    creada = client.post("/atenciones/", json={
+        "descripcion": "consulta piel",
+        "trabajador_id": trabajador["id"],
+        "sistema_id": sistema["id"],
+        "clasificacion_id": clasificacion["id"],
+        "diagnostico_1": cie10,
+    }).json()
+
+    assert creada["diagnostico_1"] == cie10
+    assert creada["diagnostico"] == cie10
+
+
 def test_el_listado_devuelve_las_atenciones_completas(client):
     sistema, clasificacion, trabajador = _catalogos(client)
     for i in range(3):

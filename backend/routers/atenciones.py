@@ -48,6 +48,13 @@ def _normalizar(datos: dict) -> dict:
     # conserva la que ya tenia.
     if not datos.get("fecha"):
         datos.pop("fecha", None)
+    # El formulario CIE-10 escribe en diagnostico_1; diagnostico es el campo
+    # legado que leen el listado y los reportes.
+    principal = (datos.get("diagnostico_1") or datos.get("diagnostico") or "").strip()
+    if principal:
+        datos["diagnostico"] = principal
+        if not (datos.get("diagnostico_1") or "").strip():
+            datos["diagnostico_1"] = principal
     return datos
 
 

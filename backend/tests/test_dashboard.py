@@ -57,3 +57,25 @@ def test_los_kpis_pueden_acotarse_a_un_rango_de_fechas(client):
     # Los inventarios del momento no dependen del rango.
     assert recientes["total_trabajadores"] == todas["total_trabajadores"]
     assert recientes["total_medicamentos"] == todas["total_medicamentos"]
+
+
+def test_enfermedades_del_dashboard_usan_el_cie10_principal(client):
+    """El ranking leia el campo legado `diagnostico`, vacio en atenciones
+    nuevas, y las enfermedades mas frecuentes salian vacias."""
+    sesion = SessionLocal()
+    sistema = models.SistemaAtencion(nombre="PIEL")
+    trabajador = models.Trabajador(nombre="Ana", apellidos="Diaz", dni="61616161", rol="Operario")
+    sesion.add_all([sistema, trabajador])
+    sesion.flush()
+    sesion.add(models.Atencion(
+        descripcion="consulta",
+        trabajador_id=trabajador.id,
+        sistema_id=sistema.id,
+        diagnostico_1="L08.9 - Infeccion local de la piel",
+        diagnostico="",
+    ))
+    sesion.commit()
+    sesion.close()
+
+    enfermedades = client.get("/dashboard/stats").json()["enfermedades"]
+    assert [e["name"] for e in enfermedades] == ["L08.9 - Infeccion local de la piel"]

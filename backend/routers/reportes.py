@@ -23,6 +23,18 @@ IGV = 1.18
 SIN_DATO = "—"
 
 
+def _texto_diagnostico(atencion) -> str:
+    """CIE-10 actual (`diagnostico_1`) o el texto legado de fichas viejas."""
+    return (atencion.diagnostico_1 or atencion.diagnostico or "").strip()
+
+
+def _columna_diagnostico():
+    return func.coalesce(
+        func.nullif(models.Atencion.diagnostico_1, ""),
+        func.nullif(models.Atencion.diagnostico, ""),
+    )
+
+
 def _filtrar_por_fecha(consulta, columna, desde: Optional[str], hasta: Optional[str]):
     if desde:
         consulta = consulta.filter(func.date(columna) >= desde)
@@ -124,13 +136,13 @@ def estadisticas(db: SesionDB, fecha_inicio: str = None, fecha_fin: str = None):
     vigentes = models.Atencion.is_deleted == False  # noqa: E712
     total = func.count(models.Atencion.id)
 
+    diag = _columna_diagnostico()
     enfermedades = por_fecha(
-        db.query(models.Atencion.diagnostico, total.label("total")).filter(
+        db.query(diag.label("diagnostico"), total.label("total")).filter(
             vigentes,
-            models.Atencion.diagnostico.isnot(None),
-            models.Atencion.diagnostico != "",
+            diag.isnot(None),
         )
-    ).group_by(models.Atencion.diagnostico).order_by(total.desc()).limit(5).all()
+    ).group_by(diag).order_by(total.desc()).limit(5).all()
 
     pacientes = por_fecha(
         db.query(models.Trabajador.nombre, models.Trabajador.apellidos, total.label("total"))
@@ -209,7 +221,7 @@ def estadisticas(db: SesionDB, fecha_inicio: str = None, fecha_fin: str = None):
                 "id": a.id,
                 "fecha": str(a.fecha.date()) if a.fecha else "",
                 "paciente": f"{a.trabajador.nombre} {a.trabajador.apellidos}" if a.trabajador else "N/A",
-                "diagnostico": str(a.diagnostico or ""),
+                "diagnostico": _texto_diagnostico(a) or "",
                 "sistema": a.sistema.nombre if a.sistema else "N/A",
             }
             for a in ultimas
@@ -253,11 +265,12 @@ def reporte_sistemas(
 
 def _detalle_enfermedades(db, desde, hasta):
     agrupado = defaultdict(list)
-    for a in _atenciones_con_relaciones(db, desde, hasta, [
-        models.Atencion.diagnostico.isnot(None), models.Atencion.diagnostico != "",
-    ]):
+    for a in _atenciones_con_relaciones(db, desde, hasta):
+        nombre = _texto_diagnostico(a)
+        if not nombre:
+            continue
         trabajador, empresa = a.trabajador, a.empresa
-        agrupado[a.diagnostico].append({
+        agrupado[nombre].append({
             "fecha": a.fecha.strftime("%d/%m/%Y") if a.fecha else "",
             "paciente": f"{trabajador.nombre} {trabajador.apellidos}" if trabajador else SIN_DATO,
             "dni": trabajador.dni if trabajador else SIN_DATO,
@@ -283,7 +296,7 @@ def _detalle_pacientes(db, desde, hasta):
         }
         agrupado[trabajador.id].append({
             "fecha": a.fecha.strftime("%d/%m/%Y") if a.fecha else "",
-            "diagnostico": a.diagnostico or SIN_DATO,
+            "diagnostico": _texto_diagnostico(a) or SIN_DATO,
             "empresa": a.empresa.nombre if a.empresa else SIN_DATO,
             "destino": a.destino or SIN_DATO,
         })
@@ -305,7 +318,7 @@ def _detalle_empresas(db, desde, hasta):
         agrupado[empresa.id].append({
             "fecha": a.fecha.strftime("%d/%m/%Y") if a.fecha else "",
             "paciente": f"{trabajador.nombre} {trabajador.apellidos}" if trabajador else SIN_DATO,
-            "diagnostico": a.diagnostico or SIN_DATO,
+            "diagnostico": _texto_diagnostico(a) or SIN_DATO,
             "destino": a.destino or SIN_DATO,
         })
     ordenado = sorted(agrupado.items(), key=lambda par: len(par[1]), reverse=True)
