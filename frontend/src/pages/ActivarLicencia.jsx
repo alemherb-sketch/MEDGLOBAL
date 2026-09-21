@@ -80,7 +80,9 @@ const ActivarLicencia = () => {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <div className="glass-panel" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-          <img src="/logo.png" alt="MEDGLOBAL" style={{ maxHeight: '48px', objectFit: 'contain' }} />
+          <div className="logo-container">
+            <img src="/logo.png" alt="MEDGLOBAL" style={{ maxHeight: '48px', objectFit: 'contain', display: 'block' }} />
+          </div>
         </div>
         <h1 style={{ fontSize: '1.2rem', textAlign: 'center', marginBottom: '8px' }}>Activar licencia</h1>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '20px', lineHeight: 1.45 }}>

@@ -27,7 +27,9 @@ const Login = () => {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div className="glass-panel" style={{ width: '100%', maxWidth: '380px', padding: '32px' }}>
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <img src="/logo.png" alt="MEDGLOBAL" style={{ maxHeight: '48px', objectFit: 'contain' }} />
+          <div className="logo-container">
+            <img src="/logo.png" alt="MEDGLOBAL" style={{ maxHeight: '48px', objectFit: 'contain', display: 'block' }} />
+          </div>
         </div>
         <h1 style={{ fontSize: '1.25rem', textAlign: 'center', marginBottom: '20px' }}>Iniciar sesión</h1>
         <form onSubmit={handleSubmit}>
