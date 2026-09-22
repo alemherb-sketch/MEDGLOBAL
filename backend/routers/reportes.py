@@ -50,6 +50,31 @@ def _lista_de_ids(valor: Optional[str]):
     return [x.strip() for x in str(valor).split(",") if x and x.strip()]
 
 
+def _obra_de_la_ficha():
+    """Obra de la atencion: la sede guardada en la ficha, o la de planilla.
+
+    El filtro del reporte comparaba solo `trabajador.obra` y ademas exigia
+    el texto exacto. Quien tenia la obra vacia, en mayusculas o con espacios
+    no entraba en Bravas/Comuna, y Bravas + Comuna no sumaba el total."""
+    return func.lower(func.trim(func.coalesce(
+        func.nullif(func.trim(models.Atencion.sede_atencion), ""),
+        func.nullif(func.trim(models.Trabajador.obra), ""),
+        "",
+    )))
+
+
+def _unir_trabajador(consulta):
+    return consulta.outerjoin(
+        models.Trabajador, models.Atencion.trabajador_id == models.Trabajador.id
+    )
+
+
+def _filtrar_por_obra(consulta, obra: Optional[str]):
+    if not (obra or "").strip():
+        return consulta
+    return _unir_trabajador(consulta).filter(_obra_de_la_ficha() == obra.strip().lower())
+
+
 def _filtrar_por_lista(consulta, columna, valor: Optional[str], comparacion="exacta"):
     valores = _lista_de_ids(valor)
     if not valores:
@@ -249,14 +274,28 @@ def reporte_sistemas(
     if sistema_id:
         consulta = consulta.filter(models.Atencion.sistema_id == sistema_id)
     consulta = _filtrar_por_lista(consulta, models.Atencion.empresa_id, empresa_id)
-    if obra:
-        consulta = consulta.join(
-            models.Trabajador, models.Atencion.trabajador_id == models.Trabajador.id
-        ).filter(models.Trabajador.obra == obra)
+    consulta = _filtrar_por_obra(consulta, obra)
 
     filas = consulta.group_by(models.SistemaAtencion.id).order_by(total.desc()).all()
+
+    sin_obra = 0
+    if not (obra or "").strip():
+        sin_asignar = (
+            db.query(func.count(models.Atencion.id))
+            .select_from(models.Atencion)
+            .filter(models.Atencion.is_deleted == False)  # noqa: E712
+            .filter(models.Atencion.sistema_id.isnot(None))
+        )
+        sin_asignar = _filtrar_por_fecha(sin_asignar, models.Atencion.fecha, fecha_inicio, fecha_fin)
+        if sistema_id:
+            sin_asignar = sin_asignar.filter(models.Atencion.sistema_id == sistema_id)
+        sin_asignar = _filtrar_por_lista(sin_asignar, models.Atencion.empresa_id, empresa_id)
+        sin_asignar = _unir_trabajador(sin_asignar).filter(_obra_de_la_ficha() == "")
+        sin_obra = int(sin_asignar.scalar() or 0)
+
     return {
         "total_general": sum(f.total for f in filas),
+        "sin_obra": sin_obra,
         "sistemas": [{"name": str(f.nombre), "value": int(f.total)} for f in filas],
     }
 
@@ -435,10 +474,7 @@ def consumo_medicamentos(
     consulta = _filtrar_por_fecha(consulta, models.Atencion.fecha, fecha_inicio, fecha_fin)
     if empresa_id:
         consulta = consulta.filter(models.Atencion.empresa_id == empresa_id)
-    if obra:
-        consulta = consulta.join(
-            models.Trabajador, models.Atencion.trabajador_id == models.Trabajador.id
-        ).filter(models.Trabajador.obra == obra)
+    consulta = _filtrar_por_obra(consulta, obra)
 
     por_medicamento, fechas = {}, set()
     # Se usa el `medicamento` que YA trajo el JOIN. Antes esta linea lo pisaba

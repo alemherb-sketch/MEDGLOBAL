@@ -79,3 +79,38 @@ def test_enfermedades_del_dashboard_usan_el_cie10_principal(client):
 
     enfermedades = client.get("/dashboard/stats").json()["enfermedades"]
     assert [e["name"] for e in enfermedades] == ["L08.9 - Infeccion local de la piel"]
+
+
+def test_el_reporte_de_sistemas_cuadran_las_obras(client):
+    """Bravas + Comuna no sumaba el total porque el filtro exigia el texto
+    exacto de `trabajador.obra` y ignoraba la sede de la ficha."""
+    sesion = SessionLocal()
+    sistema = models.SistemaAtencion(nombre="PIEL")
+    bravas = models.Trabajador(nombre="Ana", apellidos="Diaz", dni="10000001", rol="Operario", obra="BRAVAS ")
+    comuna = models.Trabajador(nombre="Luis", apellidos="Rojas", dni="10000002", rol="Operario", obra="Comuna")
+    sin_planilla = models.Trabajador(nombre="Eva", apellidos="Soto", dni="10000003", rol="Operario", obra="")
+    otro = models.Trabajador(nombre="Paz", apellidos="Luna", dni="10000004", rol="Operario", obra=None)
+    sesion.add_all([sistema, bravas, comuna, sin_planilla, otro])
+    sesion.flush()
+    sesion.add_all([
+        models.Atencion(descripcion="a", trabajador_id=bravas.id, sistema_id=sistema.id),
+        models.Atencion(descripcion="b", trabajador_id=comuna.id, sistema_id=sistema.id),
+        models.Atencion(
+            descripcion="c", trabajador_id=sin_planilla.id, sistema_id=sistema.id,
+            sede_atencion="Bravas",
+        ),
+        models.Atencion(descripcion="d", trabajador_id=otro.id, sistema_id=sistema.id),
+    ])
+    sesion.commit()
+    sesion.close()
+
+    todas = client.get("/dashboard/reporte-sistemas").json()
+    assert todas["total_general"] == 4
+    assert todas["sin_obra"] == 1
+
+    solo_bravas = client.get("/dashboard/reporte-sistemas", params={"obra": "Bravas"}).json()
+    assert solo_bravas["total_general"] == 2
+
+    solo_comuna = client.get("/dashboard/reporte-sistemas", params={"obra": "Comuna"}).json()
+    assert solo_comuna["total_general"] == 1
+    assert solo_bravas["total_general"] + solo_comuna["total_general"] + todas["sin_obra"] == todas["total_general"]

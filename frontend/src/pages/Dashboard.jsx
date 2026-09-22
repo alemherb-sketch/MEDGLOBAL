@@ -280,6 +280,11 @@ const Dashboard = () => {
                   <div>
                     <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Atenciones</span>
                     <span style={{ display: 'block', fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>Según filtros aplicados</span>
+                    {!repSisFiltros.obra && (repSistemas.sin_obra || 0) > 0 && (
+                      <span style={{ display: 'block', fontSize: '0.8rem', color: 'rgba(251,191,36,0.85)', marginTop: '8px' }}>
+                        {repSistemas.sin_obra} sin obra en la ficha ni en planilla: no entran al filtrar una obra del catálogo.
+                      </span>
+                    )}
                   </div>
                   <span style={{ display: 'block', fontSize: '3rem', lineHeight: '1', fontWeight: '800', color: 'var(--primary-color)', textShadow: '0 0 20px rgba(14,165,233,0.3)' }}>
                     {repSistemas.total_general}
