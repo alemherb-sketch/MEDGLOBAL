@@ -57,6 +57,24 @@ def test_el_diagnostico_cie10_rellena_el_campo_legado(client):
     assert creada["diagnostico"] == cie10
 
 
+def test_la_fecha_de_atencion_se_devuelve_como_utc(client):
+    """Sin marca de zona, el listado en Peru muestra el dia UTC: una ficha
+    de las 23:28 de ayer aparece con fecha de hoy y una hora que no llega."""
+    sistema, clasificacion, trabajador = _catalogos(client)
+    creada = client.post("/atenciones/", json={
+        "descripcion": "contusion nocturna",
+        "trabajador_id": trabajador["id"],
+        "sistema_id": sistema["id"],
+        "clasificacion_id": clasificacion["id"],
+        "fecha": "2026-09-26T04:28:00.000Z",
+        "hora_ingreso": "23:28",
+    }).json()
+
+    assert creada["hora_ingreso"] == "23:28"
+    assert creada["fecha"].startswith("2026-09-26T04:28:00")
+    assert creada["fecha"].endswith("Z") or "+00:00" in creada["fecha"]
+
+
 def test_el_listado_devuelve_las_atenciones_completas(client):
     sistema, clasificacion, trabajador = _catalogos(client)
     for i in range(3):

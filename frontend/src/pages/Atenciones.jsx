@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { apiFetch, apiJson } from '../api';
+import { fechaLocalHora, fechaLocalTexto, fechaLocalYmd, localYmdHoraAIso } from '../fecha';
 import { Search, Plus, Trash2, Edit2, X, Eye } from 'lucide-react';
 import Select from 'react-select';
 import AsyncSelect from 'react-select/async';
@@ -175,8 +176,10 @@ const Atenciones = () => {
     dataToSend.diagnostico = textoDiagnostico(dataToSend);
 
     if (dataToSend.fecha) {
-      const dateOnly = toDateInputValue(dataToSend.fecha);
-      dataToSend.fecha = fromDateInputValue(dateOnly, dataToSend.hora_ingreso || '00:00');
+      dataToSend.fecha = localYmdHoraAIso(
+        fechaLocalYmd(dataToSend.fecha),
+        dataToSend.hora_ingreso || '00:00'
+      );
     } else {
       delete dataToSend.fecha;
     }
@@ -207,19 +210,9 @@ const Atenciones = () => {
     try { return JSON.parse(value); } catch (_) { return fallback; }
   };
 
-  const toDateInputValue = (fecha) => {
-    if (!fecha) return new Date().toISOString().substring(0, 10);
-    const d = new Date(fecha);
-    if (Number.isNaN(d.getTime())) return String(fecha).substring(0, 10);
-    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-    return local.toISOString().substring(0, 10);
-  };
+  const toDateInputValue = (fecha) => fechaLocalYmd(fecha);
 
-  const fromDateInputValue = (dateStr, hora = '00:00') => {
-    const [y, m, day] = dateStr.split('-').map(Number);
-    const [hh, mm] = (hora || '00:00').split(':').map(Number);
-    return new Date(y, m - 1, day, hh || 0, mm || 0, 0).toISOString();
-  };
+  const fromDateInputValue = (dateStr, hora = '00:00') => localYmdHoraAIso(dateStr, hora);
 
   const openModal = (atencion = null) => {
     if (atencion) {
@@ -332,8 +325,7 @@ const Atenciones = () => {
     
     let matchesDate = true;
     if (filters.date) {
-      const atencionDate = new Date(a.fecha).toISOString().split('T')[0];
-      matchesDate = atencionDate === filters.date;
+      matchesDate = fechaLocalYmd(a.fecha) === filters.date;
     }
 
     return matchesSearch && matchesDate;
@@ -411,9 +403,9 @@ const Atenciones = () => {
                 <tr key={a.id}>
                   <td style={{fontWeight: 'bold', color: 'var(--primary-color)'}}>{a.folio ? `#${a.folio.toString().padStart(4, '0')}` : '—'}</td>
                   <td>
-                    <div style={{fontWeight: '500'}}>{new Date(a.fecha).toLocaleDateString()}</div>
+                    <div style={{fontWeight: '500'}}>{fechaLocalTexto(a.fecha)}</div>
                     <div className="text-muted" style={{fontSize: '0.8rem'}}>
-                      {a.hora_ingreso || new Date(a.fecha).toLocaleTimeString().substring(0,5)}
+                      {a.hora_ingreso || fechaLocalHora(a.fecha)}
                     </div>
                   </td>
                   <td>
@@ -813,7 +805,7 @@ const Atenciones = () => {
 
               <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '25px', fontSize: '14px'}}>
                 <div><strong>N° de Ficha:</strong> {viewAtencion.folio ? `#${viewAtencion.folio.toString().padStart(4, '0')}` : '—'}</div>
-                <div><strong>Fecha:</strong> {new Date(viewAtencion.fecha).toLocaleDateString()}</div>
+                <div><strong>Fecha:</strong> {fechaLocalTexto(viewAtencion.fecha)}</div>
                 <div><strong>Hora de Atención:</strong> {viewAtencion.hora_ingreso || '--'}</div>
               </div>
 
@@ -948,7 +940,7 @@ const Atenciones = () => {
 
                 <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '25px', fontSize: '14px'}}>
                   <div><strong>N° de Atención:</strong> {viewAtencion.folio ? `#${viewAtencion.folio.toString().padStart(4, '0')}` : '—'}</div>
-                  <div><strong>Fecha y Hora:</strong> {new Date(viewAtencion.fecha).toLocaleDateString()} {viewAtencion.hora_ingreso || ''}</div>
+                  <div><strong>Fecha y Hora:</strong> {fechaLocalTexto(viewAtencion.fecha)} {viewAtencion.hora_ingreso || ''}</div>
                 </div>
 
                 <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px', marginBottom: '30px'}}>

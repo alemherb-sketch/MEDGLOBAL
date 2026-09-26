@@ -1,6 +1,6 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_serializer, field_validator
 from typing import List, Optional, Any, Dict
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 
 # --- Autenticacion ---
@@ -292,6 +292,15 @@ class Atencion(AtencionBase):
     id: str
     folio: Optional[int] = None
     fecha: datetime
+
+    @field_serializer("fecha")
+    def _fecha_como_utc(self, valor: datetime) -> str:
+        # El DateTime de la base es UTC ingenuo. Sin marca de zona el browser
+        # lo lee como hora local y, en Peru, una ficha de las 23:28 de ayer
+        # aparece con fecha de hoy.
+        if valor.tzinfo is None:
+            valor = valor.replace(tzinfo=timezone.utc)
+        return valor.isoformat()
 
     # Al CREAR una atencion estos campos son obligatorios (asi quedan en
     # AtencionBase, que es lo que valida la entrada), pero al DEVOLVERLOS son
