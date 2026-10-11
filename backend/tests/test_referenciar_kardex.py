@@ -95,6 +95,31 @@ def test_lo_que_no_es_de_una_atencion_y_lo_ya_referenciado(db, historia):
     assert _fila(db, historia["con_obs"]).observacion == "Reposición botiquín B-1"
 
 
-def test_correrlo_dos_veces_no_cambia_nada(db, historia):
-    assert _aplicar()
-    assert _aplicar() == []
+def test_una_vez_aplicado_no_se_vuelve_a_correr(db, historia):
+    """Despues de aplicarlo, lo que queda sin referencia ya no tiene su
+    historia completa: atribuirlo de nuevo seria adivinar."""
+    with engine.connect() as conexion:
+        assert not referenciar_kardex.ya_aplicado(conexion)
+    _aplicar()
+    with engine.connect() as conexion:
+        assert referenciar_kardex.ya_aplicado(conexion)
+
+
+def test_las_referencias_del_sistema_no_cuentan_como_aplicado(client):
+    """Una atencion nueva tambien escribe 'Atención N.º X', pero con usuario."""
+    sistema = client.post("/sistemas/", json={"nombre": "RESPIRATORIO"}).json()
+    clasificacion = client.post("/clasificaciones/", json={"nombre": "COMUN"}).json()
+    trabajador = client.post("/trabajadores/", json={
+        "nombre": "Ana", "apellidos": "Quispe", "dni": "40404040", "rol": "Operario",
+    }).json()
+    medicamento = client.post("/medicamentos/", json={"nombre": "PARACETAMOL", "presentacion": "TAB"}).json()
+    client.post("/kardex/", json={"medicamento_id": medicamento["id"], "tipo_movimiento": "INGRESO",
+                                  "cantidad": 5, "observacion": "Compra"})
+    client.post("/atenciones/", json={
+        "descripcion": "Dolor", "trabajador_id": trabajador["id"], "sistema_id": sistema["id"],
+        "clasificacion_id": clasificacion["id"],
+        "medicamentos": [{"medicamento_id": medicamento["id"], "cantidad": 1}],
+    })
+
+    with engine.connect() as conexion:
+        assert not referenciar_kardex.ya_aplicado(conexion)

@@ -27,7 +27,10 @@ orden:
     lote grande de ingresos, de una carga de inventario.
 
 Solo escribe cuando la atribucion es univoca; lo demas queda como estaba.
-Solo toca filas sin observacion, asi que correrlo dos veces no cambia nada.
+Se aplica UNA sola vez: la reconstruccion necesita la historia completa, y
+despues de aplicarla los movimientos ya referenciados dejan de verse como
+historia -- una segunda corrida atribuiria lo que quedo con datos parciales.
+Por eso se niega a correr si encuentra referencias puestas por el mismo.
 
     python referenciar_kardex.py              # simula y muestra el resultado
     python referenciar_kardex.py --aplicar    # escribe (guarda un respaldo antes)
@@ -264,6 +267,22 @@ def _sin_atencion(pedido, atenciones):
     return None
 
 
+def ya_aplicado(conexion) -> bool:
+    """True si el kardex ya tiene referencias puestas por este script: las
+    reconoce porque las del sistema siempre llevan usuario y estas no."""
+    from sqlalchemy import inspect, text
+
+    columnas = {c["name"] for c in inspect(conexion).get_columns("kardex")}
+    filtro_usuario = "usuario IS NULL AND " if "usuario" in columnas else ""
+    return conexion.execute(text(
+        "SELECT 1 FROM kardex WHERE " + filtro_usuario + "("
+        "observacion LIKE 'Atención N.º%' OR observacion LIKE 'Edición de atención N.º%'"
+        " OR observacion LIKE 'Devolución por edición de atención N.º%'"
+        " OR observacion IN ('Registro manual en Almacén', 'Carga masiva de inventario'))"
+        " LIMIT 1"
+    )).first() is not None
+
+
 def aplicar(conexion, plan):
     from sqlalchemy import inspect, text
 
@@ -284,6 +303,9 @@ def main():
 
     escribir = "--aplicar" in sys.argv
     with engine.begin() as conexion:
+        if ya_aplicado(conexion):
+            print("Las referencias ya se reconstruyeron antes: no se vuelve a correr.")
+            return
         plan, resumen, ambiguos, sin_atribuir, descuadres = reconstruir(conexion)
 
         print("Movimientos sin referencia, por resultado:")
