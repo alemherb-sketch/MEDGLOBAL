@@ -78,9 +78,15 @@ def test_una_atencion_normal_si_descuenta_el_stock(client):
     assert _stock(client, medicamento) == 7
 
 
-def test_editar_una_atencion_devuelve_lo_anterior_antes_de_descontar(client):
-    """Reeditar la misma cantidad no debe exigir stock extra: primero vuelve al
-    almacen lo que estaba recetado y recien despues sale lo nuevo."""
+def _movimientos(client, medicamento):
+    """Kardex del medicamento, del mas viejo al mas nuevo."""
+    return list(reversed(client.get(f"/kardex/{medicamento['id']}").json()))
+
+
+def test_editar_una_atencion_sin_cambiar_la_receta_no_mueve_stock(client):
+    """Antes guardar una ficha (aunque solo se corrigiera el diagnostico)
+    devolvia toda la receta como INGRESO y la volvia a sacar como SALIDA: el
+    kardex se llenaba de ingresos que nunca existieron."""
     sistema, clasificacion, trabajador, medicamento = _catalogo_minimo(client, stock=4)
 
     atencion = client.post("/atenciones/", json=_atencion(
@@ -96,6 +102,112 @@ def test_editar_una_atencion_devuelve_lo_anterior_antes_de_descontar(client):
 
     assert respuesta.status_code == 200
     assert _stock(client, medicamento) == 0
+    tipos = [k["tipo_movimiento"] for k in _movimientos(client, medicamento)]
+    assert tipos == ["INGRESO", "SALIDA"]  # stock inicial + la atencion, nada mas
+
+
+def test_editar_una_atencion_solo_mueve_la_diferencia(client):
+    sistema, clasificacion, trabajador, medicamento = _catalogo_minimo(client, stock=10)
+    atencion = client.post("/atenciones/", json=_atencion(
+        sistema, clasificacion, trabajador,
+        [{"medicamento_id": medicamento["id"], "cantidad": 3}],
+    )).json()
+
+    client.put(f"/atenciones/{atencion['id']}", json=_atencion(
+        sistema, clasificacion, trabajador,
+        [{"medicamento_id": medicamento["id"], "cantidad": 5}],
+    ))
+    assert _stock(client, medicamento) == 5
+    ultimo = _movimientos(client, medicamento)[-1]
+    assert (ultimo["tipo_movimiento"], ultimo["cantidad"]) == ("SALIDA", 2)
+    assert ultimo["observacion"] == f"Edición de atención N.º {atencion['folio']}"
+
+    client.put(f"/atenciones/{atencion['id']}", json=_atencion(
+        sistema, clasificacion, trabajador, [],
+    ))
+    assert _stock(client, medicamento) == 10
+    ultimo = _movimientos(client, medicamento)[-1]
+    assert (ultimo["tipo_movimiento"], ultimo["cantidad"]) == ("INGRESO", 5)
+    assert ultimo["observacion"] == f"Devolución por edición de atención N.º {atencion['folio']}"
+
+
+def test_editar_no_exige_stock_extra_por_lo_ya_dispensado(client):
+    """Subir de 4 a 5 necesita 1 unidad disponible, no 5."""
+    sistema, clasificacion, trabajador, medicamento = _catalogo_minimo(client, stock=5)
+    atencion = client.post("/atenciones/", json=_atencion(
+        sistema, clasificacion, trabajador,
+        [{"medicamento_id": medicamento["id"], "cantidad": 4}],
+    )).json()
+
+    respuesta = client.put(f"/atenciones/{atencion['id']}", json=_atencion(
+        sistema, clasificacion, trabajador,
+        [{"medicamento_id": medicamento["id"], "cantidad": 5}],
+    ))
+
+    assert respuesta.status_code == 200
+    assert _stock(client, medicamento) == 0
+
+
+def test_la_salida_de_una_atencion_dice_de_que_ficha_y_usuario_viene(client):
+    sistema, clasificacion, trabajador, medicamento = _catalogo_minimo(client, stock=10)
+    atencion = client.post("/atenciones/", json=_atencion(
+        sistema, clasificacion, trabajador,
+        [{"medicamento_id": medicamento["id"], "cantidad": 3}],
+    )).json()
+
+    salida = _movimientos(client, medicamento)[-1]
+    assert salida["observacion"] == f"Atención N.º {atencion['folio']}"
+    assert salida["atencion_id"] == atencion["id"]
+    assert salida["usuario"] == "tester"
+
+
+def test_un_movimiento_manual_registra_el_usuario(client):
+    _, _, _, medicamento = _catalogo_minimo(client, stock=0)
+
+    fila = client.post("/kardex/", json={
+        "medicamento_id": medicamento["id"], "tipo_movimiento": "INGRESO", "cantidad": 7,
+        "observacion": "Compra factura F001-1",
+    }).json()
+
+    assert fila["usuario"] == "tester"
+    assert fila["observacion"] == "Compra factura F001-1"
+    assert fila["atencion_id"] is None
+
+
+def test_eliminar_una_atencion_devuelve_lo_recetado_una_sola_vez(client):
+    """Antes el borrado era solo la marca: lo dispensado quedaba descontado
+    aunque la ficha ya no existiera.
+
+    No se compara el status de la segunda llamada: /atenciones es tambien una
+    pantalla del frontend y main.manejar_404 responde index.html en vez del 404."""
+    sistema, clasificacion, trabajador, medicamento = _catalogo_minimo(client, stock=10)
+    atencion = client.post("/atenciones/", json=_atencion(
+        sistema, clasificacion, trabajador,
+        [{"medicamento_id": medicamento["id"], "cantidad": 3}],
+    )).json()
+    assert _stock(client, medicamento) == 7
+
+    assert client.delete(f"/atenciones/{atencion['id']}").status_code == 200
+    assert _stock(client, medicamento) == 10
+    devolucion = _movimientos(client, medicamento)[-1]
+    assert devolucion["tipo_movimiento"] == "INGRESO"
+    assert devolucion["observacion"] == f"Anulación de atención N.º {atencion['folio']}"
+
+    # Anular otra vez una ficha ya anulada no puede devolver de nuevo.
+    movimientos = len(_movimientos(client, medicamento))
+    client.delete(f"/atenciones/{atencion['id']}")
+    assert _stock(client, medicamento) == 10
+    assert len(_movimientos(client, medicamento)) == movimientos
+
+
+def test_la_fecha_del_kardex_sale_con_zona_utc(client):
+    """Sin la marca de zona el browser leia la hora UTC como local y el kardex
+    mostraba las 11:59 de Peru como 16:59."""
+    _, _, _, medicamento = _catalogo_minimo(client, stock=1)
+
+    fecha = _movimientos(client, medicamento)[0]["fecha"]
+
+    assert fecha.endswith("+00:00")
 
 
 def test_una_salida_negativa_no_puede_aumentar_el_stock(client):

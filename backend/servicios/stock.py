@@ -23,7 +23,7 @@ class StockInsuficiente(HTTPException):
         )
 
 
-def _validar_cantidad(cantidad) -> int:
+def validar_cantidad(cantidad) -> int:
     """La cantidad de un movimiento siempre es un entero positivo.
 
     Sin esto una cantidad negativa invertia el movimiento: una SALIDA de -5
@@ -48,12 +48,14 @@ def registrar_movimiento(
     lote=None,
     fecha_vencimiento=None,
     observacion=None,
+    usuario=None,
+    atencion_id=None,
 ) -> "models.Kardex":
     """Aplica un movimiento al stock y deja su fila de kardex.
 
     Devuelve la fila creada (todavia sin commit: el commit es del endpoint,
     para que un error posterior no deje el movimiento a medias)."""
-    cantidad = _validar_cantidad(cantidad)
+    cantidad = validar_cantidad(cantidad)
     tipo_movimiento = (tipo_movimiento or "").upper()
 
     actual = medicamento.stock_actual or 0
@@ -77,6 +79,8 @@ def registrar_movimiento(
         lote=lote,
         fecha_vencimiento=fecha_vencimiento,
         observacion=observacion,
+        usuario=usuario,
+        atencion_id=atencion_id,
     )
     db.add(fila)
     return fila

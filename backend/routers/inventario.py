@@ -9,7 +9,7 @@ from sqlalchemy.orm import joinedload
 
 import models
 import schemas
-from dependencias import RequiereSesion, SesionDB
+from dependencias import RequiereSesion, SesionDB, UsuarioActual
 from servicios import crud, excel, stock
 from servicios.codigos import siguiente_codigo
 
@@ -56,7 +56,7 @@ def borrar_medicamento(id: str, db: SesionDB):
 
 
 @router.post("/medicamentos/importar/", tags=["medicamentos"])
-async def importar_medicamentos(db: SesionDB, file: UploadFile = File(...)):
+async def importar_medicamentos(db: SesionDB, usuario: UsuarioActual, file: UploadFile = File(...)):
     """Importa o actualiza el catalogo desde un Excel.
 
     Columnas reconocidas (en cualquiera de las primeras 10 filas, sin importar
@@ -160,6 +160,7 @@ async def importar_medicamentos(db: SesionDB, file: UploadFile = File(...)):
                     db, nuevo, "INGRESO", stock_inicial,
                     lote=lote, fecha_vencimiento=vencimiento,
                     observacion="Stock inicial (importación de catálogo)",
+                    usuario=usuario.username,
                 )
             creados += 1
 
@@ -215,13 +216,14 @@ def listar_kardex_de_medicamento(medicamento_id: str, db: SesionDB):
 
 
 @router.post("/kardex/", response_model=schemas.Kardex, tags=["kardex"])
-def crear_movimiento_kardex(kardex: schemas.KardexCreate, db: SesionDB):
+def crear_movimiento_kardex(kardex: schemas.KardexCreate, db: SesionDB, usuario: UsuarioActual):
     medicamento = stock.buscar_medicamento(db, kardex.medicamento_id)
     fila = stock.registrar_movimiento(
         db, medicamento, kardex.tipo_movimiento, kardex.cantidad,
         lote=kardex.lote,
         fecha_vencimiento=kardex.fecha_vencimiento,
-        observacion=kardex.observacion,
+        observacion=(kardex.observacion or "").strip() or None,
+        usuario=usuario.username,
     )
     db.commit()
     db.refresh(fila)

@@ -1,11 +1,25 @@
 import { useState, useEffect } from 'react';
 import { apiFetch, apiJson, mensajeDeError } from '../api';
+import { fechaLocalHora, fechaLocalTexto } from '../fecha';
 import { Search, RefreshCw, X, TrendingUp, TrendingDown } from 'lucide-react';
 import Select from 'react-select';
 
 const PAGE_SIZE = 20;
 
+const FORM_VACIO = { medicamento_id: '', tipo_movimiento: 'INGRESO', cantidad: '', lote: '', fecha_vencimiento: '', observacion: '' };
+
 const medicamentoLabel = (m) => `${m.codigo ? `[${m.codigo}] ` : ''}${m.nombre} - ${m.presentacion}`;
+
+// Origen del movimiento (atencion, reposicion, motivo manual), lote y quien lo hizo.
+const DetalleMovimiento = ({ k }) => (
+  <>
+    {k.observacion && <div title={k.observacion}>{k.observacion}</div>}
+    {k.lote && <div>Lote: {k.lote}</div>}
+    {k.fecha_vencimiento && <div className="text-muted">Vence: {k.fecha_vencimiento}</div>}
+    {k.usuario && <div className="text-muted" title={`Registrado por ${k.usuario}`}>Por: {k.usuario}</div>}
+    {!k.observacion && !k.lote && !k.fecha_vencimiento && !k.usuario && <span className="text-muted">—</span>}
+  </>
+);
 
 const selectStyles = {
   control: (base) => ({
@@ -43,7 +57,7 @@ const Almacen = () => {
   const [medicamentos, setMedicamentos] = useState([]);
   const [kardexEntries, setKardexEntries] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [kardexForm, setKardexForm] = useState({ medicamento_id: '', tipo_movimiento: 'INGRESO', cantidad: '', lote: '', fecha_vencimiento: '' });
+  const [kardexForm, setKardexForm] = useState(FORM_VACIO);
   const [filters, setFilters] = useState({ search: '' });
   const [page, setPage] = useState(0);
 
@@ -72,6 +86,10 @@ const Almacen = () => {
       alert('Seleccione un medicamento');
       return;
     }
+    if (!kardexForm.observacion.trim()) {
+      alert('Indique el motivo del movimiento');
+      return;
+    }
     apiFetch('/kardex/', {
       method: 'POST',
       body: JSON.stringify({ ...kardexForm, cantidad: parseInt(kardexForm.cantidad) })
@@ -89,7 +107,7 @@ const Almacen = () => {
   };
 
   const openModal = () => {
-    setKardexForm({ medicamento_id: '', tipo_movimiento: 'INGRESO', cantidad: '', lote: '', fecha_vencimiento: '' });
+    setKardexForm(FORM_VACIO);
     setIsModalOpen(true);
   };
 
@@ -108,7 +126,8 @@ const Almacen = () => {
 
   const filteredEntries = kardexEntries.filter(k => {
     const m = k.medicamento || {};
-    const texto = ((m.codigo || '') + ' ' + (m.nombre || '') + ' ' + (m.tipo || '') + ' ' + k.tipo_movimiento).toLowerCase();
+    const texto = [m.codigo, m.nombre, m.tipo, k.tipo_movimiento, k.observacion, k.usuario]
+      .filter(Boolean).join(' ').toLowerCase();
     return texto.includes(filters.search.toLowerCase());
   });
 
@@ -133,7 +152,7 @@ const Almacen = () => {
               <input
                 className="form-control search-input"
                 style={{paddingLeft: '40px'}}
-                placeholder="Buscar por código, producto o tipo de movimiento..."
+                placeholder="Buscar por código, producto, movimiento, detalle o usuario..."
                 value={filters.search}
                 onChange={e => { setFilters({...filters, search: e.target.value}); setPage(0); }}
               />
@@ -164,7 +183,7 @@ const Almacen = () => {
                 return (
                   <tr key={k.id} style={{cursor: m.id ? 'pointer' : 'default'}} onClick={() => m.id && openKardexView(m)} title="Ver historial completo de este producto">
                     <td style={{whiteSpace: 'nowrap', fontSize: '0.85rem'}}>
-                      {new Date(k.fecha).toLocaleDateString()} <span className="text-muted">{new Date(k.fecha).toLocaleTimeString().substring(0,5)}</span>
+                      {fechaLocalTexto(k.fecha)} <span className="text-muted">{fechaLocalHora(k.fecha)}</span>
                     </td>
                     <td style={{whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}} title={m.codigo}>
                       <span style={{fontWeight: 'bold', color: 'var(--primary-color)'}}>{m.codigo}</span>
@@ -179,11 +198,7 @@ const Almacen = () => {
                       )}
                     </td>
                     <td style={{fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
-                      {k.observacion && <div title={k.observacion}>{k.observacion}</div>}
-                      {k.lote && <div>Lote: {k.lote}</div>}
-                      {k.fecha_vencimiento ? (
-                        <div className="text-muted">Vence: {k.fecha_vencimiento}</div>
-                      ) : (!k.lote && !k.observacion && <span className="text-muted">—</span>)}
+                      <DetalleMovimiento k={k} />
                     </td>
                     <td style={{textAlign: 'right', fontWeight: 'bold', color: k.tipo_movimiento === 'INGRESO' ? '#16a34a' : 'var(--danger-color)'}}>
                       {k.tipo_movimiento === 'INGRESO' ? '+' : '-'}{k.cantidad}
@@ -271,6 +286,17 @@ const Almacen = () => {
                     <input type="date" className="form-control" value={kardexForm.fecha_vencimiento} onChange={e => setKardexForm({...kardexForm, fecha_vencimiento: e.target.value})} />
                   </div>
                 </div>
+                <div className="form-group">
+                  <label className="form-label">Motivo / observación</label>
+                  <input
+                    required
+                    maxLength={200}
+                    className="form-control"
+                    placeholder="Ej.: Compra factura F001-123, ajuste por inventario físico, merma..."
+                    value={kardexForm.observacion}
+                    onChange={e => setKardexForm({...kardexForm, observacion: e.target.value})}
+                  />
+                </div>
                 <div style={{display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px'}}>
                   <button type="button" className="btn btn-secondary" onClick={closeModal}>Cancelar</button>
                   <button type="submit" className="btn btn-primary">Registrar Movimiento</button>
@@ -319,7 +345,7 @@ const Almacen = () => {
                     {kardexData.map((k, index) => (
                       <tr key={index}>
                         <td>
-                          {new Date(k.fecha).toLocaleDateString()} <span className="text-muted" style={{fontSize: '0.8rem'}}>{new Date(k.fecha).toLocaleTimeString().substring(0,5)}</span>
+                          {fechaLocalTexto(k.fecha)} <span className="text-muted" style={{fontSize: '0.8rem'}}>{fechaLocalHora(k.fecha)}</span>
                         </td>
                         <td>
                           {k.tipo_movimiento === 'INGRESO' ? (
@@ -329,11 +355,7 @@ const Almacen = () => {
                           )}
                         </td>
                         <td style={{fontSize: '0.85rem'}}>
-                          {k.observacion && <div>{k.observacion}</div>}
-                          {k.lote && <div>Lote: {k.lote}</div>}
-                          {k.fecha_vencimiento ? (
-                            <div className="text-muted">Vence: {k.fecha_vencimiento}</div>
-                          ) : (!k.lote && !k.observacion && <span className="text-muted">—</span>)}
+                          <DetalleMovimiento k={k} />
                         </td>
                         <td style={{textAlign: 'right', fontWeight: 'bold', color: k.tipo_movimiento === 'INGRESO' ? '#16a34a' : 'var(--danger-color)'}}>
                           {k.tipo_movimiento === 'INGRESO' ? '+' : '-'}{k.cantidad}

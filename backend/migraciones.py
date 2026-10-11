@@ -47,7 +47,10 @@ COLUMNAS_POR_TABLA = {
         "costo_unitario FLOAT DEFAULT 0.0", "tipo VARCHAR(20) DEFAULT 'MEDICAMENTO'",
         "lote VARCHAR(50)", "fecha_vencimiento VARCHAR(20)",
     ],
-    "kardex": ["lote VARCHAR(50)", "fecha_vencimiento VARCHAR(20)", "observacion TEXT"],
+    "kardex": [
+        "lote VARCHAR(50)", "fecha_vencimiento VARCHAR(20)", "observacion TEXT",
+        "usuario VARCHAR(50)", "atencion_id VARCHAR(36)",
+    ],
     "botiquines": [
         "codigo VARCHAR(50)", "fecha_creacion TIMESTAMP", "tipo_botiquin_id VARCHAR(36)",
         "mapa_url VARCHAR(500)", "vehiculo VARCHAR(200)", "marca VARCHAR(100)",

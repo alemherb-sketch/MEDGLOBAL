@@ -211,7 +211,18 @@ class Kardex(KardexBase):
     id: str
     fecha: datetime
     saldo: int
+    # Los pone el servidor; por eso no estan en KardexCreate.
+    usuario: Optional[str] = None
+    atencion_id: Optional[str] = None
     medicamento: Optional[Medicamento] = None
+
+    @field_serializer("fecha")
+    def _fecha_como_utc(self, valor: datetime) -> str:
+        # Mismo caso que Atencion.fecha: sin marca de zona el browser lee la
+        # hora UTC como local y el kardex mostraba 16:59 por las 11:59 de Peru.
+        if valor.tzinfo is None:
+            valor = valor.replace(tzinfo=timezone.utc)
+        return valor.isoformat()
 
     class Config:
         from_attributes = True

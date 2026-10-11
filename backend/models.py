@@ -236,6 +236,13 @@ class Kardex(MarcasDeAuditoria, Base):
     lote = Column(String(50), nullable=True)
     fecha_vencimiento = Column(String(20), nullable=True)
     observacion = Column(Text, nullable=True)
+    # Trazabilidad: quien hizo el movimiento y, si lo origino una atencion,
+    # cual. Sin esto una salida por receta no se distinguia de una manual y no
+    # habia forma de saber que usuario edito una ficha y movio stock. Sin FK a
+    # proposito: el kardex viaja por sync y no debe depender del orden en que
+    # llegan las atenciones.
+    usuario = Column(String(50), nullable=True)
+    atencion_id = Column(String(36), nullable=True, index=True)
 
     medicamento = relationship("Medicamento")
 

@@ -198,7 +198,7 @@ const Atenciones = () => {
   };
 
   const handleDelete = (id) => {
-    if (window.confirm('¿Está seguro de eliminar este registro de atención?')) {
+    if (window.confirm('¿Está seguro de eliminar este registro de atención? Los medicamentos recetados se devolverán al almacén.')) {
       apiFetch(`/atenciones/${id}`, { method: 'DELETE' })
         .then(() => fetchData());
     }

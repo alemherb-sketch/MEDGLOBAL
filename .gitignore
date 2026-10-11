@@ -18,6 +18,7 @@ backend/medglobal-inicial.db
 backend/*.db.bak
 backend/*.db.*.bak
 backend/sync_cursor.json
+backend/respaldo_referencias_kardex.json
 backend/secret_key.txt
 backend/licencia.mglic
 backend/licencia_privada.pem

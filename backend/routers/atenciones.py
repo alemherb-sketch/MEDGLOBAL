@@ -4,6 +4,7 @@ Una atencion puede dispensar medicamentos, y eso mueve inventario. Todo
 movimiento de stock pasa por servicios/stock.py: aca no se toca
 `stock_actual` directamente ni se arma un Kardex a mano.
 """
+from collections import Counter
 from typing import List
 
 from fastapi import APIRouter
@@ -12,7 +13,7 @@ from sqlalchemy.orm import joinedload, selectinload
 
 import models
 import schemas
-from dependencias import RequiereSesion, SesionDB
+from dependencias import RequiereSesion, SesionDB, UsuarioActual
 from servicios import crud, stock
 
 router = APIRouter(dependencies=[RequiereSesion])
@@ -66,22 +67,69 @@ def _siguiente_folio(db) -> int:
     return (db.query(func.max(models.Atencion.folio)).scalar() or 0) + 1
 
 
-def _dispensar(db, atencion_id: str, recetados) -> None:
-    """Registra la receta y descuenta el almacen.
-
-    Cada medicamento sale por registrar_movimiento, que valida cantidad y
-    disponibilidad. Antes esto restaba directo de `stock_actual` sin ninguna
-    comprobacion: recetar mas unidades de las que habia dejaba el inventario
-    en negativo en silencio, aunque /kardex/ y la reposicion de botiquines si
-    lo rechazaban."""
+def _registrar_receta(db, atencion_id: str, recetados) -> Counter:
+    """Guarda los renglones de la receta y devuelve cuanto se receta de cada
+    medicamento. No mueve stock: eso lo hace `_mover_stock`."""
+    totales = Counter()
     for item in recetados or []:
         if not item.medicamento_id:
             continue
         medicamento = stock.buscar_medicamento(db, item.medicamento_id)
+        cantidad = stock.validar_cantidad(item.cantidad)
         db.add(models.AtencionMedicamento(
-            atencion_id=atencion_id, medicamento_id=medicamento.id, cantidad=item.cantidad,
+            atencion_id=atencion_id, medicamento_id=medicamento.id, cantidad=cantidad,
         ))
-        stock.registrar_movimiento(db, medicamento, "SALIDA", item.cantidad)
+        totales[medicamento.id] += cantidad
+    return totales
+
+
+def _receta_guardada(db, atencion_id: str) -> List[models.AtencionMedicamento]:
+    return db.query(models.AtencionMedicamento).filter(
+        models.AtencionMedicamento.atencion_id == atencion_id
+    ).all()
+
+
+def _totales(renglones) -> Counter:
+    totales = Counter()
+    for renglon in renglones:
+        totales[renglon.medicamento_id] += renglon.cantidad or 0
+    return totales
+
+
+def _numero(atencion) -> str:
+    return f"N.º {atencion.folio}" if atencion.folio else "sin N.º"
+
+
+def _mover_stock(db, atencion, antes: Counter, despues: Counter, usuario: str,
+                 salida: str = None, ingreso: str = None) -> None:
+    """Deja en el kardex solo la DIFERENCIA entre la receta anterior y la nueva.
+
+    Antes editar una atencion devolvia al almacen la receta entera (INGRESO) y
+    la volvia a descontar entera (SALIDA), aunque solo se corrigiera el
+    diagnostico. El kardex se llenaba de ingresos que nunca existieron y sin
+    referencia a la atencion: no habia forma de saber de donde venian.
+
+    Cada movimiento sale por registrar_movimiento, que valida cantidad y
+    disponibilidad, y lleva el numero de ficha, el usuario y el id de la
+    atencion."""
+    for medicamento_id in dict.fromkeys([*antes, *despues]):
+        diferencia = despues[medicamento_id] - antes[medicamento_id]
+        if diferencia == 0:
+            continue
+        # Sin filtrar los borrados: lo que se devuelve puede ser de un
+        # medicamento que ya salio del catalogo.
+        medicamento = db.query(models.Medicamento).filter(
+            models.Medicamento.id == medicamento_id
+        ).first()
+        if not medicamento:
+            continue
+        tipo, motivo = ("SALIDA", salida) if diferencia > 0 else ("INGRESO", ingreso)
+        stock.registrar_movimiento(
+            db, medicamento, tipo, abs(diferencia),
+            observacion=f"{motivo} {_numero(atencion)}",
+            usuario=usuario,
+            atencion_id=atencion.id,
+        )
 
 
 @router.get("/atenciones/", response_model=List[schemas.Atencion], tags=["atenciones"])
@@ -93,7 +141,7 @@ def listar_atenciones(db: SesionDB):
 
 
 @router.post("/atenciones/", response_model=schemas.Atencion, tags=["atenciones"])
-def crear_atencion(atencion: schemas.AtencionCreate, db: SesionDB):
+def crear_atencion(atencion: schemas.AtencionCreate, db: SesionDB, usuario: UsuarioActual):
     datos = _normalizar(atencion.model_dump(exclude={"medicamentos"}))
 
     fila = models.Atencion(**datos)
@@ -105,7 +153,8 @@ def crear_atencion(atencion: schemas.AtencionCreate, db: SesionDB):
     # una atencion guardada sin la receta que la justifica.
     db.flush()
 
-    _dispensar(db, fila.id, atencion.medicamentos)
+    recetado = _registrar_receta(db, fila.id, atencion.medicamentos)
+    _mover_stock(db, fila, Counter(), recetado, usuario.username, salida="Atención")
 
     if atencion.cita_id:
         cita = db.query(models.Cita).filter(models.Cita.id == atencion.cita_id).first()
@@ -118,27 +167,22 @@ def crear_atencion(atencion: schemas.AtencionCreate, db: SesionDB):
 
 
 @router.put("/atenciones/{id}", response_model=schemas.Atencion, tags=["atenciones"])
-def editar_atencion(id: str, atencion: schemas.AtencionCreate, db: SesionDB):
-    fila = crud.obtener_o_404(db, models.Atencion, id, "Atención no encontrada")
+def editar_atencion(id: str, atencion: schemas.AtencionCreate, db: SesionDB, usuario: UsuarioActual):
+    fila = crud.obtener_o_404(db, models.Atencion, id, "Atención no encontrada", solo_vigentes=True)
 
     crud.aplicar_campos(fila, _normalizar(atencion.model_dump(exclude={"medicamentos"})))
 
-    # La receta se reemplaza entera: primero se devuelve al almacen lo que
-    # estaba recetado antes (INGRESO) y recien despues se descuenta lo nuevo,
-    # para que reeditar la misma cantidad no requiera stock extra.
-    previos = db.query(models.AtencionMedicamento).filter(
-        models.AtencionMedicamento.atencion_id == id
-    ).all()
+    # Los renglones se reemplazan, pero el stock solo se mueve por lo que
+    # cambio: reeditar la misma receta no deja nada en el kardex.
+    previos = _receta_guardada(db, id)
+    antes = _totales(previos)
     for previo in previos:
-        medicamento = db.query(models.Medicamento).filter(
-            models.Medicamento.id == previo.medicamento_id
-        ).first()
-        if medicamento:
-            stock.registrar_movimiento(db, medicamento, "INGRESO", previo.cantidad)
         db.delete(previo)
     db.flush()
 
-    _dispensar(db, fila.id, atencion.medicamentos)
+    despues = _registrar_receta(db, fila.id, atencion.medicamentos)
+    _mover_stock(db, fila, antes, despues, usuario.username,
+                 salida="Edición de atención", ingreso="Devolución por edición de atención")
 
     db.commit()
     db.refresh(fila)
@@ -146,8 +190,19 @@ def editar_atencion(id: str, atencion: schemas.AtencionCreate, db: SesionDB):
 
 
 @router.delete("/atenciones/{id}", tags=["atenciones"])
-def borrar_atencion(id: str, db: SesionDB):
-    return crud.borrado_logico(db, models.Atencion, id, "Atención no encontrada", "Eliminada")
+def borrar_atencion(id: str, db: SesionDB, usuario: UsuarioActual):
+    """Anula la atencion y devuelve al almacen lo que se habia recetado.
+
+    Antes solo se marcaba como borrada: lo dispensado quedaba descontado para
+    siempre aunque la ficha ya no existiera. La receta se conserva como
+    registro de lo que se habia recetado. `solo_vigentes` evita devolver dos
+    veces si se anula una ficha ya anulada."""
+    fila = crud.obtener_o_404(db, models.Atencion, id, "Atención no encontrada", solo_vigentes=True)
+    antes = _totales(_receta_guardada(db, id))
+    _mover_stock(db, fila, antes, Counter(), usuario.username, ingreso="Anulación de atención")
+    fila.is_deleted = True
+    db.commit()
+    return {"detail": "Eliminada"}
 
 
 # --- Citas ------------------------------------------------------------------

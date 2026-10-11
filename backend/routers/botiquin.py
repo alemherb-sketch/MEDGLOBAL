@@ -13,7 +13,7 @@ from sqlalchemy.orm import joinedload, selectinload
 import models
 import rutas
 import schemas
-from dependencias import RequiereSesion, SesionDB
+from dependencias import RequiereSesion, SesionDB, UsuarioActual
 from servicios import crud, stock
 from servicios.codigos import siguiente_codigo
 from servicios.tiempo import ahora_utc
@@ -356,13 +356,15 @@ def listar_insumos_de_botiquin(id: str, db: SesionDB):
 
 
 @router.post("/botiquines/{id}/reponer", response_model=schemas.Kardex, tags=["botiquin"])
-def reponer_insumo(id: str, reposicion: schemas.BotiquinReposicionCreate, db: SesionDB):
+def reponer_insumo(id: str, reposicion: schemas.BotiquinReposicionCreate, db: SesionDB,
+                   usuario: UsuarioActual):
     """Descuenta del almacen una reposicion destinada a un botiquin."""
     botiquin = crud.obtener_o_404(db, models.Botiquin, id, "Botiquín no encontrado", solo_vigentes=True)
     medicamento = stock.buscar_medicamento(db, reposicion.medicamento_id)
     fila = stock.registrar_movimiento(
         db, medicamento, "SALIDA", reposicion.cantidad,
         observacion=f"Reposición botiquín {botiquin.codigo or botiquin.id}",
+        usuario=usuario.username,
     )
     db.commit()
     db.refresh(fila)
