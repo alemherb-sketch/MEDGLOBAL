@@ -83,6 +83,12 @@ const etiquetaBotiquin = (b) => (
   `${b.codigo ? b.codigo + ' · ' : ''}${b.tipo_botiquin?.nombre || b.tipo_equipo}${b.vehiculo ? ` · ${b.vehiculo}` : ''}${b.ubicacion ? ` · ${b.ubicacion}` : ''}`
 );
 
+/** «2026-08-05» → «05/08/2026», sin pasar por Date para no correr el día por la zona horaria. */
+const fechaDMA = (iso) => {
+  const [anio, mes, dia] = String(iso || '').split('-');
+  return anio && mes && dia ? `${dia}/${mes}/${anio}` : iso;
+};
+
 const InspeccionBotiquin = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const autoOpenDone = useRef(false);
@@ -214,6 +220,33 @@ const InspeccionBotiquin = () => {
       .map(m => ({ value: String(m.id), label: labelMedicamento(m) })),
     [medicamentos]
   );
+
+  /** Una fila por fecha e insumo, en orden cronológico: el reporte se lee hacia
+   *  abajo en vez de abrir una columna por cada día del rango. */
+  const filasReporte = useMemo(() => {
+    const insumos = [...(reporte.insumos || [])]
+      .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'));
+    const filas = [];
+    (reporte.rango_fechas || []).forEach(fecha => {
+      insumos.forEach(ins => {
+        const cantidad = ins.consumos?.[fecha] || 0;
+        if (!cantidad) return;
+        const precio = Number(ins.precio_und || 0);
+        filas.push({
+          clave: `${fecha}|${ins.id}`,
+          fecha,
+          codigo: ins.codigo,
+          nombre: ins.nombre,
+          presentacion: ins.presentacion,
+          tipo: ins.tipo || '',
+          cantidad,
+          precio,
+          total: Math.round(cantidad * precio * 100) / 100,
+        });
+      });
+    });
+    return filas;
+  }, [reporte]);
 
   const mapInsumosFromApi = (list) =>
     (list || []).map(p => ({
@@ -960,18 +993,15 @@ const InspeccionBotiquin = () => {
         ? productoOptions.filter(o => reporteFiltros.productos.includes(o.value)).map(o => o.label).join(', ')
         : 'Todos')],
       [],
-      ['Código', 'Insumo', 'Presentación', 'Tipo', ...reporte.rango_fechas, 'Cantidad', 'P. Unit.', 'Total (S/.)'],
+      ['Fecha', 'Código', 'Insumo', 'Presentación', 'Tipo', 'Cantidad', 'P. Unit.', 'Total (S/.)'],
     ];
 
-    reporte.insumos.forEach(ins => {
-      const row = [ins.codigo, ins.nombre, ins.presentacion, ins.tipo || ''];
-      reporte.rango_fechas.forEach(f => row.push(ins.consumos[f] || 0));
-      row.push(ins.sub_total_cantidad, ins.precio_und, ins.total_soles);
-      aoa.push(row);
+    filasReporte.forEach(f => {
+      aoa.push([fechaDMA(f.fecha), f.codigo, f.nombre, f.presentacion, f.tipo, f.cantidad, f.precio, f.total]);
     });
 
     aoa.push([]);
-    const baseCols = 4 + reporte.rango_fechas.length;
+    const baseCols = 5;
     const totSub = new Array(baseCols + 3).fill('');
     totSub[baseCols + 1] = 'SUB TOTAL';
     totSub[baseCols + 2] = reporte.totales.sub_total;
@@ -1433,50 +1463,48 @@ const InspeccionBotiquin = () => {
             <table className="table table-scroll">
               <thead>
                 <tr>
+                  <th>Fecha</th>
                   <th>Código</th>
                   <th>Insumo</th>
                   <th>Presentación</th>
-                  {(reporte.rango_fechas || []).map(f => <th key={f}>{f}</th>)}
                   <th>Cantidad</th>
                   <th>P. Unit. (S/.)</th>
                   <th>Total (S/.)</th>
                 </tr>
               </thead>
               <tbody>
-                {(reporte.insumos || []).length === 0 && (
+                {filasReporte.length === 0 && (
                   <tr>
-                    <td colSpan={6 + (reporte.rango_fechas || []).length} style={{ textAlign: 'center', opacity: 0.7 }}>
+                    <td colSpan={7} style={{ textAlign: 'center', opacity: 0.7 }}>
                       Sin datos. Genere el reporte con los filtros deseados.
                     </td>
                   </tr>
                 )}
-                {(reporte.insumos || []).map(ins => (
-                  <tr key={ins.id}>
-                    <td>{ins.codigo}</td>
-                    <td>{ins.nombre}</td>
-                    <td>{ins.presentacion}</td>
-                    {(reporte.rango_fechas || []).map(f => (
-                      <td key={f}>{ins.consumos?.[f] || 0}</td>
-                    ))}
-                    <td>{ins.sub_total_cantidad}</td>
-                    <td>{Number(ins.precio_und || 0).toFixed(2)}</td>
-                    <td>{Number(ins.total_soles || 0).toFixed(2)}</td>
+                {filasReporte.map(f => (
+                  <tr key={f.clave}>
+                    <td>{fechaDMA(f.fecha)}</td>
+                    <td>{f.codigo}</td>
+                    <td>{f.nombre}</td>
+                    <td>{f.presentacion}</td>
+                    <td>{f.cantidad}</td>
+                    <td>{f.precio.toFixed(2)}</td>
+                    <td>{f.total.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
-              {(reporte.insumos || []).length > 0 && (
+              {filasReporte.length > 0 && (
                 <tfoot>
                   <tr>
-                    <td colSpan={3 + (reporte.rango_fechas || []).length} style={{ textAlign: 'right', fontWeight: 600 }}>Subtotal</td>
-                    <td colSpan={2}>{Number(reporte.totales?.sub_total || 0).toFixed(2)}</td>
+                    <td colSpan={6} style={{ textAlign: 'right', fontWeight: 600 }}>Subtotal</td>
+                    <td>{Number(reporte.totales?.sub_total || 0).toFixed(2)}</td>
                   </tr>
                   <tr>
-                    <td colSpan={3 + (reporte.rango_fechas || []).length} style={{ textAlign: 'right', fontWeight: 600 }}>IGV (18%)</td>
-                    <td colSpan={2}>{Number(reporte.totales?.igv || 0).toFixed(2)}</td>
+                    <td colSpan={6} style={{ textAlign: 'right', fontWeight: 600 }}>IGV (18%)</td>
+                    <td>{Number(reporte.totales?.igv || 0).toFixed(2)}</td>
                   </tr>
                   <tr>
-                    <td colSpan={3 + (reporte.rango_fechas || []).length} style={{ textAlign: 'right', fontWeight: 700 }}>Total general</td>
-                    <td colSpan={2} style={{ fontWeight: 700 }}>{Number(reporte.totales?.total || 0).toFixed(2)}</td>
+                    <td colSpan={6} style={{ textAlign: 'right', fontWeight: 700 }}>Total general</td>
+                    <td style={{ fontWeight: 700 }}>{Number(reporte.totales?.total || 0).toFixed(2)}</td>
                   </tr>
                 </tfoot>
               )}
