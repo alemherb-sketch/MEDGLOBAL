@@ -93,6 +93,7 @@ const InspeccionBotiquin = () => {
   const [empresas, setEmpresas] = useState([]);
   const [personal, setPersonal] = useState([]);
   const [tiposBotiquin, setTiposBotiquin] = useState([]);
+  const [medicamentos, setMedicamentos] = useState([]);
 
   const [filters, setFilters] = useState({
     search: '',
@@ -133,6 +134,7 @@ const InspeccionBotiquin = () => {
     botiquin_id: '',
     ubicaciones: [],
     tipos_equipo: [],
+    productos: [],
     fecha_inicio: null,
     fecha_fin: null,
   });
@@ -206,6 +208,13 @@ const InspeccionBotiquin = () => {
     [tipoEquipoNombres]
   );
 
+  const productoOptions = useMemo(
+    () => [...medicamentos]
+      .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es'))
+      .map(m => ({ value: String(m.id), label: labelMedicamento(m) })),
+    [medicamentos]
+  );
+
   const mapInsumosFromApi = (list) =>
     (list || []).map(p => ({
       medicamento_id: String(p.medicamento_id),
@@ -231,6 +240,7 @@ const InspeccionBotiquin = () => {
     apiJson('/personal_salud/').then(setPersonal).catch(() => setPersonal([]));
     apiJson('/botiquines/').then(data => setBotiquinesCatalogo(sortBotiquinesByCodigoDesc(data))).catch(() => setBotiquinesCatalogo([]));
     apiJson('/tipos_botiquin/').then(setTiposBotiquin).catch(() => setTiposBotiquin([]));
+    apiJson('/medicamentos/').then(setMedicamentos).catch(() => setMedicamentos([]));
   };
 
   const loadInspecciones = () => {
@@ -919,6 +929,9 @@ const InspeccionBotiquin = () => {
       if ((reporteFiltros.tipos_equipo || []).length) {
         params.append('tipo_equipo', reporteFiltros.tipos_equipo.join(','));
       }
+      if ((reporteFiltros.productos || []).length) {
+        params.append('medicamento_id', reporteFiltros.productos.join(','));
+      }
       if (reporteFiltros.fecha_inicio) {
         params.append('fecha_inicio', reporteFiltros.fecha_inicio.toISOString().split('T')[0]);
       }
@@ -943,6 +956,9 @@ const InspeccionBotiquin = () => {
       ['Empresa: ' + (empresa ? empresa.nombre : 'Todas')],
       ['Ubicación: ' + ((reporteFiltros.ubicaciones || []).length ? reporteFiltros.ubicaciones.join(', ') : 'Todas')],
       ['Tipo equipo: ' + ((reporteFiltros.tipos_equipo || []).length ? reporteFiltros.tipos_equipo.join(', ') : 'Todos')],
+      ['Producto: ' + ((reporteFiltros.productos || []).length
+        ? productoOptions.filter(o => reporteFiltros.productos.includes(o.value)).map(o => o.label).join(', ')
+        : 'Todos')],
       [],
       ['Código', 'Insumo', 'Presentación', 'Tipo', ...reporte.rango_fechas, 'Cantidad', 'P. Unit.', 'Total (S/.)'],
     ];
@@ -1355,6 +1371,25 @@ const InspeccionBotiquin = () => {
                   onChange={(opts) => setReporteFiltros({
                     ...reporteFiltros,
                     tipos_equipo: (opts || []).map(o => o.value),
+                  })}
+                />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Producto</label>
+                <Select
+                  styles={selectStyles} {...selectPortalProps}
+                  isMulti
+                  isClearable
+                  isSearchable
+                  closeMenuOnSelect={false}
+                  hideSelectedOptions={false}
+                  options={productoOptions}
+                  placeholder="Todos..."
+                  noOptionsMessage={() => 'Sin resultados'}
+                  value={productoOptions.filter(o => (reporteFiltros.productos || []).includes(o.value))}
+                  onChange={(opts) => setReporteFiltros({
+                    ...reporteFiltros,
+                    productos: (opts || []).map(o => o.value),
                   })}
                 />
               </div>

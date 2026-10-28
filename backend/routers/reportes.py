@@ -524,8 +524,12 @@ def consumo_insumos_botiquin(
     tipo_equipo: Optional[str] = None,
     equipo: Optional[str] = None,
     estado: Optional[str] = None,
+    medicamento_id: Optional[str] = None,
 ):
-    """Consumo de insumos registrado en inspecciones de botiquin, con su costo."""
+    """Consumo de insumos registrado en inspecciones de botiquin, con su costo.
+
+    `medicamento_id` acepta varios ids separados por coma y deja solo esos
+    productos en el reporte."""
     consulta = (
         db.query(models.BotiquinInspeccionInsumo, models.BotiquinInspeccion, models.Medicamento)
         .join(models.BotiquinInspeccion,
@@ -547,6 +551,7 @@ def consumo_insumos_botiquin(
     consulta = _filtrar_por_lista(consulta, models.Botiquin.ubicacion, ubicacion)
     consulta = _filtrar_tipo_equipo(consulta, db, tipo_equipo)
     consulta = _filtrar_por_lista(consulta, models.Botiquin.equipo, equipo)
+    consulta = _filtrar_por_lista(consulta, models.Medicamento.id, medicamento_id)
     if estado:
         consulta = consulta.filter(models.Botiquin.estado == estado)
 
